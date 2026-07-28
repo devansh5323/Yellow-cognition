@@ -34,7 +34,10 @@ export type ActivationTaskId =
   | "read-insight"
   | "command-palette"
   | "parent-message"
-  | "first-report";
+  | "first-report"
+  | "behavior-log"
+  | "positive-log"
+  | "review-health";
 
 export type OnboardingState = {
   completed: boolean;
@@ -53,6 +56,9 @@ const DEFAULT_TASKS: Record<ActivationTaskId, boolean> = {
   "command-palette": false,
   "parent-message": false,
   "first-report": false,
+  "behavior-log": false,
+  "positive-log": false,
+  "review-health": false,
 };
 
 const DEFAULT_STATE: OnboardingState = {

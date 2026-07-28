@@ -854,6 +854,14 @@ export function classRiskRadar(students: Student[] = STUDENTS): { reason: RiskRe
   }));
 }
 
+/** Count of distinct students flagged across all risk reasons in classRiskRadar —
+ * the aggregate "follow-ups pending" figure shared across dashboard widgets. */
+export function countFollowUpsPending(students: Student[] = STUDENTS): number {
+  const ids = new Set<string>();
+  classRiskRadar(students).forEach((group) => group.students.forEach((s) => ids.add(s.id)));
+  return ids.size;
+}
+
 /** Students whose score in a given attention domain is < 55 (at-risk for that domain). */
 export function studentsByAttentionDomain(
   domainKey: AttentionDomainKey,

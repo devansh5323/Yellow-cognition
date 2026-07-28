@@ -44,6 +44,9 @@ import { BrandLogo } from "@/components/dashboard/BrandLogo";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { PageTransition } from "@/components/dashboard/PageTransition";
 import { YellowAIWidget } from "@/components/dashboard/YellowAIWidget";
+import { QuickBehaviourNote } from "@/components/dashboard/QuickBehaviourNote";
+import { RecordBehaviorForm } from "@/components/dashboard/RecordBehaviorForm";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Dialog,
   DialogContent,
@@ -554,6 +557,9 @@ export function AppShell({
 
       <CommandPalette />
       <YellowAIWidget />
+      <QuickBehaviourNote />
+      <RecordBehaviorForm />
+      <Toaster />
     </div>
   );
 }

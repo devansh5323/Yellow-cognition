@@ -5,6 +5,7 @@ import { AppShell } from "@/components/dashboard/AppShell";
 import { DataReadinessCard } from "@/components/dashboard/DataReadinessCard";
 import { PillarHealthRow } from "@/components/dashboard/PillarHealthRow";
 import { GrowthAlertRow } from "@/components/dashboard/GrowthAlertRow";
+import { TeacherCheckInTools } from "@/components/dashboard/TeacherCheckInTools";
 import { WeeklyFocus } from "@/components/dashboard/WeeklyFocus";
 import { ProgressOverTime } from "@/components/dashboard/ProgressOverTime";
 import { CoachmarkTour } from "@/components/onboarding/CoachmarkTour";
@@ -34,6 +35,7 @@ function DashboardPage() {
         <DataReadinessCard />
         <PillarHealthRow />
         <GrowthAlertRow />
+        <TeacherCheckInTools />
         <WeeklyFocus />
         <ProgressOverTime />
       </motion.div>

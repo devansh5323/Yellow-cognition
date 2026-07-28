@@ -203,6 +203,55 @@ export function pillarStatus(score: number, delta: number): PillarStatus {
   return "needs-attention";
 }
 
+/* ─────────────────────────────────────────────────────────
+ * Score Bands — canonical 4-tier classification used for the
+ * Classroom Health score and every individual pillar's status pill.
+ * ───────────────────────────────────────────────────────── */
+export type ScoreBand = "excellent" | "stable" | "watch" | "needs-support";
+
+export type ScoreBandDef = {
+  band: ScoreBand;
+  min: number;
+  range: string;
+  tag: string;
+  meaning: string;
+};
+
+export const SCORE_BANDS: ScoreBandDef[] = [
+  {
+    band: "excellent",
+    min: 80,
+    range: "80–100",
+    tag: "Excellent",
+    meaning: "Class is functioning well with strong regulation and engagement.",
+  },
+  {
+    band: "stable",
+    min: 65,
+    range: "65–79",
+    tag: "Stable",
+    meaning: "Most students are meeting expectations, with some areas to monitor.",
+  },
+  {
+    band: "watch",
+    min: 45,
+    range: "45–64",
+    tag: "Watch",
+    meaning: "Multiple students need support in one or more areas.",
+  },
+  {
+    band: "needs-support",
+    min: 0,
+    range: "0–44",
+    tag: "Needs Support",
+    meaning: "Class requires structured intervention and close monitoring.",
+  },
+];
+
+export function scoreBand(score: number): ScoreBand {
+  return SCORE_BANDS.find((b) => score >= b.min)?.band ?? "needs-support";
+}
+
 export function pillarEvidence(pillar: PillarKey, composites: StudentComposite[]): string {
   const struggling = composites.filter((c) => c.pillars[pillar] < 60).length;
   switch (pillar) {

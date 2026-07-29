@@ -4,27 +4,37 @@
 // AI_SUGGESTIONS / DOMAIN_INTERVENTIONS elsewhere in this app.
 
 export type WhatHappenedTag =
-  | "Off-task"
+  | "Off-task behavior"
   | "Disruption"
   | "Task refusal"
   | "Missed work"
   | "Delayed work"
-  | "Repeated reminders"
   | "Peer conflict"
   | "Difficulty waiting"
-  | "Transition difficulty"
+  | "Difficulty transitioning"
+  | "Emotional outburst"
+  | "Unsafe behavior"
+  | "Repeated reminders needed"
+  | "Incomplete instructions"
+  | "Avoidance"
+  | "Classroom rule violation"
   | "Other";
 
 export const WHAT_HAPPENED_OPTIONS: WhatHappenedTag[] = [
-  "Off-task",
+  "Off-task behavior",
   "Disruption",
   "Task refusal",
   "Missed work",
   "Delayed work",
-  "Repeated reminders",
   "Peer conflict",
   "Difficulty waiting",
-  "Transition difficulty",
+  "Difficulty transitioning",
+  "Emotional outburst",
+  "Unsafe behavior",
+  "Repeated reminders needed",
+  "Incomplete instructions",
+  "Avoidance",
+  "Classroom rule violation",
   "Other",
 ];
 
@@ -89,23 +99,22 @@ export const RECOVERY_OPTIONS = [
   "Not observed",
 ] as const;
 
+// Parent communication and special-educator referral are their own
+// dedicated required fields (see the checklist), so they're intentionally
+// not options here — this list is just the "what kind of follow-up" detail.
 export type FollowUpOption =
   | "No follow-up"
   | "Add to profile"
-  | "Parent nudge"
   | "Tier 2 review"
   | "1:1 check-in"
-  | "Special educator"
   | "Create follow-up"
   | "Urgent support";
 
 export const FOLLOWUP_OPTIONS: FollowUpOption[] = [
   "No follow-up",
   "Add to profile",
-  "Parent nudge",
   "Tier 2 review",
   "1:1 check-in",
-  "Special educator",
   "Create follow-up",
   "Urgent support",
 ];
@@ -117,7 +126,7 @@ export type BehaviorSuggestion = {
 };
 
 const SUGGESTIONS: Record<WhatHappenedTag, BehaviorSuggestion> = {
-  "Off-task": {
+  "Off-task behavior": {
     mapsTo: ["Attention & Focus", "Task Engagement"],
     relatedSkills: ["Sustained attention", "Self-monitoring", "Task initiation"],
     nextSteps: [
@@ -162,15 +171,6 @@ const SUGGESTIONS: Record<WhatHappenedTag, BehaviorSuggestion> = {
       "Check for understanding before starting",
     ],
   },
-  "Repeated reminders": {
-    mapsTo: ["Attention & Focus", "Behaviour & Discipline"],
-    relatedSkills: ["Self-monitoring", "Working memory"],
-    nextSteps: [
-      "Move to proximity instead of verbal reminders",
-      "Try a visual or tactile cue instead",
-      "Track reminder frequency to spot patterns",
-    ],
-  },
   "Peer conflict": {
     mapsTo: ["Behaviour & Discipline", "Social Skills"],
     relatedSkills: ["Emotional regulation", "Conflict resolution"],
@@ -189,13 +189,67 @@ const SUGGESTIONS: Record<WhatHappenedTag, BehaviorSuggestion> = {
       "Praise waiting behaviour when it happens",
     ],
   },
-  "Transition difficulty": {
+  "Difficulty transitioning": {
     mapsTo: ["Transition Readiness"],
     relatedSkills: ["Cognitive flexibility", "Self-regulation"],
     nextSteps: [
       "Give a 2-minute warning before transitions",
       "Use a consistent transition signal",
       "Pair with a peer buddy for transitions",
+    ],
+  },
+  "Emotional outburst": {
+    mapsTo: ["Behaviour & Discipline", "Emotional Regulation"],
+    relatedSkills: ["Emotional regulation", "Coping strategies"],
+    nextSteps: [
+      "Offer a calm-down space or break before re-engaging",
+      "Debrief once the student has fully settled, not immediately after",
+      "Identify the trigger together to plan ahead",
+    ],
+  },
+  "Unsafe behavior": {
+    mapsTo: ["Behaviour & Discipline", "Safety"],
+    relatedSkills: ["Impulse control", "Self-regulation"],
+    nextSteps: [
+      "Follow the school's safety protocol immediately",
+      "Document and notify admin / the special educator",
+      "Schedule a follow-up conversation once the student is calm",
+    ],
+  },
+  "Repeated reminders needed": {
+    mapsTo: ["Attention & Focus", "Behaviour & Discipline"],
+    relatedSkills: ["Self-monitoring", "Working memory"],
+    nextSteps: [
+      "Move to proximity instead of verbal reminders",
+      "Try a visual or tactile cue instead",
+      "Track reminder frequency to spot patterns",
+    ],
+  },
+  "Incomplete instructions": {
+    mapsTo: ["Task Engagement", "Learning Readiness"],
+    relatedSkills: ["Working memory", "Following multi-step instructions"],
+    nextSteps: [
+      "Break instructions into single steps, one at a time",
+      "Have the student repeat instructions back before starting",
+      "Pair verbal instructions with a written or visual checklist",
+    ],
+  },
+  Avoidance: {
+    mapsTo: ["Task Engagement", "Learning Readiness"],
+    relatedSkills: ["Task initiation", "Frustration tolerance"],
+    nextSteps: [
+      "Check whether the task feels too difficult or too long",
+      "Offer a lower-stakes entry point to the task",
+      "Praise effort, not just completion, to lower the stakes",
+    ],
+  },
+  "Classroom rule violation": {
+    mapsTo: ["Behaviour & Discipline"],
+    relatedSkills: ["Rule awareness", "Self-monitoring"],
+    nextSteps: [
+      "Revisit the specific expectation privately with the student",
+      "Use a visual reminder of classroom rules nearby",
+      "Reinforce the very next time the rule is followed",
     ],
   },
   Other: {
@@ -206,5 +260,5 @@ const SUGGESTIONS: Record<WhatHappenedTag, BehaviorSuggestion> = {
 };
 
 export function getBehaviorSuggestion(tag: WhatHappenedTag | null): BehaviorSuggestion {
-  return SUGGESTIONS[tag ?? "Off-task"];
+  return SUGGESTIONS[tag ?? "Off-task behavior"];
 }

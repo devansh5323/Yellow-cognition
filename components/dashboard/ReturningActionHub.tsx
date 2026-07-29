@@ -312,10 +312,10 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
   const upToDate = checkedIn && notConnected === 0 && inviteSent === 0 && total > 0;
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       {/* Priority actions */}
       <div>
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <div className="flex items-center gap-2">
             <h3 className="font-heading font-bold text-[14.5px]">Today&apos;s priority actions</h3>
             {sortedActions.length > 0 && (
@@ -346,7 +346,7 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
             <p className="text-[12.5px] font-semibold mt-2">You&apos;re all caught up for today.</p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {sortedActions.map((action) => (
               <ActionRow key={action.id} action={action} />
             ))}
@@ -355,14 +355,14 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
       </div>
 
       {/* Sidebar */}
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-border bg-background p-4">
-          <h3 className="font-heading font-bold text-[13.5px] mb-3">Data health at a glance</h3>
-          <ul className="space-y-3">
-            <li className="flex items-start gap-2.5">
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-background p-5">
+          <h3 className="font-heading font-bold text-[13.5px] mb-4">Data health at a glance</h3>
+          <ul className="space-y-4">
+            <li className="flex items-start gap-3">
               <span
                 className={cn(
-                  "h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0",
+                  "h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0",
                   upToDate
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                     : "bg-amber-500/15 text-amber-700 dark:text-amber-400",
@@ -436,9 +436,9 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
           </ul>
         </div>
 
-        <div className="rounded-2xl border border-border bg-background p-4">
-          <h3 className="font-heading font-bold text-[13.5px] mb-3">Quick actions</h3>
-          <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-2xl border border-border bg-background p-5">
+          <h3 className="font-heading font-bold text-[13.5px] mb-4">Quick actions</h3>
+          <div className="grid grid-cols-3 gap-3">
             {quickActions.map((qa) => (
               <QuickActionTile key={qa.key} action={qa} />
             ))}
@@ -453,17 +453,17 @@ function ActionRow({ action }: { action: PriorityAction }) {
   const Icon = action.Icon;
   const tone = PRIORITY_TONE[action.priority];
   return (
-    <li className="flex items-stretch gap-0 rounded-xl border border-border bg-background overflow-hidden">
+    <li className="flex items-stretch gap-0 rounded-2xl border border-border bg-background overflow-hidden">
       <span className="w-1 shrink-0" style={{ background: tone }} aria-hidden />
-      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-3 px-3.5 py-3">
+      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-4 px-5 py-4">
         <span
-          className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+          className="h-10 w-10 rounded-lg inline-flex items-center justify-center shrink-0"
           style={{
             background: `color-mix(in srgb, ${tone} 12%, transparent)`,
             color: tone,
           }}
         >
-          <Icon className="h-4 w-4" strokeWidth={2.4} />
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2.4} />
         </span>
 
         <div className="flex-1 min-w-[180px]">
@@ -479,7 +479,7 @@ function ActionRow({ action }: { action: PriorityAction }) {
             </span>
             <span className="font-heading font-bold text-[13.5px] leading-tight">{action.title}</span>
           </div>
-          <div className="text-[11.5px] text-muted-foreground leading-snug mt-0.5">
+          <div className="text-[11.5px] text-muted-foreground leading-snug mt-1">
             {action.description}
           </div>
         </div>
@@ -490,7 +490,7 @@ function ActionRow({ action }: { action: PriorityAction }) {
             asChild
             size="sm"
             variant="outline"
-            className="h-8 rounded-lg px-3 text-[12px] font-bold gap-1 shrink-0"
+            className="h-9 rounded-lg px-4 text-[12px] font-bold gap-1 shrink-0"
             style={{ borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`, color: tone }}
           >
             <Link href={action.href}>
@@ -538,10 +538,10 @@ function HealthLine({
     <li>
       <Link
         href={href}
-        className="group -m-1 flex items-start gap-2.5 rounded-lg p-1 transition-colors hover:bg-muted/40"
+        className="group -m-1.5 flex items-start gap-3 rounded-lg p-1.5 transition-colors hover:bg-muted/40"
       >
         <span
-          className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+          className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0"
           style={{
             background: `color-mix(in srgb, ${tone} 12%, transparent)`,
             color: tone,
@@ -551,7 +551,7 @@ function HealthLine({
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-bold leading-snug">{title}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{detail}</div>
+          <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{detail}</div>
         </div>
         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1 opacity-0 transition-opacity group-hover:opacity-100" />
       </Link>
@@ -572,9 +572,9 @@ function QuickActionTile({
 }) {
   const Icon = action.Icon;
   const tile = (
-    <div className="flex h-full flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-center transition-colors hover:border-primary/40 hover:bg-muted/30">
-      <Icon className="h-4 w-4" strokeWidth={2.2} style={{ color: action.tone }} />
-      <span className="text-[10.5px] font-semibold leading-tight text-foreground/80">
+    <div className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 py-4 text-center transition-colors hover:border-primary/40 hover:bg-muted/30">
+      <Icon className="h-5 w-5" strokeWidth={2.2} style={{ color: action.tone }} />
+      <span className="text-[11px] font-semibold leading-tight text-foreground/80">
         {action.label}
       </span>
     </div>
@@ -584,7 +584,7 @@ function QuickActionTile({
     return (
       <Link
         href={action.href}
-        className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         {tile}
       </Link>
@@ -597,7 +597,7 @@ function QuickActionTile({
       onClick={() =>
         toast("Coming soon", { description: `${action.label} isn't available yet.` })
       }
-      className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {tile}
     </button>

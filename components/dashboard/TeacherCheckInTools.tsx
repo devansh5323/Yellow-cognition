@@ -18,7 +18,6 @@ import {
   getBehaviorLogCountThisWeek,
   getClassCheckInsThisWeek,
   getPositiveLogCountThisWeek,
-  logPositiveEvent,
 } from "@/lib/checkInTools";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 
@@ -90,7 +89,8 @@ export function TeacherCheckInTools() {
       statLabel: `This week: ${stats.behaviorLogsThisWeek} logged`,
       cta: "Hold to speak",
       ctaIcon: Mic,
-      onOpenTool: () => window.dispatchEvent(new CustomEvent("ah-open-behaviour-note")),
+      onOpenTool: () =>
+        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "negative" } })),
     },
     {
       key: "positive-log",
@@ -102,9 +102,9 @@ export function TeacherCheckInTools() {
       statIcon: Star,
       statLabel: `${stats.positiveLogsThisWeek} positives`,
       cta: "Log positive",
-      ctaIcon: ChevronRight,
-      href: "/behavior",
-      onClick: logPositiveEvent,
+      ctaIcon: Mic,
+      onOpenTool: () =>
+        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "positive" } })),
     },
     {
       key: "intervention-followup",

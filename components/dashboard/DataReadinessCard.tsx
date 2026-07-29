@@ -201,7 +201,7 @@ export function DataReadinessCard() {
       initial={reduce ? undefined : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE }}
-      className="rounded-2xl border border-border bg-card p-5 md:p-6"
+      className="rounded-2xl border border-border bg-card p-6 md:p-8"
       aria-label="Data readiness"
     >
       {/* Header — clickable to expand/collapse the body */}
@@ -216,14 +216,14 @@ export function DataReadinessCard() {
           <div className="premium-eyebrow">
             <span>{isReturning ? `${timeOfDayGreeting()}, ${firstName} 👋` : "Data readiness"}</span>
           </div>
-          <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-1.5">
+          <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
             {isReturning
               ? "Data Readiness & Action Hub"
               : total === 0
                 ? "Add your roster to start seeing data"
                 : `Seeing data from ${linked} of ${total} students`}
           </h2>
-          <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
+          <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
             {isReturning
               ? "Here's what needs your attention today to keep your class insights accurate and up to date."
               : total === 0
@@ -233,7 +233,7 @@ export function DataReadinessCard() {
                   : "Complete the steps below to unlock the full picture across the dashboard."}
           </p>
           {isReturning && (
-            <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground mt-2">
+            <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground mt-3">
               {lastCheckin ? (
                 <>
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -290,7 +290,7 @@ export function DataReadinessCard() {
       </button>
 
       {/* Roster coverage bar — always visible so the headline isn't orphaned */}
-      <div className="pt-4">
+      <div className="pt-5">
         <CoverageBar stats={stats} />
       </div>
 

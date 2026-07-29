@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { addNote } from "@/lib/studentMutations";
-import { logBehaviorEvent } from "@/lib/checkInTools";
+import { logBehaviorEvent, logPositiveEvent } from "@/lib/checkInTools";
 import { type Student } from "@/data/mockData";
 import {
   extractNote,
@@ -28,12 +28,18 @@ import {
 } from "@/lib/yellowAi";
 import { cn } from "@/lib/utils";
 
+type QuickNoteMode = "negative" | "positive";
+type OpenDetail = { mode?: QuickNoteMode; studentId?: string };
+
 export function QuickBehaviourNote() {
   const [open, setOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const [initial, setInitial] = useState<OpenDetail>({});
 
   useEffect(() => {
-    const onOpen = () => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<OpenDetail>).detail ?? {};
+      setInitial(detail);
       setSessionKey((k) => k + 1);
       setOpen(true);
     };
@@ -43,15 +49,24 @@ export function QuickBehaviourNote() {
 
   // Keying by session forces a full remount on every open, so each session
   // starts from clean state without syncing it via an effect.
-  return <QuickBehaviourNoteDialog key={sessionKey} open={open} onOpenChange={setOpen} />;
+  return (
+    <QuickBehaviourNoteDialog
+      key={sessionKey}
+      open={open}
+      onOpenChange={setOpen}
+      mode={initial.mode ?? "negative"}
+    />
+  );
 }
 
 function QuickBehaviourNoteDialog({
   open,
   onOpenChange,
+  mode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode: QuickNoteMode;
 }) {
   const router = useRouter();
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -113,13 +128,19 @@ function QuickBehaviourNoteDialog({
     addNote(target.id, {
       category: finalDraft.category,
       body: finalDraft.body,
+      tag: mode === "positive" ? "Positive" : undefined,
       sharedWithParent: false,
     });
-    logBehaviorEvent();
+    if (mode === "positive") {
+      logPositiveEvent(target.id);
+    } else {
+      logBehaviorEvent(target.id);
+    }
     setSaved(true);
-    toast.success(`Behaviour note saved for ${target.name}`, {
-      description: `${finalDraft.category} · added to their profile.`,
-    });
+    toast.success(
+      mode === "positive" ? `Positive note saved for ${target.name}` : `Behaviour note saved for ${target.name}`,
+      { description: `${finalDraft.category} · added to their profile.` },
+    );
   }
 
   function handleOpenStructuredForm() {
@@ -127,7 +148,7 @@ function QuickBehaviourNoteDialog({
     const detected = selectedStudent ?? (text ? extractNote(text, null).suggestedStudent : undefined);
     onOpenChange(false);
     window.dispatchEvent(
-      new CustomEvent("ah-open-behavior-form", {
+      new CustomEvent(mode === "positive" ? "ah-open-positive-form" : "ah-open-behavior-form", {
         detail: {
           studentId: detected?.id,
           initialNote: text || undefined,

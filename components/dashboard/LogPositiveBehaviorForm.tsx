@@ -3,47 +3,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
-  ArrowRightLeft,
-  Armchair,
+  Award,
   Backpack,
-  BellRing,
-  Ban,
   Calendar as CalendarIcon,
   CheckCircle2,
-  Circle,
-  ClipboardPlus,
-  Clock,
-  DoorOpen,
-  FileCheck,
-  Gavel,
+  CheckSquare,
+  ClipboardCheck,
+  Handshake,
   HandHeart,
+  HeartHandshake,
   Heart,
-  Hourglass,
   Lightbulb,
-  ListChecks,
   Mail,
-  Megaphone,
-  MessageCircle,
-  MoreHorizontal,
+  MessageCircleHeart,
+  Mountain,
+  PartyPopper,
   PersonStanding,
-  RotateCw,
+  Rocket,
+  RotateCcw,
   Save,
+  Send,
   Shield,
+  ShieldCheck,
+  Smile,
   Sparkles,
-  Sun,
-  Sunrise,
-  Sunset,
-  Moon,
+  Star,
   Target,
-  Trees,
-  User,
-  UserPlus,
+  ThumbsUp,
+  TrendingUp,
+  Trophy,
   Users,
-  UserX,
-  UtensilsCrossed,
+  UsersRound,
+  Volume2,
+  Wind,
   X,
-  Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -61,56 +55,60 @@ import {
   OptionChip,
   OptionCard,
   RadioRow,
-  YesNoToggle,
   StudentPickerField,
   formatDateTimeLocal,
 } from "@/components/dashboard/behaviorFormShared";
 import { addNote } from "@/lib/studentMutations";
 import {
-  logBehaviorEvent,
-  getBehaviorLogCountThisWeekForStudent,
-  getBehaviorLogDailyCountsForStudent,
+  logPositiveEvent,
+  getPositiveLogCountThisWeekForStudent,
+  getPositiveLogDailyCountsForStudent,
 } from "@/lib/checkInTools";
 import { SUBJECTS, STUDENTS, type Student } from "@/data/mockData";
 import {
-  WHAT_HAPPENED_OPTIONS,
+  STRENGTH_OPTIONS,
   PBIS_EXPECTATIONS,
-  ACTIVITY_OPTIONS,
-  LOCATION_OPTIONS,
+  CONTEXT_OPTIONS,
   TIME_OF_DAY_OPTIONS,
-  ANTECEDENT_OPTIONS,
-  RESPONSE_OPTIONS,
-  RECOVERY_OPTIONS,
-  FOLLOWUP_OPTIONS,
-  getBehaviorSuggestion,
-  type WhatHappenedTag,
+  RECOGNITION_OPTIONS,
+  POINTS_OPTIONS,
+  SHARE_OPTIONS,
+  GROWTH_OPTIONS,
+  RECOGNITION_TARGETS,
+  getPositiveSuggestion,
+  type StrengthTag,
   type PbisExpectation,
-  type Severity,
-  type FollowUpOption,
-} from "@/lib/behaviorForm";
+  type RecognitionOption,
+  type ShareOption,
+  type RecognitionTarget,
+} from "@/lib/positiveBehaviorForm";
 import { cn } from "@/lib/utils";
 
 type OpenDetail = { studentId?: string; initialNote?: string };
 
-const WHAT_HAPPENED_ICONS: Record<WhatHappenedTag, typeof Target> = {
-  "Off-task behavior": Target,
-  Disruption: Megaphone,
-  "Task refusal": Ban,
-  "Missed work": FileCheck,
-  "Delayed work": Clock,
-  "Peer conflict": Users,
-  "Difficulty waiting": Hourglass,
-  "Difficulty transitioning": ArrowRightLeft,
-  "Emotional outburst": Zap,
-  "Unsafe behavior": AlertTriangle,
-  "Repeated reminders needed": RotateCw,
-  "Incomplete instructions": ListChecks,
-  Avoidance: UserX,
-  "Classroom rule violation": Gavel,
-  Other: MoreHorizontal,
+const STRENGTH_ICONS: Record<StrengthTag, LucideIcon> = {
+  "Followed instructions": CheckSquare,
+  "Stayed focused": Target,
+  "Completed task": CheckCircle2,
+  "Started task independently": Rocket,
+  "Helped a peer": HeartHandshake,
+  "Waited turn": Smile,
+  "Used kind words": MessageCircleHeart,
+  "Managed frustration": Wind,
+  "Returned to task": RotateCcw,
+  "Transitioned smoothly": ThumbsUp,
+  "Participated positively": PartyPopper,
+  "Showed responsibility": ShieldCheck,
+  "Used a strategy": Lightbulb,
+  "Persisted through challenge": Mountain,
+  "Included others": UsersRound,
+  "Resolved conflict calmly": Handshake,
+  "Came prepared": Backpack,
+  "Improved from last time": TrendingUp,
+  Other: Star,
 };
 
-const PBIS_ICONS: Record<PbisExpectation, typeof Target> = {
+const PBIS_ICONS: Record<PbisExpectation, LucideIcon> = {
   "Be Ready to Learn": PersonStanding,
   "Be Responsible": CheckCircle2,
   "Be Respectful": Heart,
@@ -119,40 +117,32 @@ const PBIS_ICONS: Record<PbisExpectation, typeof Target> = {
   "Be Prepared": Backpack,
 };
 
-const ACTIVITY_ICONS: Record<string, typeof Target> = {
-  "Independent work": Armchair,
-  "Group work": Users,
-  Instruction: PersonStanding,
-  Transition: ArrowRightLeft,
-  Other: MoreHorizontal,
+const RECOGNITION_ICONS: Record<RecognitionOption, LucideIcon> = {
+  "Verbal praise": Volume2,
+  "Private praise": MessageCircleHeart,
+  "Class shoutout": PartyPopper,
+  "Point / token awarded": Award,
+  "Badge awarded": Trophy,
+  "Parent share": Send,
+  "Peer recognition": Users,
+  "Responsibility given": ClipboardCheck,
+  "Note home": Mail,
+  "No recognition yet": X,
+  Other: Star,
 };
 
-const LOCATION_ICONS: Record<string, typeof Target> = {
-  Classroom: DoorOpen,
-  Hallway: DoorOpen,
-  Playground: Trees,
-  Cafeteria: UtensilsCrossed,
-};
-
-const TIME_ICONS: Record<string, typeof Target> = {
-  Morning: Sunrise,
-  Midday: Sun,
-  Afternoon: Sunset,
-  "End of day": Moon,
-};
-
-const FOLLOWUP_ICONS: Record<FollowUpOption, typeof Target> = {
-  "No follow-up": CheckCircle2,
-  "Add to profile": UserPlus,
-  "Tier 2 review": Users,
-  "1:1 check-in": MessageCircle,
-  "Create follow-up": ClipboardPlus,
-  "Urgent support": BellRing,
+const SHARE_ICONS: Record<ShareOption, LucideIcon> = {
+  "Add to student profile only": ClipboardCheck,
+  "Share with parent": Send,
+  "Share with special educator / support team": Users,
+  "Add to class celebration": PartyPopper,
+  "Use as strength in next report": TrendingUp,
+  "No sharing needed": X,
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
-export function RecordBehaviorForm() {
+export function LogPositiveBehaviorForm() {
   const [open, setOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
   const [initial, setInitial] = useState<OpenDetail>({});
@@ -164,16 +154,16 @@ export function RecordBehaviorForm() {
       setSessionKey((k) => k + 1);
       setOpen(true);
     };
-    window.addEventListener("ah-open-behavior-form", onOpen);
-    return () => window.removeEventListener("ah-open-behavior-form", onOpen);
+    window.addEventListener("ah-open-positive-form", onOpen);
+    return () => window.removeEventListener("ah-open-positive-form", onOpen);
   }, []);
 
   return (
-    <RecordBehaviorDialog key={sessionKey} open={open} onOpenChange={setOpen} initial={initial} />
+    <LogPositiveBehaviorDialog key={sessionKey} open={open} onOpenChange={setOpen} initial={initial} />
   );
 }
 
-function RecordBehaviorDialog({
+function LogPositiveBehaviorDialog({
   open,
   onOpenChange,
   initial,
@@ -187,31 +177,28 @@ function RecordBehaviorDialog({
     [initial.studentId],
   );
 
+  const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>("individual");
   const [student, setStudent] = useState<Student | null>(initialStudent);
   const [dateTime, setDateTime] = useState(() => new Date());
   const [subject, setSubject] = useState<string>(SUBJECTS[0]);
 
-  const [primaryTag, setPrimaryTag] = useState<WhatHappenedTag | null>(null);
-  const [alsoNoticed, setAlsoNoticed] = useState<WhatHappenedTag[]>([]);
+  const [primaryTag, setPrimaryTag] = useState<StrengthTag | null>(null);
+  const [alsoNoticed, setAlsoNoticed] = useState<StrengthTag[]>([]);
   const [expectation, setExpectation] = useState<PbisExpectation | null>(null);
-  const [severity, setSeverity] = useState<Severity | null>(null);
-  const [activity, setActivity] = useState<string | null>(null);
-  const [location, setLocation] = useState<string | null>(null);
+  const [context, setContext] = useState<string | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<string | null>(null);
-  const [antecedent, setAntecedent] = useState<string | null>(null);
-  const [response, setResponse] = useState<string | null>(null);
-  const [recovery, setRecovery] = useState<string | null>(null);
-  const [followUp, setFollowUp] = useState<FollowUpOption | null>(null);
-  const [parentCommunication, setParentCommunication] = useState<boolean | null>(null);
-  const [specialEducatorReferral, setSpecialEducatorReferral] = useState<boolean | null>(null);
+  const [recognitionOptions, setRecognitionOptions] = useState<RecognitionOption[]>([]);
+  const [points, setPoints] = useState<string | null>(null);
+  const [shareOptions, setShareOptions] = useState<ShareOption[]>([]);
+  const [growth, setGrowth] = useState<string | null>(null);
   const [note, setNote] = useState(initial.initialNote ?? "");
   const [saveAnother, setSaveAnother] = useState(false);
 
-  const suggestion = getBehaviorSuggestion(primaryTag);
-  const dailyCounts = student ? getBehaviorLogDailyCountsForStudent(student.id) : [0, 0, 0, 0, 0];
-  const weeklyCount = student ? getBehaviorLogCountThisWeekForStudent(student.id) : 0;
+  const suggestion = getPositiveSuggestion(primaryTag);
+  const dailyCounts = student ? getPositiveLogDailyCountsForStudent(student.id) : [0, 0, 0, 0, 0];
+  const weeklyCount = student ? getPositiveLogCountThisWeekForStudent(student.id) : 0;
 
-  function toggleWhatHappened(tag: WhatHappenedTag) {
+  function toggleStrength(tag: StrengthTag) {
     if (primaryTag === tag) {
       setPrimaryTag(alsoNoticed[0] ?? null);
       setAlsoNoticed((prev) => prev.filter((t) => t !== tag).slice(1));
@@ -224,67 +211,76 @@ function RecordBehaviorDialog({
     setAlsoNoticed((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
 
-  function removeAlsoNoticed(tag: WhatHappenedTag) {
+  function removeAlsoNoticed(tag: StrengthTag) {
     setAlsoNoticed((prev) => prev.filter((t) => t !== tag));
   }
 
+  function toggleRecognition(option: RecognitionOption) {
+    setRecognitionOptions((prev) =>
+      prev.includes(option) ? prev.filter((o) => o !== option) : [...prev, option],
+    );
+  }
+
+  function toggleShare(option: ShareOption) {
+    setShareOptions((prev) =>
+      prev.includes(option) ? prev.filter((o) => o !== option) : [...prev, option],
+    );
+  }
+
   function handleSave() {
-    if (!student) {
+    if (recognitionTarget === "individual" && !student) {
       toast.error("Choose a student before saving.");
       return;
     }
     if (!primaryTag) {
-      toast.error("Select what happened before saving.");
+      toast.error("Select what strength you noticed before saving.");
       return;
     }
 
+    const who =
+      recognitionTarget === "individual"
+        ? student!.name
+        : recognitionTarget === "small-group"
+          ? "a small group"
+          : "the whole class";
+
     const parts = [
       `${primaryTag}${alsoNoticed.length ? ` (also: ${alsoNoticed.join(", ")})` : ""}`,
-      expectation ? `Expectation affected: ${expectation}` : null,
-      severity ? `Severity: ${severity}` : null,
-      activity || location || timeOfDay
-        ? `Context: ${[activity, location, timeOfDay].filter(Boolean).join(", ")}`
-        : null,
-      antecedent ? `Before: ${antecedent}` : null,
-      response ? `Response: ${response}` : null,
-      recovery ? `Recovery: ${recovery}` : null,
-      followUp && followUp !== "No follow-up" ? `Follow-up: ${followUp}` : null,
-      parentCommunication ? "Parent communication needed" : null,
-      specialEducatorReferral ? "Special educator referral needed" : null,
+      expectation ? `Expectation demonstrated: ${expectation}` : null,
+      context || timeOfDay ? `Context: ${[context, timeOfDay].filter(Boolean).join(", ")}` : null,
+      recognitionOptions.length ? `Recognition: ${recognitionOptions.join(", ")}` : null,
+      points ? `Points awarded: ${points}` : null,
+      shareOptions.length ? `Shared: ${shareOptions.join(", ")}` : null,
+      growth ? `Growth: ${growth}` : null,
       note.trim() ? `Note: ${note.trim()}` : null,
     ].filter(Boolean);
 
-    addNote(student.id, {
-      category: "Behavior",
-      body: parts.join(" · "),
-      tag: followUp && followUp !== "No follow-up" ? followUp : undefined,
-      sharedWithParent: !!parentCommunication,
-    });
-    logBehaviorEvent(student.id);
+    if (recognitionTarget === "individual" && student) {
+      addNote(student.id, {
+        category: "Behavior",
+        body: parts.join(" · "),
+        tag: "Positive",
+        sharedWithParent: shareOptions.includes("Share with parent"),
+      });
+      logPositiveEvent(student.id);
+    } else {
+      logPositiveEvent();
+    }
 
-    const flags = [
-      parentCommunication ? "parent notified" : null,
-      specialEducatorReferral ? "special educator referred" : null,
-    ].filter(Boolean);
-
-    toast.success(`Behaviour saved for ${student.name}`, {
-      description: flags.length ? flags.join(" · ") : "Added to their profile.",
+    toast.success(`Positive behaviour saved for ${who}`, {
+      description: recognitionOptions.length ? recognitionOptions.join(" · ") : "Added to their profile.",
     });
 
     if (saveAnother) {
       setPrimaryTag(null);
       setAlsoNoticed([]);
       setExpectation(null);
-      setSeverity(null);
-      setActivity(null);
-      setLocation(null);
+      setContext(null);
       setTimeOfDay(null);
-      setAntecedent(null);
-      setResponse(null);
-      setRecovery(null);
-      setFollowUp(null);
-      setParentCommunication(null);
-      setSpecialEducatorReferral(null);
+      setRecognitionOptions([]);
+      setPoints(null);
+      setShareOptions([]);
+      setGrowth(null);
       setNote("");
     } else {
       onOpenChange(false);
@@ -296,11 +292,12 @@ function RecordBehaviorDialog({
       <DialogContent className="max-w-[1200px] w-[95vw] max-h-[90vh] overflow-hidden p-0 gap-0">
         <div className="flex flex-col max-h-[90vh]">
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
-            <DialogTitle className="font-heading text-[19px] font-extrabold">
-              Record Behaviour
+            <DialogTitle className="font-heading text-[19px] font-extrabold flex items-center gap-2">
+              <Star className="h-4 w-4 text-emerald-500" />
+              Log Positive Behaviour
             </DialogTitle>
             <DialogDescription className="text-[12.5px]">
-              Log what happened, where it happened, and what support may be needed.
+              Capture praise, strengths, and expected behaviours noticed in class.
             </DialogDescription>
           </DialogHeader>
 
@@ -309,10 +306,31 @@ function RecordBehaviorDialog({
               {/* Main form */}
               <div className="space-y-4">
                 <Section step={1} title="Who & when?">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
-                      <FieldLabel required>Student</FieldLabel>
-                      <StudentPickerField student={student} onChange={setStudent} />
+                      <FieldLabel required>Recognize</FieldLabel>
+                      <select
+                        value={recognitionTarget}
+                        onChange={(e) => setRecognitionTarget(e.target.value as RecognitionTarget)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[12.5px] outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        {RECOGNITION_TARGETS.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <FieldLabel required={recognitionTarget === "individual"}>Student</FieldLabel>
+                      {recognitionTarget === "individual" ? (
+                        <StudentPickerField student={student} onChange={setStudent} />
+                      ) : (
+                        <div className="flex items-center rounded-xl border border-dashed border-border px-3 py-2 text-[12.5px] text-muted-foreground h-[38px]">
+                          Not needed for group recognition
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -349,15 +367,15 @@ function RecordBehaviorDialog({
                 </Section>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Section step={2} title="What happened?" info required>
+                  <Section step={2} title="What strength did you notice?" required>
                     <div className="flex flex-wrap gap-2">
-                      {WHAT_HAPPENED_OPTIONS.map((tag) => (
+                      {STRENGTH_OPTIONS.map((tag) => (
                         <OptionChip
                           key={tag}
                           label={tag}
-                          Icon={WHAT_HAPPENED_ICONS[tag]}
+                          Icon={STRENGTH_ICONS[tag]}
                           selected={primaryTag === tag || alsoNoticed.includes(tag)}
-                          onClick={() => toggleWhatHappened(tag)}
+                          onClick={() => toggleStrength(tag)}
                         />
                       ))}
                     </div>
@@ -383,7 +401,7 @@ function RecordBehaviorDialog({
                     )}
                   </Section>
 
-                  <Section step={3} title="Which expectation was affected?" required>
+                  <Section step={3} title="Which expectation was demonstrated?" required>
                     <div className="grid grid-cols-3 gap-2">
                       {PBIS_EXPECTATIONS.map((exp) => (
                         <OptionCard
@@ -398,50 +416,15 @@ function RecordBehaviorDialog({
                   </Section>
                 </div>
 
-                <Section step={4} title="How serious was it?" required>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <SeverityCard
-                      severity="Minor"
-                      title="Minor"
-                      subtitle="Handled in class"
-                      detail="Calling out, off-task, mild disruption, etc."
-                      selected={severity === "Minor"}
-                      onClick={() => setSeverity("Minor")}
-                      tone="hsl(142 55% 45%)"
-                    />
-                    <SeverityCard
-                      severity="Major"
-                      title="Major"
-                      subtitle="Needs support follow-up"
-                      detail="Aggression, unsafe behavior, severe disruption, etc."
-                      selected={severity === "Major"}
-                      onClick={() => setSeverity("Major")}
-                      tone="hsl(0 78% 58%)"
-                    />
-                  </div>
-                </Section>
-
-                <Section step={5} title="Where / when did it happen?" required>
+                <Section step={4} title="Where / when did it happen?" required>
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {ACTIVITY_OPTIONS.map((a) => (
+                      {CONTEXT_OPTIONS.map((c) => (
                         <OptionChip
-                          key={a}
-                          label={a}
-                          Icon={ACTIVITY_ICONS[a]}
-                          selected={activity === a}
-                          onClick={() => setActivity(a)}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {LOCATION_OPTIONS.map((l) => (
-                        <OptionChip
-                          key={l}
-                          label={l}
-                          Icon={LOCATION_ICONS[l]}
-                          selected={location === l}
-                          onClick={() => setLocation(l)}
+                          key={c}
+                          label={c}
+                          selected={context === c}
+                          onClick={() => setContext(c)}
                         />
                       ))}
                     </div>
@@ -450,7 +433,6 @@ function RecordBehaviorDialog({
                         <OptionChip
                           key={t}
                           label={t}
-                          Icon={TIME_ICONS[t]}
                           selected={timeOfDay === t}
                           onClick={() => setTimeOfDay(t)}
                         />
@@ -459,93 +441,73 @@ function RecordBehaviorDialog({
                   </div>
                 </Section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Section step={6} title="What seemed to happen before it?" required>
-                    <div className="flex flex-wrap gap-2">
-                      {ANTECEDENT_OPTIONS.map((a) => (
-                        <OptionChip
-                          key={a}
-                          label={a}
-                          selected={antecedent === a}
-                          onClick={() => setAntecedent(a)}
-                        />
-                      ))}
-                    </div>
-                  </Section>
-
-                  <Section step={7} title="What did you do?" required>
-                    <div className="flex flex-wrap gap-2">
-                      {RESPONSE_OPTIONS.map((r) => (
-                        <OptionChip
-                          key={r}
-                          label={r}
-                          selected={response === r}
-                          onClick={() => setResponse(r)}
-                        />
-                      ))}
-                    </div>
-                  </Section>
-                </div>
-
-                <Section step={8} title="Did the student recover?">
-                  <div className="space-y-1.5">
-                    {RECOVERY_OPTIONS.map((r) => (
-                      <RadioRow
+                <Section step={5} title="How was it recognized?" required>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOGNITION_OPTIONS.map((r) => (
+                      <OptionChip
                         key={r}
                         label={r}
-                        selected={recovery === r}
-                        onClick={() => setRecovery(r)}
+                        Icon={RECOGNITION_ICONS[r]}
+                        selected={recognitionOptions.includes(r)}
+                        onClick={() => toggleRecognition(r)}
                       />
                     ))}
                   </div>
+                  {recognitionOptions.includes("Point / token awarded") && (
+                    <div className="mt-3">
+                      <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                        Points awarded (optional)
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {POINTS_OPTIONS.map((p) => (
+                          <OptionChip
+                            key={p}
+                            label={p}
+                            selected={points === p}
+                            onClick={() => setPoints(points === p ? null : p)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </Section>
 
-                <Section step={9} title="Follow-up needed?" required>
+                <Section step={6} title="Should this be shared?" required>
                   <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                    {FOLLOWUP_OPTIONS.map((f) => (
+                    {SHARE_OPTIONS.map((s) => (
                       <OptionCard
-                        key={f}
-                        label={f}
-                        Icon={FOLLOWUP_ICONS[f]}
-                        selected={followUp === f}
-                        onClick={() => setFollowUp(f)}
+                        key={s}
+                        label={s}
+                        Icon={SHARE_ICONS[s]}
+                        selected={shareOptions.includes(s)}
+                        onClick={() => toggleShare(s)}
                         compact
                       />
                     ))}
                   </div>
                 </Section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Section step={10} title="Parent communication needed?" required>
-                    <YesNoToggle
-                      Icon={Mail}
-                      value={parentCommunication}
-                      onChange={setParentCommunication}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
+                  <Section step={7} title="Is this showing growth?">
+                    <div className="space-y-1.5">
+                      {GROWTH_OPTIONS.map((g) => (
+                        <RadioRow key={g} label={g} selected={growth === g} onClick={() => setGrowth(g)} />
+                      ))}
+                    </div>
                   </Section>
 
-                  <Section step={11} title="Special educator referral needed?" required>
-                    <YesNoToggle
-                      Icon={User}
-                      value={specialEducatorReferral}
-                      onChange={setSpecialEducatorReferral}
+                  <div className="rounded-2xl border border-border bg-background p-3.5">
+                    <div className="text-[12.5px] font-bold mb-1.5">Add a quick note (optional)</div>
+                    <Textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value.slice(0, 250))}
+                      placeholder="Example: Arjun waited patiently during group work and helped a peer understand the worksheet."
+                      rows={4}
+                      className="text-[12.5px]"
                     />
-                  </Section>
-                </div>
-
-                <div className="rounded-2xl border border-border bg-background p-3.5">
-                  <div className="text-[12.5px] font-bold mb-1.5">
-                    Notes<span className="text-red-500 ml-0.5">*</span>
-                  </div>
-                  <Textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value.slice(0, 250))}
-                    placeholder="Add any important details about the incident, student response, or next steps…"
-                    rows={3}
-                    className="text-[12.5px]"
-                  />
-                  <div className="text-right text-[10.5px] text-muted-foreground mt-1">
-                    {note.length}/250
+                    <div className="text-right text-[10.5px] text-muted-foreground mt-1">
+                      {note.length}/250
+                    </div>
                   </div>
                 </div>
               </div>
@@ -559,12 +521,12 @@ function RecordBehaviorDialog({
 
                 <div>
                   <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
-                    This behaviour maps to
+                    This strength maps to
                   </div>
                   <div className="space-y-1">
                     {suggestion.mapsTo.map((m) => (
                       <div key={m} className="flex items-center gap-2 text-[12.5px] font-semibold">
-                        <span className="h-6 w-6 rounded-md bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+                        <span className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center shrink-0">
                           <Target className="h-3 w-3" />
                         </span>
                         {m}
@@ -587,15 +549,15 @@ function RecordBehaviorDialog({
                   </ul>
                 </div>
 
-                {student && (
+                {student && recognitionTarget === "individual" && (
                   <div>
                     <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
-                      Pattern insight
+                      Positive pattern insight
                     </div>
                     <p className="text-[12px] leading-snug">
                       {weeklyCount > 0
-                        ? `Similar behaviour logged ${weeklyCount} time${weeklyCount === 1 ? "" : "s"} this week for ${student.name.split(" ")[0]}.`
-                        : `No prior logs this week for ${student.name.split(" ")[0]} yet.`}
+                        ? `Similar positive behaviour logged ${weeklyCount} time${weeklyCount === 1 ? "" : "s"} this week for ${student.name.split(" ")[0]}.`
+                        : `No prior positive logs this week for ${student.name.split(" ")[0]} yet.`}
                     </p>
                     <div className="flex items-end gap-2 mt-2 h-14">
                       {dailyCounts.map((count, i) => {
@@ -605,7 +567,7 @@ function RecordBehaviorDialog({
                             <div
                               className={cn(
                                 "w-full rounded-sm",
-                                count > 0 ? "bg-primary" : "bg-muted",
+                                count > 0 ? "bg-emerald-500" : "bg-muted",
                               )}
                               style={{ height: `${Math.max(6, (count / max) * 40)}px` }}
                             />
@@ -619,12 +581,12 @@ function RecordBehaviorDialog({
 
                 <div>
                   <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
-                    Suggested next steps
+                    Suggested reinforcement
                   </div>
                   <ul className="space-y-1.5 text-[12px]">
-                    {suggestion.nextSteps.map((step) => (
+                    {suggestion.reinforcement.map((step) => (
                       <li key={step} className="flex items-start gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
                         {step}
                       </li>
                     ))}
@@ -634,8 +596,8 @@ function RecordBehaviorDialog({
                 <div className="rounded-xl bg-amber-500/10 p-3 flex items-start gap-2">
                   <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <p className="text-[11.5px] leading-snug text-muted-foreground">
-                    <span className="font-bold text-foreground">Tip:</span> Consistent logging helps
-                    Yellow identify patterns and recommend the right support.
+                    <span className="font-bold text-foreground">Tip:</span> Positive logs help Yellow
+                    identify student strengths and reinforce what is working.
                   </p>
                 </div>
               </div>
@@ -656,9 +618,9 @@ function RecordBehaviorDialog({
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSave} className="gap-1.5">
+              <Button size="sm" onClick={handleSave} className="gap-1.5 bg-emerald-600 hover:bg-emerald-600/90">
                 <Save className="h-3.5 w-3.5" />
-                Save behaviour
+                Save positive behaviour
               </Button>
             </div>
           </div>
@@ -667,47 +629,3 @@ function RecordBehaviorDialog({
     </Dialog>
   );
 }
-
-
-function SeverityCard({
-  title,
-  subtitle,
-  detail,
-  selected,
-  onClick,
-  tone,
-}: {
-  severity: Severity;
-  title: string;
-  subtitle: string;
-  detail: string;
-  selected: boolean;
-  onClick: () => void;
-  tone: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl border p-3.5 text-left transition-colors"
-      style={{
-        borderColor: selected ? tone : "var(--border)",
-        background: selected ? `color-mix(in srgb, ${tone} 6%, var(--card))` : "var(--card)",
-      }}
-    >
-      <div className="flex items-center gap-1.5">
-        {selected ? (
-          <CheckCircle2 className="h-4 w-4" style={{ color: tone }} />
-        ) : (
-          <Circle className="h-4 w-4 text-muted-foreground" />
-        )}
-        <span className="text-[13px] font-bold" style={{ color: selected ? tone : undefined }}>
-          {title}
-        </span>
-      </div>
-      <div className="text-[11px] font-semibold text-muted-foreground mt-1">{subtitle}</div>
-      <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{detail}</div>
-    </button>
-  );
-}
-

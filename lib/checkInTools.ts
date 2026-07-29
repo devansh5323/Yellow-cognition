@@ -60,11 +60,13 @@ export function getBehaviorLogCountThisWeekForStudent(studentId: string): number
   return readLog(BEHAVIOR_KEY).filter((e) => isThisWeek(e.at) && e.studentId === studentId).length;
 }
 
-/** Mon–Fri counts of this student's logged behaviour events, for the current week. */
-export function getBehaviorLogDailyCountsForStudent(studentId: string): number[] {
-  const events = readLog(BEHAVIOR_KEY).filter(
-    (e) => isThisWeek(e.at) && e.studentId === studentId,
-  );
+export function getPositiveLogCountThisWeekForStudent(studentId: string): number {
+  return readLog(POSITIVE_KEY).filter((e) => isThisWeek(e.at) && e.studentId === studentId).length;
+}
+
+/** Mon–Fri counts of this student's logged events this week, for a given log key. */
+function dailyCountsForStudent(key: string, studentId: string): number[] {
+  const events = readLog(key).filter((e) => isThisWeek(e.at) && e.studentId === studentId);
   const now = new Date();
   const dayIndex = (now.getDay() + 6) % 7; // Monday = 0
   const mondayStart = new Date(now.getTime() - dayIndex * DAY_MS);
@@ -76,6 +78,14 @@ export function getBehaviorLogDailyCountsForStudent(studentId: string): number[]
     if (diffDays >= 0 && diffDays < 5) counts[diffDays] += 1;
   }
   return counts;
+}
+
+export function getBehaviorLogDailyCountsForStudent(studentId: string): number[] {
+  return dailyCountsForStudent(BEHAVIOR_KEY, studentId);
+}
+
+export function getPositiveLogDailyCountsForStudent(studentId: string): number[] {
+  return dailyCountsForStudent(POSITIVE_KEY, studentId);
 }
 
 export function getClassCheckInsThisWeek(teacher: string): number {

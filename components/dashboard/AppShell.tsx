@@ -46,6 +46,7 @@ import { PageTransition } from "@/components/dashboard/PageTransition";
 import { YellowAIWidget } from "@/components/dashboard/YellowAIWidget";
 import { QuickBehaviourNote } from "@/components/dashboard/QuickBehaviourNote";
 import { RecordBehaviorForm } from "@/components/dashboard/RecordBehaviorForm";
+import { LogPositiveBehaviorForm } from "@/components/dashboard/LogPositiveBehaviorForm";
 import { Toaster } from "@/components/ui/sonner";
 import {
   Dialog,
@@ -559,6 +560,7 @@ export function AppShell({
       <YellowAIWidget />
       <QuickBehaviourNote />
       <RecordBehaviorForm />
+      <LogPositiveBehaviorForm />
       <Toaster />
     </div>
   );

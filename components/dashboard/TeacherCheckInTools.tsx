@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  Briefcase,
-  ChevronRight,
-  ClipboardCheck,
-  Clock,
-  Mic,
-  Star,
-  Users,
-} from "lucide-react";
+import { ChevronRight, ClipboardCheck, Clock, Mic, Star, Users } from "lucide-react";
 
 import { classRiskRadar, countFollowUpsPending } from "@/data/mockData";
 import {
@@ -127,27 +119,28 @@ export function TeacherCheckInTools() {
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
-      className="rounded-2xl border border-border bg-card p-5 md:p-6"
+      className="space-y-3"
       aria-label="Teacher check-in tools"
     >
-      <div className="flex items-start gap-3">
-        <span className="h-11 w-11 rounded-xl inline-flex items-center justify-center shrink-0 bg-[color-mix(in_srgb,hsl(260_55%_60%)_14%,transparent)] text-[hsl(260_55%_60%)]">
-          <Briefcase className="h-5 w-5" strokeWidth={2.2} />
-        </span>
+      <div className="premium-eyebrow">
+        <span>Teacher Check-in Tools</span>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
         <div>
           <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
-            Teacher Check-In Tools
+            Your Check-In Tools
           </h2>
           <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
             Capture the signals that power your class insights and recommendations.
           </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-        {tools.map((tool) => (
-          <ToolCard key={tool.key} tool={tool} />
-        ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+          {tools.map((tool) => (
+            <ToolCard key={tool.key} tool={tool} />
+          ))}
+        </div>
       </div>
     </motion.section>
   );

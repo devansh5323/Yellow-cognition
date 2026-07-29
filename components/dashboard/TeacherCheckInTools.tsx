@@ -5,12 +5,12 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronRight, ClipboardCheck, Clock, Mic, Star, Users } from "lucide-react";
 
-import { classRiskRadar, countFollowUpsPending } from "@/data/mockData";
 import {
   getBehaviorLogCountThisWeek,
   getClassCheckInsThisWeek,
   getPositiveLogCountThisWeek,
 } from "@/lib/checkInTools";
+import { getPendingFollowUpCount, getPendingFollowUps } from "@/lib/interventionFollowUps";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -20,17 +20,19 @@ type ToolStats = {
   behaviorLogsThisWeek: number;
   positiveLogsThisWeek: number;
   followUpsPending: number;
-  followUpHref: string;
+  followUpStudentId?: string;
+  followUpReason?: string;
 };
 
 function readStats(): ToolStats {
-  const followUpTarget = classRiskRadar().find((r) => r.students.length > 0)?.students[0];
+  const followUpTarget = getPendingFollowUps()[0];
   return {
     checkInsThisWeek: getClassCheckInsThisWeek(TEACHER_NAME),
     behaviorLogsThisWeek: getBehaviorLogCountThisWeek(),
     positiveLogsThisWeek: getPositiveLogCountThisWeek(),
-    followUpsPending: countFollowUpsPending(),
-    followUpHref: followUpTarget ? `/students/${followUpTarget.id}` : "/students",
+    followUpsPending: getPendingFollowUpCount(),
+    followUpStudentId: followUpTarget?.student.id,
+    followUpReason: followUpTarget?.reason,
   };
 }
 
@@ -44,10 +46,12 @@ export function TeacherCheckInTools() {
     window.addEventListener("ah-checkin-change", refresh);
     window.addEventListener("ah-behavior-log-change", refresh);
     window.addEventListener("ah-positive-log-change", refresh);
+    window.addEventListener("ah-followup-change", refresh);
     return () => {
       window.removeEventListener("ah-checkin-change", refresh);
       window.removeEventListener("ah-behavior-log-change", refresh);
       window.removeEventListener("ah-positive-log-change", refresh);
+      window.removeEventListener("ah-followup-change", refresh);
     };
   }, []);
 
@@ -109,8 +113,14 @@ export function TeacherCheckInTools() {
       statLabel: `${stats.followUpsPending} pending`,
       cta: "Log follow-up",
       ctaIcon: ChevronRight,
-      href: stats.followUpHref,
-      onClick: undefined,
+      onOpenTool: () =>
+        window.dispatchEvent(
+          new CustomEvent("ah-open-followup-form", {
+            detail: stats.followUpStudentId
+              ? { studentId: stats.followUpStudentId, reason: stats.followUpReason }
+              : {},
+          }),
+        ),
     },
   ];
 

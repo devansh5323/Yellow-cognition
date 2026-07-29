@@ -15,6 +15,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { wavePoints, Sparkline } from "@/components/dashboard/Sparkline";
 import {
   classHealth,
   scoreBand,
@@ -310,39 +311,5 @@ export function PillarHealthRow() {
         </div>
       </div>
     </motion.section>
-  );
-}
-
-/** Deterministic wavy trend line — anchors the last point to the live score. */
-function wavePoints(end: number, seed: number, count = 7): number[] {
-  const amplitude = 6;
-  const raw = Array.from({ length: count }, (_, i) => {
-    const wave =
-      Math.sin(i * 1.15 + seed * 2.1) * amplitude + Math.sin(i * 0.5 + seed * 0.8) * (amplitude * 0.5);
-    return end + wave;
-  });
-  raw[raw.length - 1] = end;
-  return raw.map((v) => Math.max(2, Math.min(98, v)));
-}
-
-function Sparkline({ data, tone }: { data: number[]; tone: string }) {
-  const w = 100;
-  const h = 28;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = Math.max(1, max - min);
-  const points = data.map((v, i) => ({
-    x: (i / Math.max(1, data.length - 1)) * w,
-    y: h - ((v - min) / range) * (h - 8) - 4,
-  }));
-  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7" preserveAspectRatio="none" aria-hidden>
-      <path d={path} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={1.6} fill={tone} />
-      ))}
-    </svg>
   );
 }

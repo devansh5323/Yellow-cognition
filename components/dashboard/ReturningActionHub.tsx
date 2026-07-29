@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  Calendar,
+  CalendarCheck,
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -13,6 +16,7 @@ import {
   Dumbbell,
   Eye,
   Heart,
+  Info,
   Lightbulb,
   Mail,
   MessageCircle,
@@ -32,9 +36,10 @@ import {
 } from "@/components/ui/select";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { studentComposites } from "@/lib/classHealth";
-import { classRiskRadar, countFollowUpsPending, type Student } from "@/data/mockData";
+import { classRiskRadar, type Student } from "@/data/mockData";
 import { listCheckInsForTeacher } from "@/lib/checkIn";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
+import { getPendingFollowUps, getPendingFollowUpCount } from "@/lib/interventionFollowUps";
 import { type InviteStats } from "@/lib/roster";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +53,8 @@ type PriorityAction = {
   description: string;
   meta: ReactNode;
   cta: string;
-  href: string;
+  href?: string;
+  onOpenTool?: () => void;
 };
 
 const PRIORITY_LABEL: Record<ActionPriority, string> = {
@@ -73,12 +79,6 @@ function checkedInThisWeek(): boolean {
   return Date.now() - +new Date(list[0].createdAt) <= WEEK_MS;
 }
 
-function getFollowUpTarget(): { student: Student; reason: string } | null {
-  const risk = classRiskRadar().find((r) => r.students.length > 0);
-  if (!risk) return null;
-  return { student: risk.students[0], reason: risk.reason };
-}
-
 /** Tiers are derived from the existing StudentStatus classification — there's
  * no dedicated Tier system in the data model, so Watch -> Tier 2 and
  * Needs-support -> Tier 3 is the closest real mapping available. */
@@ -99,8 +99,9 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
   const flagged = classRiskRadar().flatMap((group) =>
     group.students.map((student) => ({ student, reason: group.reason })),
   );
-  const followUp = flagged[0];
-  const interventionFollowUp = flagged[1] ?? flagged[0];
+  const pendingFollowUps = getPendingFollowUps();
+  const followUp = pendingFollowUps[0];
+  const interventionFollowUp = pendingFollowUps[1] ?? pendingFollowUps[0];
   const conferenceTarget = tier3[0];
 
   const actions: PriorityAction[] = [];
@@ -166,7 +167,12 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
       description: `Flagged for ${followUp.reason} — action note pending.`,
       meta: "1 pending",
       cta: "Log follow-up",
-      href: `/students/${followUp.student.id}`,
+      onOpenTool: () =>
+        window.dispatchEvent(
+          new CustomEvent("ah-open-followup-form", {
+            detail: { studentId: followUp.student.id, reason: followUp.reason },
+          }),
+        ),
     });
   }
 
@@ -191,8 +197,13 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
       title: `Complete intervention follow-up — ${interventionFollowUp.student.name.split(" ")[0]}`,
       description: `Wrap up the suggested plan for ${interventionFollowUp.reason.toLowerCase()}.`,
       meta: "1 pending",
-      cta: "Open profile",
-      href: `/students/${interventionFollowUp.student.id}`,
+      cta: "Log follow-up",
+      onOpenTool: () =>
+        window.dispatchEvent(
+          new CustomEvent("ah-open-followup-form", {
+            detail: { studentId: interventionFollowUp.student.id, reason: interventionFollowUp.reason },
+          }),
+        ),
     });
   }
 
@@ -269,7 +280,12 @@ function buildQuickActions(
       label: "Log follow-up",
       Icon: ClipboardCheck,
       tone: "hsl(212 90% 58%)",
-      href: followUp ? `/students/${followUp.student.id}` : "/students",
+      onOpenTool: () =>
+        window.dispatchEvent(
+          new CustomEvent("ah-open-followup-form", {
+            detail: followUp ? { studentId: followUp.student.id, reason: followUp.reason } : {},
+          }),
+        ),
     },
     {
       key: "schedule-conference",
@@ -283,15 +299,59 @@ function buildQuickActions(
 
 export function ReturningActionHub({ stats }: { stats: InviteStats }) {
   const [sortBy, setSortBy] = useState<"priority" | "az">("priority");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
+  // Captured once at mount via the lazy initializer — the sanctioned way to
+  // read an impure value (Date.now()) without re-reading it on every render.
+  const [nowMs] = useState(() => Date.now());
 
-  const actions = useMemo(() => buildPriorityActions(stats), [stats]);
-  const followUp = useMemo(() => getFollowUpTarget(), []);
-  const followUpsPending = useMemo(() => countFollowUpsPending(), []);
+  useEffect(() => {
+    const refresh = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("ah-followup-change", refresh);
+    return () => window.removeEventListener("ah-followup-change", refresh);
+  }, []);
+
+  // refreshKey isn't read inside these — it exists purely to force a
+  // recompute when a follow-up is logged elsewhere (e.g. via the dialog).
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const actions = useMemo(() => buildPriorityActions(stats), [stats, refreshKey]);
+  const pendingFollowUps = useMemo(() => getPendingFollowUps(), [refreshKey]);
+  const followUpsPending = useMemo(() => getPendingFollowUpCount(), [refreshKey]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  const followUp = pendingFollowUps[0] ?? null;
   const conferenceTarget = useMemo(() => getTierGroups().tier3[0], []);
   const quickActions = useMemo(
     () => buildQuickActions(followUp, conferenceTarget),
     [followUp, conferenceTarget],
   );
+
+  const watchlist = useMemo(() => {
+    const { tier2, tier3 } = getTierGroups();
+    return [
+      ...tier3.map((student) => ({ student, tier: "Tier 3" as const })),
+      ...tier2.map((student) => ({ student, tier: "Tier 2" as const })),
+    ].slice(0, 4);
+  }, []);
+
+  const upcoming = useMemo(() => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const items: { title: string; date: Date; href: string }[] = [];
+    pendingFollowUps.slice(0, 2).forEach((p, i) => {
+      items.push({
+        title: `Intervention review: ${p.student.name}`,
+        date: new Date(nowMs + (i + 1) * 3 * DAY_MS),
+        href: `/students/${p.student.id}`,
+      });
+    });
+    if (conferenceTarget) {
+      items.push({
+        title: `Tier 3 conference: ${conferenceTarget.name}`,
+        date: new Date(nowMs + 5 * DAY_MS),
+        href: `/students/${conferenceTarget.id}`,
+      });
+    }
+    return items.slice(0, 3);
+  }, [pendingFollowUps, conferenceTarget, nowMs]);
 
   const sortedActions = useMemo(() => {
     const arr = [...actions];
@@ -307,8 +367,6 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
   const notConnected = stats.pending;
   const inviteSent = Math.max(0, stats.invited - stats.active);
   const checkedIn = checkedInThisWeek();
-  // Tentative proxy — see the matching note in DataReadinessCard's CoverageBar.
-  const parentInputsPending = stats.active;
   const upToDate = checkedIn && notConnected === 0 && inviteSent === 0 && total > 0;
 
   return (
@@ -352,6 +410,148 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
             ))}
           </ul>
         )}
+
+        <button
+          type="button"
+          onClick={() => setWatchlistOpen((v) => !v)}
+          aria-expanded={watchlistOpen}
+          className="mt-6 w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <ChevronRight
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                watchlistOpen && "rotate-90",
+              )}
+            />
+            <span className="text-[12.5px] font-bold">Watchlist &amp; upcoming</span>
+          </span>
+          <span className="text-[11px] text-muted-foreground shrink-0">
+            {watchlist.length} student{watchlist.length === 1 ? "" : "s"} · {upcoming.length} event
+            {upcoming.length === 1 ? "" : "s"}
+          </span>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {watchlistOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.2, 0.7, 0.2, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="rounded-2xl border border-border bg-background p-5">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h3 className="font-heading font-bold text-[13.5px] flex items-center gap-1.5">
+                      Student watchlist
+                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    </h3>
+                    {watchlist.length > 0 && (
+                      <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold shrink-0">
+                        {watchlist.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {watchlist.length === 0 ? (
+                    <p className="text-[12px] text-muted-foreground">
+                      No students on the watchlist right now.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {watchlist.map(({ student, tier }) => {
+                        const tierTone = tier === "Tier 3" ? "hsl(0 78% 58%)" : "hsl(38 92% 50%)";
+                        return (
+                          <li key={student.id}>
+                            <Link
+                              href={`/students/${student.id}`}
+                              className="flex items-center gap-3 -mx-1 px-1 py-0.5 rounded-lg transition-colors hover:bg-muted/40"
+                            >
+                              <StudentAvatar student={student} size="sm" />
+                              <span className="flex-1 min-w-0 text-[12.5px] font-semibold truncate">
+                                {student.name}
+                              </span>
+                              <span
+                                className="text-[10.5px] font-bold px-2 py-1 rounded-full shrink-0"
+                                style={{
+                                  background: `color-mix(in srgb, ${tierTone} 14%, transparent)`,
+                                  color: tierTone,
+                                }}
+                              >
+                                {tier}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
+                  <div className="mt-4 pt-3.5 border-t border-border text-center">
+                    <Link
+                      href="/students"
+                      className="inline-flex items-center gap-1 text-[12px] font-bold text-primary hover:underline"
+                    >
+                      View all students
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-background p-5">
+                  <h3 className="font-heading font-bold text-[13.5px] flex items-center gap-2 mb-4">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    Upcoming
+                  </h3>
+
+                  {upcoming.length === 0 ? (
+                    <p className="text-[12px] text-muted-foreground">Nothing scheduled right now.</p>
+                  ) : (
+                    <ul className="space-y-3.5">
+                      {upcoming.map((item) => (
+                        <li key={item.title}>
+                          <Link
+                            href={item.href}
+                            className="flex items-start gap-3 -mx-1 px-1 py-0.5 rounded-lg transition-colors hover:bg-muted/40"
+                          >
+                            <span className="h-7 w-7 rounded-full bg-primary/10 text-primary inline-flex items-center justify-center shrink-0 mt-0.5">
+                              <CalendarCheck className="h-3.5 w-3.5" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-[12.5px] font-semibold leading-snug">{item.title}</div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                                {item.date.toLocaleDateString(undefined, {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </div>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="mt-4 pt-3.5 border-t border-border text-center">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast("Coming soon", { description: "A dedicated calendar view isn't available yet." })
+                      }
+                      className="inline-flex items-center gap-1 text-[12px] font-bold text-primary hover:underline"
+                    >
+                      View calendar
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Sidebar */}
@@ -394,36 +594,6 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
               href="/check-in"
             />
 
-            {notConnected > 0 && (
-              <HealthLine
-                Icon={Users}
-                tone="hsl(212 90% 58%)"
-                title={`${notConnected} student${notConnected === 1 ? "" : "s"} not yet connected`}
-                detail="Add or link students to unlock full insights."
-                href="/settings?tab=roster"
-              />
-            )}
-
-            {inviteSent > 0 && (
-              <HealthLine
-                Icon={Send}
-                tone="hsl(38 92% 50%)"
-                title={`${inviteSent} parent invite${inviteSent === 1 ? "" : "s"} sent`}
-                detail="Waiting for parent to accept."
-                href="/settings?tab=roster"
-              />
-            )}
-
-            {total > 0 && (
-              <HealthLine
-                Icon={Mail}
-                tone="hsl(260 55% 60%)"
-                title={`${parentInputsPending} parent input${parentInputsPending === 1 ? "" : "s"} pending`}
-                detail="Responses help personalise recommendations."
-                href="/settings?tab=roster"
-              />
-            )}
-
             {followUpsPending > 0 && (
               <HealthLine
                 Icon={ClipboardCheck}
@@ -438,10 +608,17 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
 
         <div className="rounded-2xl border border-border bg-background p-5">
           <h3 className="font-heading font-bold text-[13.5px] mb-4">Quick actions</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {quickActions.map((qa) => (
-              <QuickActionTile key={qa.key} action={qa} />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+            <ul className="space-y-0.5">
+              {quickActions.slice(0, Math.ceil(quickActions.length / 2)).map((qa) => (
+                <QuickActionRow key={qa.key} action={qa} />
+              ))}
+            </ul>
+            <ul className="space-y-0.5">
+              {quickActions.slice(Math.ceil(quickActions.length / 2)).map((qa) => (
+                <QuickActionRow key={qa.key} action={qa} />
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -486,18 +663,32 @@ function ActionRow({ action }: { action: PriorityAction }) {
 
         <div className="flex items-center gap-3 shrink-0 ml-auto">
           <div className="text-[11.5px] font-semibold text-muted-foreground">{action.meta}</div>
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="h-9 rounded-lg px-4 text-[12px] font-bold gap-1 shrink-0"
-            style={{ borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`, color: tone }}
-          >
-            <Link href={action.href}>
+          {action.onOpenTool ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={action.onOpenTool}
+              className="h-9 rounded-lg px-4 text-[12px] font-bold gap-1 shrink-0"
+              style={{ borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`, color: tone }}
+            >
               {action.cta}
               <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="h-9 rounded-lg px-4 text-[12px] font-bold gap-1 shrink-0"
+              style={{ borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`, color: tone }}
+            >
+              <Link href={action.href ?? "#"}>
+                {action.cta}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </li>
@@ -559,7 +750,7 @@ function HealthLine({
   );
 }
 
-function QuickActionTile({
+function QuickActionRow({
   action,
 }: {
   action: {
@@ -568,38 +759,63 @@ function QuickActionTile({
     Icon: typeof Send;
     tone: string;
     href?: string;
+    onOpenTool?: () => void;
   };
 }) {
   const Icon = action.Icon;
-  const tile = (
-    <div className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 py-4 text-center transition-colors hover:border-primary/40 hover:bg-muted/30">
-      <Icon className="h-5 w-5" strokeWidth={2.2} style={{ color: action.tone }} />
-      <span className="text-[11px] font-semibold leading-tight text-foreground/80">
+  const row = (
+    <span className="group -mx-1.5 flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-muted/40">
+      <span
+        className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+        style={{
+          background: `color-mix(in srgb, ${action.tone} 12%, transparent)`,
+          color: action.tone,
+        }}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={2.4} />
+      </span>
+      <span className="text-[11.5px] font-semibold leading-snug text-foreground/80">
         {action.label}
       </span>
-    </div>
+    </span>
   );
+
+  if (action.onOpenTool) {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={action.onOpenTool}
+          className="w-full text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          {row}
+        </button>
+      </li>
+    );
+  }
 
   if (action.href) {
     return (
-      <Link
-        href={action.href}
-        className="rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-      >
-        {tile}
-      </Link>
+      <li>
+        <Link
+          href={action.href}
+          className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          {row}
+        </Link>
+      </li>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() =>
-        toast("Coming soon", { description: `${action.label} isn't available yet.` })
-      }
-      className="rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-    >
-      {tile}
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={() => toast("Coming soon", { description: `${action.label} isn't available yet.` })}
+        className="w-full text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        {row}
+      </button>
+    </li>
   );
 }

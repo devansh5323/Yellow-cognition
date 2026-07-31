@@ -481,6 +481,61 @@ export function priorityAlert(students: Student[] = STUDENTS): GrowthAlert | nul
   };
 }
 
+/** The second-most-declining pillar — a newer, smaller concern distinct from
+ * the single worst one already surfaced by priorityAlert(). */
+export function newWatchArea(students: Student[] = STUDENTS): GrowthAlert | null {
+  const ch = classHealth(students);
+  const declining = (Object.entries(ch.pillarDelta) as [PillarKey, number][])
+    .filter(([, d]) => d < 0)
+    .sort((a, b) => a[1] - b[1]);
+  const next = declining[1];
+  if (!next) return null;
+  const [pillar, delta] = next;
+  const composites = studentComposites(students);
+  const affected = composites.filter((c) => c.pillars[pillar] < 60).length;
+  const headlines: Record<PillarKey, string> = {
+    academic: "Learning readiness became harder this week",
+    focus: "Focus became harder to hold this week",
+    behavior: "Behaviour expectations became harder to meet this week",
+    task: "Task completion became harder to sustain this week",
+  };
+  return {
+    pillar,
+    pillarLabel: PILLAR_LABELS[pillar],
+    changePct: delta,
+    headline: headlines[pillar],
+    detail: `${affected} students needed repeated reminders this week.`,
+  };
+}
+
+/** The strongest pillar that isn't already the visibleGrowth() headline —
+ * "stayed strong" rather than "grew this week". */
+export function maintainedStrength(students: Student[] = STUDENTS): GrowthAlert | null {
+  const ch = classHealth(students);
+  const growthPillar = visibleGrowth(students)?.pillar;
+  const stable = (Object.entries(ch.pillars) as [PillarKey, number][])
+    .filter(([key]) => key !== growthPillar && (ch.pillarDelta[key] ?? 0) >= 0)
+    .sort((a, b) => b[1] - a[1]);
+  const best = stable[0];
+  if (!best) return null;
+  const [pillar] = best;
+  const composites = studentComposites(students);
+  const strong = composites.filter((c) => c.pillars[pillar] >= 75).length;
+  const headlines: Record<PillarKey, string> = {
+    academic: "Learning readiness remained strong",
+    focus: "Focus remained strong",
+    behavior: "Behaviour and cooperation remained strong",
+    task: "Task completion remained strong",
+  };
+  return {
+    pillar,
+    pillarLabel: PILLAR_LABELS[pillar],
+    changePct: ch.pillarDelta[pillar] ?? 0,
+    headline: headlines[pillar],
+    detail: `${strong} students are showing consistent strength in this area.`,
+  };
+}
+
 /* ─────────────────────────────────────────────────────────
  * Yellow Recommends
  * ───────────────────────────────────────────────────────── */

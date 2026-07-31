@@ -15,6 +15,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { wavePoints, Sparkline } from "@/components/dashboard/Sparkline";
 import {
   classHealth,
   scoreBand,

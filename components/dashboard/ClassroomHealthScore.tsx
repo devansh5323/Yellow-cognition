@@ -87,27 +87,27 @@ export function ClassroomHealthScore() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_auto_1fr_auto_1fr] gap-5 lg:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_auto_1fr_auto_1fr] gap-5 lg:gap-6">
         {/* Score column */}
         <div className="space-y-4 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-baseline gap-1">
+            <div className="flex items-baseline gap-1.5">
               <span
-                className="font-heading font-extrabold text-[40px] leading-none tabular-nums"
+                className="font-heading font-extrabold text-[56px] leading-none tabular-nums"
                 style={{ color: tone }}
               >
                 {ch.score}
               </span>
-              <span className="text-muted-foreground text-[15px] font-bold">/100</span>
+              <span className="text-muted-foreground text-[19px] font-bold">/100</span>
             </div>
             <span
-              className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.10em] px-2 py-1 rounded-full"
+              className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.10em] px-2.5 py-1.5 rounded-full"
               style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
             >
               {overallGood ? (
-                <ShieldCheck className="h-3.5 w-3.5" />
+                <ShieldCheck className="h-4 w-4" />
               ) : (
-                <ShieldAlert className="h-3.5 w-3.5" />
+                <ShieldAlert className="h-4 w-4" />
               )}
               {bandInfo.tag}
             </span>
@@ -127,14 +127,14 @@ export function ClassroomHealthScore() {
             <Info className="h-3 w-3 text-muted-foreground" />
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-background/50 p-3 flex items-start gap-3">
+          <div className="w-fit max-w-full flex items-center gap-2.5 rounded-xl border border-border/60 bg-background/50 px-3 py-2">
             <span
-              className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0"
+              className="h-7 w-7 rounded-lg inline-flex items-center justify-center shrink-0"
               style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-3.5 w-3.5" />
             </span>
-            <p className="text-[13px] leading-snug">
+            <p className="text-[13px] leading-snug whitespace-nowrap">
               <span className="font-heading font-extrabold" style={{ color: GREEN }}>
                 {healthy} of {total} students
               </span>{" "}
@@ -144,11 +144,11 @@ export function ClassroomHealthScore() {
             </p>
           </div>
 
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <span className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0 bg-muted/70 text-muted-foreground">
               <Lightbulb className="h-4 w-4" />
             </span>
-            <p className="text-[12.5px] text-muted-foreground leading-snug">
+            <p className="text-[12.5px] text-muted-foreground leading-snug whitespace-nowrap">
               {areasNeedingSupport > 0
                 ? `Most students are meeting expectations, with ${
                     areasNeedingSupport === 1 ? "one area" : `${areasNeedingSupport} areas`
@@ -161,31 +161,31 @@ export function ClassroomHealthScore() {
         <div className="hidden lg:block w-px bg-border/60" aria-hidden />
 
         {/* Strongest area */}
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2.5">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2">
             <span
-              className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0"
+              className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
               style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-3.5 w-3.5" />
             </span>
             <span
-              className="text-[10.5px] font-bold uppercase tracking-[0.12em]"
+              className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
               style={{ color: GREEN }}
             >
               Strongest area
             </span>
           </div>
           <h3
-            className="font-heading font-extrabold text-[19px] leading-tight"
+            className="font-heading font-extrabold text-[16px] leading-tight"
             style={{ color: GREEN }}
           >
             {PILLAR_DISPLAY[strongest[0]]}
           </h3>
-          <p className="text-[12px] text-muted-foreground leading-snug">
+          <p className="text-[11px] text-muted-foreground leading-snug">
             Strongest contributor to classroom health.
           </p>
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
             {strongDelta >= 0 ? (
               <ArrowUpRight className="h-3 w-3" style={{ color: GREEN }} />
             ) : (
@@ -199,31 +199,31 @@ export function ClassroomHealthScore() {
         <div className="hidden lg:block w-px bg-border/60" aria-hidden />
 
         {/* Needs attention */}
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2.5">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2">
             <span
-              className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0"
+              className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
               style={{ background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}
             >
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="h-3.5 w-3.5" />
             </span>
             <span
-              className="text-[10.5px] font-bold uppercase tracking-[0.12em]"
+              className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
               style={{ color: AMBER }}
             >
               Needs attention
             </span>
           </div>
           <h3
-            className="font-heading font-extrabold text-[19px] leading-tight"
+            className="font-heading font-extrabold text-[16px] leading-tight"
             style={{ color: AMBER }}
           >
             {PILLAR_DISPLAY[weakest[0]]}
           </h3>
-          <p className="text-[12px] text-muted-foreground leading-snug">
+          <p className="text-[11px] text-muted-foreground leading-snug">
             Lowest contributor to classroom health.
           </p>
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
             {weakDelta >= 0 ? (
               <ArrowUpRight className="h-3 w-3" style={{ color: GREEN }} />
             ) : (
@@ -318,14 +318,6 @@ export function ClassroomHealthScore() {
           className="inline-flex items-center gap-1 text-[12px] font-bold text-primary hover:underline"
         >
           See how scores are calculated
-          <ArrowUpRight className="h-3 w-3" />
-        </button>
-        <span className="h-3 w-px bg-border" aria-hidden />
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 text-[12px] font-bold text-primary hover:underline"
-        >
-          View full distribution
           <ArrowUpRight className="h-3 w-3" />
         </button>
       </div>

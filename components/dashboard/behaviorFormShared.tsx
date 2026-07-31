@@ -45,7 +45,7 @@ export function Section({
 
 export function FieldLabel({ children, required }: { children: ReactNode; required?: boolean }) {
   return (
-    <div className="text-[11.5px] font-semibold text-muted-foreground mb-1">
+    <div className="text-[12.5px] font-semibold text-muted-foreground mb-1">
       {children}
       {required && <span className="text-red-500 ml-0.5">*</span>}
     </div>
@@ -218,7 +218,7 @@ export function StudentPickerField({
       <button
         type="button"
         onClick={() => setPickerOpen((v) => !v)}
-        className="w-full flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-[12.5px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+        className="w-full flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-[13.5px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
       >
         <Search className="h-3.5 w-3.5" />
         Choose a student

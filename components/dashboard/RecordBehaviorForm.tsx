@@ -299,7 +299,7 @@ function RecordBehaviorDialog({
             <DialogTitle className="font-heading text-[19px] font-extrabold">
               Record Behaviour
             </DialogTitle>
-            <DialogDescription className="text-[12.5px]">
+            <DialogDescription className="text-[13.5px]">
               Log what happened, where it happened, and what support may be needed.
             </DialogDescription>
           </DialogHeader>
@@ -544,7 +544,7 @@ function RecordBehaviorDialog({
                     rows={3}
                     className="text-[12.5px]"
                   />
-                  <div className="text-right text-[10.5px] text-muted-foreground mt-1">
+                  <div className="text-right text-[11.5px] text-muted-foreground mt-1">
                     {note.length}/250
                   </div>
                 </div>
@@ -558,7 +558,7 @@ function RecordBehaviorDialog({
                 </div>
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     This behaviour maps to
                   </div>
                   <div className="space-y-1">
@@ -574,7 +574,7 @@ function RecordBehaviorDialog({
                 </div>
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     Related skills
                   </div>
                   <ul className="space-y-1 text-[12.5px]">
@@ -589,7 +589,7 @@ function RecordBehaviorDialog({
 
                 {student && (
                   <div>
-                    <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                    <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                       Pattern insight
                     </div>
                     <p className="text-[12px] leading-snug">
@@ -609,7 +609,7 @@ function RecordBehaviorDialog({
                               )}
                               style={{ height: `${Math.max(6, (count / max) * 40)}px` }}
                             />
-                            <span className="text-[9.5px] text-muted-foreground">{DAY_LABELS[i]}</span>
+                            <span className="text-[10.5px] text-muted-foreground">{DAY_LABELS[i]}</span>
                           </div>
                         );
                       })}
@@ -618,7 +618,7 @@ function RecordBehaviorDialog({
                 )}
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     Suggested next steps
                   </div>
                   <ul className="space-y-1.5 text-[12px]">
@@ -633,7 +633,7 @@ function RecordBehaviorDialog({
 
                 <div className="rounded-xl bg-amber-500/10 p-3 flex items-start gap-2">
                   <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <p className="text-[11.5px] leading-snug text-muted-foreground">
+                  <p className="text-[12.5px] leading-snug text-muted-foreground">
                     <span className="font-bold text-foreground">Tip:</span> Consistent logging helps
                     Yellow identify patterns and recommend the right support.
                   </p>
@@ -643,7 +643,7 @@ function RecordBehaviorDialog({
           </div>
 
           <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-border shrink-0">
-            <label className="flex items-center gap-2 text-[12.5px] font-semibold text-muted-foreground cursor-pointer">
+            <label className="flex items-center gap-2 text-[13.5px] font-semibold text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={saveAnother}
@@ -705,8 +705,8 @@ function SeverityCard({
           {title}
         </span>
       </div>
-      <div className="text-[11px] font-semibold text-muted-foreground mt-1">{subtitle}</div>
-      <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{detail}</div>
+      <div className="text-[12px] font-semibold text-muted-foreground mt-1">{subtitle}</div>
+      <div className="text-[12px] text-muted-foreground mt-1 leading-snug">{detail}</div>
     </button>
   );
 }

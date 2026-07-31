@@ -25,4 +25,9 @@ export const PALETTE = {
 
   charcoal: "#3A342E",
   charcoalDeep: "#2A2620",
+
+  // a gentle, warm grey for the brief "quiet room" beat — desaturated, never
+  // stark or cold, so an unattended Fumi reads as "missing you" not "bleak"
+  mist: "#C7C0AE",
+  mistDeep: "#A79E89",
 } as const;

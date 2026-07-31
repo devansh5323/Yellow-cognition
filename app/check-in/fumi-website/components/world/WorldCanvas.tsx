@@ -12,15 +12,18 @@ import { ThresholdZone } from "./zones/ThresholdZone";
 import { PlayIslands } from "./zones/PlayIslands";
 import { CareZone } from "./zones/CareZone";
 import { GrowthGarden } from "./zones/GrowthGarden";
+import { ConsequencesZone } from "./zones/ConsequencesZone";
 import { ParentObservatory } from "./zones/ParentObservatory";
 
 export function WorldCanvas({
   rawProgressRef,
   careActionRef,
+  revivedRef,
   reducedMotion,
 }: {
   rawProgressRef: React.MutableRefObject<number>;
   careActionRef: React.MutableRefObject<CareActionEvent | null>;
+  revivedRef: React.MutableRefObject<number>;
   reducedMotion: boolean;
 }) {
   const dampedProgressRef = useRef(0);
@@ -49,7 +52,7 @@ export function WorldCanvas({
       <color attach="background" args={[PALETTE.cream]} />
       <fog attach="fog" args={[PALETTE.cream, 9, 42]} />
 
-      <WorldLighting progressRef={dampedProgressRef} />
+      <WorldLighting progressRef={dampedProgressRef} revivedRef={revivedRef} />
       <CameraRig
         rawProgressRef={rawProgressRef}
         dampedProgressRef={dampedProgressRef}
@@ -63,12 +66,14 @@ export function WorldCanvas({
         <PlayIslands progressRef={dampedProgressRef} />
         <CareZone progressRef={dampedProgressRef} />
         <GrowthGarden progressRef={dampedProgressRef} />
+        <ConsequencesZone progressRef={dampedProgressRef} revivedRef={revivedRef} />
         <ParentObservatory progressRef={dampedProgressRef} />
         <FumiCompanion
           progressRef={dampedProgressRef}
           pointerRef={pointerRef}
           pointerActiveRef={pointerActiveRef}
           careActionRef={careActionRef}
+          revivedRef={revivedRef}
           reducedMotion={reducedMotion}
         />
       </Suspense>

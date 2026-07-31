@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { Compass, Gamepad2, Heart, Sparkles, Utensils, Volume2, VolumeX } from "lucide-react";
 import { FloatingCTA } from "./FloatingCTA";
 import { WatchDemoCTA } from "./WatchDemoCTA";
@@ -39,8 +39,9 @@ const CHAPTERS = [
   { key: "play", start: ZONES.play.start, roman: "III", title: "Play & Discover" },
   { key: "care", start: ZONES.care.start, roman: "IV", title: "A Living Friend" },
   { key: "grow", start: ZONES.grow.start, roman: "V", title: "Growing Every Day" },
-  { key: "parents", start: ZONES.parents.start, roman: "VI", title: "For Parents" },
-  { key: "goodnight", start: ZONES.goodnight.start, roman: "VII", title: "Goodnight" },
+  { key: "consequences", start: ZONES.consequences.start, roman: "VI", title: "Every Choice Matters" },
+  { key: "parents", start: ZONES.parents.start, roman: "VII", title: "For Parents" },
+  { key: "goodnight", start: ZONES.goodnight.start, roman: "VIII", title: "Goodnight" },
 ] as const;
 const CHAPTER_FADE_IN = 0.02;
 const CHAPTER_HOLD = 0.06;
@@ -59,6 +60,14 @@ const CARE_BUTTONS_START = ZONES.care.start + 0.02;
 const CARE_BUTTONS_END = ZONES.care.end - 0.02;
 const CARE_FADE_SPAN = 0.03;
 
+// "I'm Back" appears once she's had a moment to settle in alone, and
+// disappears once she's been reunited (or the visitor scrolls on through
+// without clicking — the same auto-resolve fallback plays the same reunion)
+const REVIVE_BUTTON_START = ZONES.consequences.start + 0.05;
+const REVIVE_BUTTON_END = ZONES.consequences.end - 0.05;
+const REVIVE_FADE_SPAN = 0.02;
+const AUTO_REVIVE_P = ZONES.consequences.end - 0.05;
+
 export function FumiWorldExperience() {
   const storyRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -70,6 +79,8 @@ export function FumiWorldExperience() {
   const careButtonsRef = useRef<HTMLDivElement>(null);
   const careActionRef = useRef<CareActionEvent | null>(null);
   const careActionTokenRef = useRef(0);
+  const reviveButtonRef = useRef<HTMLDivElement>(null);
+  const revivedRef = useRef(0);
   const pointerNormRef = useRef({ x: 0, y: 0 });
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -84,6 +95,12 @@ export function FumiWorldExperience() {
     careActionRef.current = { action, token: careActionTokenRef.current };
     audio.playChime(action);
   }
+
+  const handleRevive = useCallback(() => {
+    if (revivedRef.current > 0) return;
+    revivedRef.current += 1;
+    audio.playChime("reunite");
+  }, [audio]);
 
   useEffect(() => {
     function handleMove(e: PointerEvent) {
@@ -126,6 +143,24 @@ export function FumiWorldExperience() {
         careButtonsRef.current.style.pointerEvents = careOpacity > 0.4 ? "auto" : "none";
       }
 
+      // Consequences zone: the room quiets down; if the visitor scrolls all
+      // the way through without clicking "I'm Back", the same reunion still
+      // plays automatically so the beat always resolves warmly, never stuck sad
+      const inConsequences = p >= ZONES.consequences.start && p <= ZONES.consequences.end;
+      audio.setHushed(inConsequences && revivedRef.current === 0);
+      if (revivedRef.current === 0 && p >= AUTO_REVIVE_P) {
+        handleRevive();
+      }
+      if (reviveButtonRef.current) {
+        const revived = revivedRef.current > 0;
+        const showFadeIn = Math.min(1, Math.max(0, (p - REVIVE_BUTTON_START) / REVIVE_FADE_SPAN));
+        const showFadeOut = 1 - Math.min(1, Math.max(0, (p - (REVIVE_BUTTON_END - REVIVE_FADE_SPAN)) / REVIVE_FADE_SPAN));
+        const reviveOpacity =
+          revived || p < REVIVE_BUTTON_START || p > REVIVE_BUTTON_END ? 0 : Math.min(showFadeIn, showFadeOut);
+        reviveButtonRef.current.style.opacity = String(reviveOpacity);
+        reviveButtonRef.current.style.pointerEvents = reviveOpacity > 0.4 ? "auto" : "none";
+      }
+
       // chapter title card: at most one chapter's window is active at a time
       let matched = false;
       for (const chapter of CHAPTERS) {
@@ -154,13 +189,18 @@ export function FumiWorldExperience() {
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [reducedMotion, rawProgressRef]);
+  }, [reducedMotion, rawProgressRef, audio, handleRevive]);
 
   return (
     <>
       <div ref={storyRef} className="relative h-[900vh] w-full bg-[#2A2620]">
         <div className="sticky top-0 h-screen w-full overflow-hidden">
-          <WorldCanvas rawProgressRef={rawProgressRef} careActionRef={careActionRef} reducedMotion={reducedMotion} />
+          <WorldCanvas
+            rawProgressRef={rawProgressRef}
+            careActionRef={careActionRef}
+            revivedRef={revivedRef}
+            reducedMotion={reducedMotion}
+          />
 
           {/* cinematic vignette + film grain, cheap CSS overlay instead of an extra postFX pass */}
           <div
@@ -240,6 +280,23 @@ export function FumiWorldExperience() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* "I'm Back" — the whole point of the Consequences beat: one small
+              act of returning brings her whole world back to life */}
+          <div
+            ref={reviveButtonRef}
+            className="pointer-events-none absolute inset-x-0 bottom-12 z-20 flex justify-center px-6"
+            style={{ opacity: 0 }}
+          >
+            <button
+              type="button"
+              onClick={handleRevive}
+              className="flex items-center gap-2.5 rounded-full bg-black/15 px-6 py-3 text-[#FAF5EC] backdrop-blur-md transition-colors hover:bg-black/25"
+            >
+              <Heart className="h-4 w-4" />
+              <span className="font-body text-sm font-semibold">I&apos;m Back</span>
+            </button>
           </div>
 
           <button

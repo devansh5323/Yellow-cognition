@@ -38,7 +38,7 @@ const STOPS: Stop[] = [
     selector: 'section[aria-label="How each area is doing"]',
     title: "Four KPIs, one glance",
     body: "Learning, Focus, Behavior, and Task completion — each card shows how many students sit under it. Click Learning to drill in.",
-    Icon: BarChart3,
+    Icon: BarChart3, 
     position: "bottom",
   },
   {

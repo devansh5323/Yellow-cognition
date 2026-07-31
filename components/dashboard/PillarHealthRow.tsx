@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -326,6 +326,7 @@ function wavePoints(end: number, seed: number, count = 7): number[] {
 }
 
 function Sparkline({ data, tone }: { data: number[]; tone: string }) {
+  const [hover, setHover] = useState<number | null>(null);
   const w = 100;
   const h = 28;
   const min = Math.min(...data);
@@ -338,11 +339,37 @@ function Sparkline({ data, tone }: { data: number[]; tone: string }) {
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7" preserveAspectRatio="none" aria-hidden>
-      <path d={path} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={1.6} fill={tone} />
-      ))}
-    </svg>
+    <div className="relative w-full h-7">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
+        <path d={path} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={1.6} fill={tone} />
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={6}
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          </g>
+        ))}
+      </svg>
+      {hover !== null && (
+        <div
+          className="absolute -translate-x-1/2 -translate-y-full rounded-md border border-border/70 bg-popover px-1.5 py-0.5 text-[10px] font-bold tabular-nums shadow-md pointer-events-none"
+          style={{
+            left: `${points[hover].x}%`,
+            top: `${(points[hover].y / h) * 100}%`,
+            marginTop: "-4px",
+            color: tone,
+          }}
+        >
+          {Math.round(data[hover])}
+        </div>
+      )}
+    </div>
   );
 }

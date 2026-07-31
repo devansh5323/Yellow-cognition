@@ -2,28 +2,7 @@
 
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowRight,
-  CalendarCheck,
-  CalendarClock,
-  CalendarPlus,
-  Clock,
-  FileText,
-  Footprints,
-  HeartHandshake,
-  Lightbulb,
-  MessageSquare,
-  Share2,
-  ShieldCheck,
-  Sparkles,
-  SquareCheck,
-  TrendingUp,
-  User,
-  Users,
-  UsersRound,
-  WandSparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Sparkles, User, Users, UsersRound, type LucideIcon } from "lucide-react";
 import { topSupportAreas, recommendations, type SupportArea, type Recommendation } from "@/lib/classHealth";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -32,60 +11,17 @@ const RED = "hsl(0 78% 58%)";
 const AMBER = "hsl(38 92% 55%)";
 const GREEN = "hsl(142 55% 45%)";
 
-type TierAction = { label: string; Icon: LucideIcon };
-
 type TierMeta = {
   tier: string;
   category: string;
   tone: string;
   Icon: LucideIcon;
-  actions: TierAction[];
 };
 
 const TIERS: TierMeta[] = [
-  {
-    tier: "Tier 1",
-    category: "Whole Class",
-    tone: GREEN,
-    Icon: UsersRound,
-    actions: [
-      { label: "Use this strategy", Icon: WandSparkles },
-      { label: "Generate class task idea", Icon: Lightbulb },
-      { label: "Add to weekly plan", Icon: CalendarPlus },
-      { label: "Log strategy tried", Icon: SquareCheck },
-      { label: "Review next week", Icon: Clock },
-    ],
-  },
-  {
-    tier: "Tier 2",
-    category: "Small Group",
-    tone: AMBER,
-    Icon: Users,
-    actions: [
-      { label: "Create small group", Icon: Users },
-      { label: "Generate group workout", Icon: Footprints },
-      { label: "View students", Icon: User },
-      { label: "Draft parent message", Icon: MessageSquare },
-      { label: "Log intervention", Icon: CalendarCheck },
-      { label: "Review in 2 weeks", Icon: CalendarPlus },
-    ],
-  },
-  {
-    tier: "Tier 3",
-    category: "Individual Support",
-    tone: RED,
-    Icon: User,
-    actions: [
-      { label: "Refer to support team", Icon: HeartHandshake },
-      { label: "Share with special educator", Icon: Share2 },
-      { label: "Schedule 1:1 Tier 3 conference", Icon: CalendarClock },
-      { label: "Generate parent meeting note", Icon: MessageSquare },
-      { label: "Prepare observation summary", Icon: FileText },
-      { label: "View student profile", Icon: User },
-      { label: "Log follow-up", Icon: ShieldCheck },
-      { label: "Track response", Icon: TrendingUp },
-    ],
-  },
+  { tier: "Tier 1", category: "Whole Class", tone: GREEN, Icon: UsersRound },
+  { tier: "Tier 2", category: "Small Group", tone: AMBER, Icon: Users },
+  { tier: "Tier 3", category: "Individual Support", tone: RED, Icon: User },
 ];
 
 export function WeeklyFocus() {
@@ -123,7 +59,7 @@ export function WeeklyFocus() {
         <header className="relative z-10 flex items-end justify-between gap-3 flex-wrap mb-4">
           <div>
             <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
-              This week's focus
+              This week&apos;s focus
             </h2>
             <p className="text-[12px] text-muted-foreground mt-1">
               Top {pairs.length} supports your class needs this week — one for each PBIS tier.
@@ -166,7 +102,7 @@ function FocusRow({
       className="rounded-2xl border border-border/60 bg-background/40 border-l-4 overflow-hidden"
       style={{ borderLeftColor: tone }}
     >
-      <div className="p-5 grid grid-cols-1 lg:grid-cols-[minmax(220px,260px)_72px_minmax(230px,290px)_minmax(0,1fr)] gap-4 lg:gap-5 lg:items-center">
+      <div className="p-5 grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_72px_minmax(260px,1.3fr)] gap-4 lg:gap-5 lg:items-center">
         {/* Tier + issue */}
         <div className="flex items-start gap-3 min-w-0">
           <span
@@ -217,31 +153,14 @@ function FocusRow({
           </div>
           {rec && (
             <>
-              <h3 className="font-heading font-extrabold text-[15px] leading-snug mt-1">
+              <h3 className="font-heading font-extrabold text-[15px] leading-snug mt-1 max-w-[46ch]">
                 {rec.title}.
               </h3>
-              <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{rec.rationale}</p>
+              <p className="text-[12px] text-muted-foreground mt-1 leading-snug max-w-[52ch]">
+                {rec.rationale}
+              </p>
             </>
           )}
-        </div>
-
-        {/* Actions */}
-        <div className="min-w-0">
-          <div className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2">
-            Actions
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {meta.actions.map((a) => (
-              <button
-                key={a.label}
-                type="button"
-                className="w-[84px] shrink-0 rounded-xl border border-border/60 bg-background/30 px-2 py-2.5 flex flex-col items-center justify-center gap-1.5 text-center transition-colors hover:border-[color-mix(in_srgb,var(--primary)_30%,var(--border))]"
-              >
-                <a.Icon className="h-4 w-4" style={{ color: tone }} />
-                <span className="text-[9.5px] font-semibold leading-tight">{a.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

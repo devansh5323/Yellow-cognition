@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronRight, ClipboardCheck, Clock, Mic, Star, Users } from "lucide-react";
 
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/checkInTools";
 import { getPendingFollowUpCount, getPendingFollowUps } from "@/lib/interventionFollowUps";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
+import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -39,6 +40,7 @@ function readStats(): ToolStats {
 export function TeacherCheckInTools() {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<ToolStats | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const refresh = () => setStats(readStats());
@@ -124,6 +126,9 @@ export function TeacherCheckInTools() {
     },
   ];
 
+  const primaryTools = tools.slice(0, 2);
+  const moreTools = tools.slice(2);
+
   return (
     <motion.section
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
@@ -147,10 +152,48 @@ export function TeacherCheckInTools() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          {tools.map((tool) => (
+          {primaryTools.map((tool) => (
             <ToolCard key={tool.key} tool={tool} />
           ))}
         </div>
+
+        <AnimatePresence initial={false}>
+          {moreOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: EASE }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                {moreTools.map((tool) => (
+                  <ToolCard key={tool.key} tool={tool} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-expanded={moreOpen}
+          className="mt-3 w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <ChevronRight
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+                moreOpen && "-rotate-90",
+              )}
+            />
+            <span className="text-[12.5px] font-bold">{moreOpen ? "Hide tools" : "More tools"}</span>
+          </span>
+          <span className="text-[11px] text-muted-foreground shrink-0 truncate">
+            {moreOpen ? "Show fewer" : moreTools.map((t) => t.title).join(" · ")}
+          </span>
+        </button>
       </div>
     </motion.section>
   );

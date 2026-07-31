@@ -11,20 +11,41 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { ArrowUpRight, ArrowDownRight, Lightbulb } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import {
+  Activity,
+  ArrowUpRight,
+  ArrowDownRight,
+  BookOpen,
+  Calendar as CalendarIcon,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Lightbulb,
+  Shield,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 import { classHealth, classHealthTrend, yellowInsight, type PillarKey } from "@/lib/classHealth";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 type LineKey = "overall" | PillarKey;
 
-const LINES: { key: LineKey; label: string; tone: string }[] = [
-  { key: "overall", label: "Overall", tone: "hsl(142 55% 45%)" },
-  { key: "academic", label: "Learning", tone: "hsl(212 90% 58%)" },
-  { key: "focus", label: "Focus", tone: "hsl(38 92% 55%)" },
-  { key: "behavior", label: "Behavior", tone: "hsl(280 60% 60%)" },
-  { key: "task", label: "Tasks", tone: "hsl(0 78% 58%)" },
+// Icon + tone match the canonical pillar identity used in PillarHealthRow, so
+// this filter reads consistently with the rest of the dashboard.
+const LINES: { key: LineKey; label: string; tone: string; Icon: LucideIcon }[] = [
+  { key: "overall", label: "Classroom Health Score", tone: "hsl(38 92% 50%)", Icon: Activity },
+  { key: "focus", label: "Attention & Focus", tone: "hsl(212 90% 58%)", Icon: Target },
+  { key: "academic", label: "Learning Readiness", tone: "hsl(142 55% 45%)", Icon: BookOpen },
+  { key: "behavior", label: "Behaviour & Discipline", tone: "hsl(262 60% 62%)", Icon: Shield },
+  { key: "task", label: "Task Engagement", tone: "hsl(28 88% 54%)", Icon: ClipboardList },
 ];
 
 export function ProgressOverTime() {
@@ -46,7 +67,7 @@ export function ProgressOverTime() {
       className="space-y-3"
       aria-label="Progress Over Time"
     >
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end gap-3">
         <div>
           <div className="premium-eyebrow">
             <span>Monthly trend</span>
@@ -55,24 +76,36 @@ export function ProgressOverTime() {
             How your class is trending
           </h2>
         </div>
-        <div className="inline-flex rounded-full border border-border/60 bg-card/80 p-0.5 backdrop-blur">
+
+        <div className="flex flex-wrap items-center gap-1.5 justify-self-start md:justify-self-center">
           {LINES.map((l) => {
             const isActive = active === l.key;
+            const Icon = l.Icon;
             return (
               <button
                 key={l.key}
                 onClick={() => setActive(l.key)}
                 className={cn(
-                  "px-3 h-7 rounded-full text-[11.5px] font-bold transition-colors",
+                  "inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[11.5px] font-bold transition-colors",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "border-transparent"
+                    : "border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:border-border",
                 )}
+                style={
+                  isActive
+                    ? { background: `color-mix(in srgb, ${l.tone} 15%, transparent)`, color: l.tone }
+                    : undefined
+                }
               >
+                <Icon className="h-3.5 w-3.5" />
                 {l.label}
               </button>
             );
           })}
+        </div>
+
+        <div className="justify-self-start md:justify-self-end">
+          <TimeRangeFilter />
         </div>
       </div>
 
@@ -81,7 +114,10 @@ export function ProgressOverTime() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {LINES.find((l) => l.key === active)?.label} score
+                {(() => {
+                  const label = LINES.find((l) => l.key === active)?.label ?? "";
+                  return /score$/i.test(label) ? label : `${label} score`;
+                })()}
               </div>
               <div className="font-heading font-bold text-[14.5px] mt-0.5">
                 Last 5 weeks · best week highlighted
@@ -198,6 +234,132 @@ export function ProgressOverTime() {
         </div>
       </div>
     </motion.section>
+  );
+}
+
+const TIME_PRESETS = ["Today", "This Week", "This Month", "This Term"] as const;
+type TimePreset = (typeof TIME_PRESETS)[number] | "Custom range";
+
+function TimeRangeFilter() {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<TimePreset>("This Month");
+  const [pickingRange, setPickingRange] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>();
+
+  function closePopover() {
+    setOpen(false);
+    setPickingRange(false);
+  }
+
+  function choosePreset(preset: TimePreset) {
+    if (preset === "This Month") {
+      setSelected(preset);
+      closePopover();
+      return;
+    }
+    toast("Coming soon", {
+      description: `Trend data for "${preset}" isn't available yet — showing the last 5 weeks.`,
+    });
+    closePopover();
+  }
+
+  function applyCustomRange() {
+    toast("Coming soon", {
+      description: "Custom date range trend data isn't available yet — showing the last 5 weeks.",
+    });
+    setRange(undefined);
+    closePopover();
+  }
+
+  const label = selected === "Custom range" ? "Custom range" : selected;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setPickingRange(false);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted/40 transition-colors shrink-0"
+        >
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          {label}
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-[240px] rounded-2xl border border-border/70 bg-popover/95 backdrop-blur p-1.5 shadow-xl shadow-black/5"
+      >
+        {!pickingRange ? (
+          <div className="flex flex-col">
+            {TIME_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => choosePreset(preset)}
+                className={cn(
+                  "flex items-center justify-between rounded-lg px-3 py-2 text-[12.5px] font-semibold text-left transition-colors hover:bg-muted/60",
+                  selected === preset ? "text-primary" : "text-foreground/85",
+                )}
+              >
+                {preset}
+                {selected === preset && <Check className="h-3.5 w-3.5" />}
+              </button>
+            ))}
+
+            <div className="my-1 h-px bg-border/60" />
+
+            <button
+              type="button"
+              onClick={() => setPickingRange(true)}
+              className={cn(
+                "flex items-center justify-between rounded-lg px-3 py-2 text-[12.5px] font-semibold text-left transition-colors hover:bg-muted/60",
+                selected === "Custom range" ? "text-primary" : "text-foreground/85",
+              )}
+            >
+              Custom date range
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <div className="p-0.5">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={setRange}
+              numberOfMonths={1}
+              className="p-0"
+            />
+            <div className="flex items-center justify-between gap-2 mt-1 px-1.5 pb-1">
+              <button
+                type="button"
+                onClick={() => setPickingRange(false)}
+                className="text-[11.5px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back
+              </button>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-[11.5px]"
+                disabled={!range?.from || !range?.to}
+                onClick={() => {
+                  setSelected("Custom range");
+                  applyCustomRange();
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

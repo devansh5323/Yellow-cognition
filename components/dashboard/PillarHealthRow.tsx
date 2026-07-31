@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -311,5 +311,66 @@ export function PillarHealthRow() {
         </div>
       </div>
     </motion.section>
+  );
+}
+
+/** Deterministic wavy trend line — anchors the last point to the live score. */
+function wavePoints(end: number, seed: number, count = 7): number[] {
+  const amplitude = 6;
+  const raw = Array.from({ length: count }, (_, i) => {
+    const wave =
+      Math.sin(i * 1.15 + seed * 2.1) * amplitude + Math.sin(i * 0.5 + seed * 0.8) * (amplitude * 0.5);
+    return end + wave;
+  });
+  raw[raw.length - 1] = end;
+  return raw.map((v) => Math.max(2, Math.min(98, v)));
+}
+
+function Sparkline({ data, tone }: { data: number[]; tone: string }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const w = 100;
+  const h = 28;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = Math.max(1, max - min);
+  const points = data.map((v, i) => ({
+    x: (i / Math.max(1, data.length - 1)) * w,
+    y: h - ((v - min) / range) * (h - 8) - 4,
+  }));
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+
+  return (
+    <div className="relative w-full h-7">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
+        <path d={path} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={1.6} fill={tone} />
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={6}
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          </g>
+        ))}
+      </svg>
+      {hover !== null && (
+        <div
+          className="absolute -translate-x-1/2 -translate-y-full rounded-md border border-border/70 bg-popover px-1.5 py-0.5 text-[10px] font-bold tabular-nums shadow-md pointer-events-none"
+          style={{
+            left: `${points[hover].x}%`,
+            top: `${(points[hover].y / h) * 100}%`,
+            marginTop: "-4px",
+            color: tone,
+          }}
+        >
+          {Math.round(data[hover])}
+        </div>
+      )}
+    </div>
   );
 }

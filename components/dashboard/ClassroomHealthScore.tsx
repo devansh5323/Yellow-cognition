@@ -84,6 +84,7 @@ export function ClassroomHealthScore() {
       transition={{ duration: 0.5, ease: EASE }}
       className="space-y-3"
       aria-label="Classroom Health Score"
+      data-tour-target="classroom-health"
     >
       <div className="premium-eyebrow">
         <span>Classroom Health</span>

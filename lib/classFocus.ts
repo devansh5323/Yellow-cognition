@@ -4,12 +4,19 @@
 
 import {
   ATTENTION_DOMAINS,
+  DOMAIN_INTERVENTIONS,
   STUDENTS,
   classMonthlyAttention,
   studentAttentionDomains,
   type AttentionDomainKey,
   type Student,
 } from "@/data/mockData";
+import {
+  getBehaviorLogTotalCount,
+  getClassCheckInsThisWeek,
+  getPositiveLogTotalCount,
+} from "@/lib/checkInTools";
+import { getFollowUpProgress } from "@/lib/interventionFollowUps";
 
 /* ─────────────────────────────────────────────────────────
  * Focus Snapshot
@@ -255,7 +262,30 @@ export type AttentionInsight = {
   detail: string;
   tone: AttentionInsightTone;
   iconKey: "clock" | "ear" | "eye" | "timer" | "shuffle" | "layers" | "spark";
+  /** The students this specific pattern is actually about — at-risk students
+   * for watch/warning cards, strong performers for positive ones — so "View
+   * students" links to a real, relevant subset instead of the whole roster. */
+  studentIds: string[];
 };
+
+/** Students below the at-risk threshold (or at/above the strong threshold)
+ * for a given attention sub-domain. */
+function domainStudentIds(
+  students: Student[],
+  key: FocusDomainKey,
+  direction: "at-risk" | "strong",
+): string[] {
+  return students
+    .filter((s) => {
+      const score = studentAttentionDomains(s)[key];
+      return direction === "at-risk" ? score < 55 : score >= 65;
+    })
+    .map((s) => s.id);
+}
+
+function staminaStudentIds(students: Student[], bands: StaminaBand[]): string[] {
+  return students.filter((s) => bands.includes(staminaForPfi(s.pfi))).map((s) => s.id);
+}
 
 /**
  * Surface 4–5 plain-language insights drawn from the class focus picture so
@@ -290,6 +320,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
         "Sustained attention drops mid-session — consider splitting blocks with a 2-minute reset.",
       tone: losesFocusPct >= 40 ? "warning" : "watch",
       iconKey: "clock",
+      studentIds: domainStudentIds(students, "sus", "at-risk"),
     },
     {
       id: "auditory",
@@ -303,6 +334,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
           : "Most students are following spoken instructions on the first pass.",
       tone: auditory.score < 65 ? "warning" : "positive",
       iconKey: "ear",
+      studentIds: domainStudentIds(students, "aud", auditory.score < 65 ? "at-risk" : "strong"),
     },
     {
       id: "delayed-init",
@@ -311,6 +343,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
         "Students take longer than expected to begin once instructions end — visual schedules help.",
       tone: delayedStartPct >= 35 ? "warning" : "watch",
       iconKey: "timer",
+      studentIds: domainStudentIds(students, "swi", "at-risk"),
     },
     {
       id: "switching",
@@ -324,6 +357,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
           : "Class is shifting between tasks without losing pace.",
       tone: switching.score < 65 ? "watch" : "positive",
       iconKey: "shuffle",
+      studentIds: domainStudentIds(students, "swi", switching.score < 65 ? "at-risk" : "strong"),
     },
     {
       id: "stamina-mix",
@@ -342,6 +376,10 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
             ? "watch"
             : "positive",
       iconKey: "layers",
+      studentIds: staminaStudentIds(
+        students,
+        distractedPct + fluctuatingPct > 30 ? ["distracted", "fluctuating"] : ["focused"],
+      ),
     },
     {
       id: "visual",
@@ -355,6 +393,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
           : "Reading and visual instruction follow-through is consistent.",
       tone: visual.score < 65 ? "watch" : "positive",
       iconKey: "eye",
+      studentIds: domainStudentIds(students, "vis", visual.score < 65 ? "at-risk" : "strong"),
     },
     {
       id: "divided",
@@ -368,6 +407,7 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
           : "Most students are managing 2-step tasks without re-prompting.",
       tone: divided.score < 60 ? "watch" : "positive",
       iconKey: "spark",
+      studentIds: domainStudentIds(students, "div", divided.score < 60 ? "at-risk" : "strong"),
     },
   ];
 
@@ -626,4 +666,146 @@ export function focusCheckInFrictionScore(answers: Record<string, string>): {
   const offset = weighted + 2 * FOCUS_CHECKIN_QUESTIONS.length;
   const pct = Math.round((offset / Math.max(1, range)) * 100);
   return { score: weighted, max, pct };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Data Sources & Confidence
+ * ───────────────────────────────────────────────────────── */
+
+export type DataConfidenceLevel = "strong" | "good" | "needs-more-data";
+
+export const DATA_CONFIDENCE_LABEL: Record<DataConfidenceLevel, string> = {
+  strong: "Strong",
+  good: "Good",
+  "needs-more-data": "Needs more data",
+};
+
+export const DATA_CONFIDENCE_TONE: Record<DataConfidenceLevel, string> = {
+  strong: "hsl(142 55% 45%)",
+  good: "hsl(212 90% 58%)",
+  "needs-more-data": "hsl(38 92% 50%)",
+};
+
+export type DataSourcesSnapshot = {
+  gamesActiveStudents: number;
+  gamesTotalStudents: number;
+  observationCount: number;
+  checkInCount: number;
+  positiveLogCount: number;
+  followUpsCompleted: number;
+  followUpsTotal: number;
+  confidence: DataConfidenceLevel;
+};
+
+/** Pulls together the same real signals already tracked elsewhere in the app
+ * (neurogame play, behaviour notes, class check-ins, positive logs, and
+ * intervention follow-ups) into one "how much can I trust this page" snapshot.
+ * No new mock data — the confidence label is a simple coverage heuristic over
+ * these 5 signals, not a fabricated score. */
+export function dataSourcesSnapshot(
+  teacherName: string,
+  students: Student[] = STUDENTS,
+): DataSourcesSnapshot {
+  const gamesTotalStudents = students.length;
+  const gamesActiveStudents = students.filter((s) => s.gamesPlayed > 0).length;
+  const observationCount = getBehaviorLogTotalCount();
+  const checkInCount = getClassCheckInsThisWeek(teacherName);
+  const positiveLogCount = getPositiveLogTotalCount();
+  const { completed: followUpsCompleted, total: followUpsTotal } = getFollowUpProgress();
+
+  const signals = [
+    gamesTotalStudents > 0 && gamesActiveStudents / gamesTotalStudents >= 0.5,
+    observationCount >= 5,
+    checkInCount >= 1,
+    positiveLogCount >= 3,
+    followUpsTotal === 0 || followUpsCompleted / followUpsTotal >= 0.5,
+  ];
+  const strongSignals = signals.filter(Boolean).length;
+  const confidence: DataConfidenceLevel =
+    strongSignals >= 4 ? "strong" : strongSignals >= 3 ? "good" : "needs-more-data";
+
+  return {
+    gamesActiveStudents,
+    gamesTotalStudents,
+    observationCount,
+    checkInCount,
+    positiveLogCount,
+    followUpsCompleted,
+    followUpsTotal,
+    confidence,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Students Needing Focus Support
+ * ───────────────────────────────────────────────────────── */
+
+export type FocusSupportStatus = "watch" | "needs-support";
+
+export const FOCUS_SUPPORT_STATUS_LABEL: Record<FocusSupportStatus, string> = {
+  watch: "Watch",
+  "needs-support": "Needs Support",
+};
+
+export const FOCUS_SUPPORT_STATUS_TONE: Record<FocusSupportStatus, string> = {
+  watch: "hsl(38 92% 48%)",
+  "needs-support": "hsl(0 78% 52%)",
+};
+
+/** Short, plain-language reason a sub-domain is a student's weakest —
+ * distinct from FOCUS_DOMAIN_DESCRIPTION (which describes what the domain
+ * measures in general, not why a specific student is struggling with it). */
+export const FOCUS_DOMAIN_WEAKNESS_REASON: Record<FocusDomainKey, string> = {
+  sus: "Loses focus after 10–15 minutes",
+  vis: "Misses details in visual instructions",
+  aud: "High sensitivity to auditory distractions",
+  sel: "Easily distracted by classroom noise",
+  div: "Struggles to manage multiple tasks at once",
+  swi: "Takes longer to shift between tasks",
+};
+
+export type FocusSupportRow = {
+  student: Student;
+  score: number;
+  status: FocusSupportStatus;
+  trend: number;
+  topDomain: FocusDomainKey;
+  topDomainLabel: string;
+  topDomainScore: number;
+  topDomainReason: string;
+  evidence: string;
+  recommendedActions: string[];
+};
+
+/** Students whose overall focus score isn't yet "strong", ranked worst-first,
+ * each paired with their single weakest attention sub-domain — the same
+ * domain data that powers the sub-domain breakdown above, just re-sliced
+ * per student instead of per domain. */
+export function focusSupportRoster(students: Student[] = STUDENTS): FocusSupportRow[] {
+  return students
+    .map((s) => {
+      const overallStatus = statusFromScore(s.pfi);
+      const domainScores = studentAttentionDomains(s);
+      const topDomain = FOCUS_DOMAIN_ORDER.reduce(
+        (weakest, key) => (domainScores[key] < domainScores[weakest] ? key : weakest),
+        FOCUS_DOMAIN_ORDER[0],
+      );
+      const topDomainScore = Math.round(domainScores[topDomain]);
+      const topDomainLabel = FOCUS_DOMAIN_LABEL[topDomain];
+      if (overallStatus === "strong") return null;
+      return {
+        student: s,
+        score: Math.round(s.pfi),
+        status: overallStatus === "at-risk" ? ("needs-support" as const) : ("watch" as const),
+        trend: Math.round(s.pfi - s.pfiPrevCheckIn),
+        topDomain,
+        topDomainLabel,
+        topDomainScore,
+        topDomainReason: FOCUS_DOMAIN_WEAKNESS_REASON[topDomain],
+        evidence: `Scored ${topDomainScore}/100 on ${topDomainLabel} — from Attention Hero activity and teacher observations.`,
+        recommendedActions: DOMAIN_INTERVENTIONS[topDomain],
+      };
+    })
+    .filter((r): r is FocusSupportRow => r !== null)
+    .sort((a, b) => a.score - b.score);
 }

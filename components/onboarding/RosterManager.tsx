@@ -558,7 +558,7 @@ function RosterTable({ roster }: { roster: RosterStudent[] }) {
   };
 
   return (
-    <div>
+    <div data-tour-target="invite-all">
       <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
         <div className="premium-eyebrow">
           <Users className="h-3 w-3" />

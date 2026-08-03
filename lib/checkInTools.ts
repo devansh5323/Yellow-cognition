@@ -4,6 +4,7 @@
 // persistence when that lands.
 
 import { listCheckInsForTeacher } from "@/lib/checkIn";
+import { markTaskDone } from "@/lib/onboarding";
 
 export type LoggedEvent = { at: string; studentId?: string };
 
@@ -42,18 +43,28 @@ const POSITIVE_KEY = "ah_positive_log_events";
 
 export function logBehaviorEvent(studentId?: string) {
   appendLog(BEHAVIOR_KEY, "ah-behavior-log-change", studentId);
+  markTaskDone("behavior-log");
 }
 
 export function logPositiveEvent(studentId?: string) {
   appendLog(POSITIVE_KEY, "ah-positive-log-change", studentId);
+  markTaskDone("positive-log");
 }
 
 export function getBehaviorLogCountThisWeek(): number {
   return readLog(BEHAVIOR_KEY).filter((e) => isThisWeek(e.at)).length;
 }
 
+export function getBehaviorLogTotalCount(): number {
+  return readLog(BEHAVIOR_KEY).length;
+}
+
 export function getPositiveLogCountThisWeek(): number {
   return readLog(POSITIVE_KEY).filter((e) => isThisWeek(e.at)).length;
+}
+
+export function getPositiveLogTotalCount(): number {
+  return readLog(POSITIVE_KEY).length;
 }
 
 export function getBehaviorLogCountThisWeekForStudent(studentId: string): number {

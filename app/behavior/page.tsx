@@ -19,6 +19,7 @@ import { DisruptionBreakdown } from "@/components/dashboard/DisruptionBreakdown"
 import { BehaviorTriggersActions } from "@/components/dashboard/BehaviorTriggersActions";
 import { BehaviorTrendTracking } from "@/components/dashboard/BehaviorTrendTracking";
 import { BehaviorSupportTable } from "@/components/dashboard/BehaviorSupportTable";
+import { PbisProgressLog } from "@/components/dashboard/PbisProgressLog";
 import { MonthlyBehaviorCheckIn } from "@/components/dashboard/MonthlyBehaviorCheckIn";
 import {
   classBehaviorSnapshot,
@@ -123,6 +124,9 @@ function BehaviorPage({ classroom }: { classroom: string }) {
 
         {/* Support roster */}
         <BehaviorSupportTable items={supportRoster} />
+
+        {/* PBIS progress monitoring — log of every strategy tried */}
+        <PbisProgressLog />
 
         {/* Monthly check-in */}
         <MonthlyBehaviorCheckIn />

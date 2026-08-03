@@ -106,6 +106,21 @@ function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTab]);
 
+  // Deep link from the FTUE checklist's "Send parent invites" step — scroll to
+  // and pulse the roster table's invite actions once it's mounted.
+  useEffect(() => {
+    if (tab !== "roster" || searchParams?.get("highlight") !== "invites") return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector("[data-tour-target='invite-all']");
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-pulse");
+      window.setTimeout(() => el.classList.remove("ring-pulse"), 2400);
+    }, 350);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const handleTabChange = (value: string) => {
     const next = value as SettingsTab;
     setTab(next);

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/dashboard/AppShell";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUp,
@@ -43,7 +43,9 @@ import { cn } from "@/lib/utils";
 export default function Page() {
   return (
     <AppShell>
-      <StudentsPage />
+      <Suspense fallback={null}>
+        <StudentsPage />
+      </Suspense>
     </AppShell>
   );
 }
@@ -68,8 +70,14 @@ function attentionIndex(s: Student) {
 
 function StudentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const reduce = useReducedMotion();
   const overridesVersion = useOverridesVersion();
+
+  const idFilterList = useMemo(() => {
+    const ids = searchParams?.get("ids");
+    return ids ? ids.split(",").filter(Boolean) : null;
+  }, [searchParams]);
 
   const [query, setQuery] = useState("");
   const [risk, setRisk] = useState<RiskLevel | "all">("all");
@@ -114,11 +122,13 @@ function StudentsPage() {
   }, [classFiltered]);
 
   const filtered = useMemo(() => {
-    let list = classFiltered.filter((s) => {
-      if (risk !== "all" && s.risk !== risk) return false;
-      if (query && !s.name.toLowerCase().includes(query.toLowerCase())) return false;
-      return true;
-    });
+    let list = idFilterList
+      ? enriched.filter((s) => idFilterList.includes(s.id))
+      : classFiltered.filter((s) => {
+          if (risk !== "all" && s.risk !== risk) return false;
+          if (query && !s.name.toLowerCase().includes(query.toLowerCase())) return false;
+          return true;
+        });
     list = [...list].sort((a, b) => {
       switch (sort) {
         case "pfi-desc": return b.pfi - a.pfi;
@@ -132,7 +142,7 @@ function StudentsPage() {
       }
     });
     return list;
-  }, [query, risk, sort, classFiltered]);
+  }, [query, risk, sort, classFiltered, idFilterList, enriched]);
 
   const selectedStudents = useMemo(
     () => STUDENTS.filter((s) => selected.has(s.id)),
@@ -227,59 +237,77 @@ function StudentsPage() {
       </motion.section>
 
       {/* ───────────── Table filters: risk pills + inline search ───────────── */}
-      <motion.div
-        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.1 } } }}
-        className="flex flex-wrap items-center gap-2"
-      >
-        <span className="premium-eyebrow mr-1"><Filter className="h-3 w-3 text-primary" /><span>Risk</span></span>
-        <div className="flex flex-wrap gap-1.5">
-          {RISKS.map((r) => {
-            const active = risk === r.key;
-            return (
-              <button
-                key={r.key}
-                onClick={() => setRisk(r.key)}
-                className={cn(
-                  "relative px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors",
-                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId={reduce ? undefined : "risk-pill"}
-                    transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                    className="absolute inset-0 rounded-full bg-card shadow-[0_6px_14px_-8px_hsl(230_50%_18%/0.22)] border border-primary/35"
-                    aria-hidden
-                  />
-                )}
-                <span className="relative z-10 inline-flex items-center gap-1.5">
-                  {r.key !== "all" && (
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        r.key === "at-risk" && "bg-destructive",
-                        r.key === "high" && "bg-destructive/75",
-                        r.key === "medium" && "bg-warning",
-                        r.key === "low" && "bg-primary",
-                      )}
+      {idFilterList ? (
+        <motion.div
+          variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.1 } } }}
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/[0.05] px-3.5 py-2.5"
+        >
+          <Filter className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-[12.5px] font-semibold">
+            Showing {filtered.length} student{filtered.length === 1 ? "" : "s"} from a pattern insight
+          </span>
+          <Link
+            href="/students"
+            className="ml-auto text-[12px] font-bold text-primary hover:underline"
+          >
+            Clear
+          </Link>
+        </motion.div>
+      ) : (
+        <motion.div
+          variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.1 } } }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="premium-eyebrow mr-1"><Filter className="h-3 w-3 text-primary" /><span>Risk</span></span>
+          <div className="flex flex-wrap gap-1.5">
+            {RISKS.map((r) => {
+              const active = risk === r.key;
+              return (
+                <button
+                  key={r.key}
+                  onClick={() => setRisk(r.key)}
+                  className={cn(
+                    "relative px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors",
+                    active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId={reduce ? undefined : "risk-pill"}
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      className="absolute inset-0 rounded-full bg-card shadow-[0_6px_14px_-8px_hsl(230_50%_18%/0.22)] border border-primary/35"
+                      aria-hidden
                     />
                   )}
-                  {r.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="premium-search h-9 px-3 w-full sm:w-auto sm:min-w-[240px] sm:ml-auto">
-          <Search className="h-4 w-4 shrink-0 mr-2" />
-          <input
-            placeholder="Search by name…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="text-[12.5px]"
-          />
-        </div>
-      </motion.div>
+                  <span className="relative z-10 inline-flex items-center gap-1.5">
+                    {r.key !== "all" && (
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          r.key === "at-risk" && "bg-destructive",
+                          r.key === "high" && "bg-destructive/75",
+                          r.key === "medium" && "bg-warning",
+                          r.key === "low" && "bg-primary",
+                        )}
+                      />
+                    )}
+                    {r.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="premium-search h-9 px-3 w-full sm:w-auto sm:min-w-[240px] sm:ml-auto">
+            <Search className="h-4 w-4 shrink-0 mr-2" />
+            <input
+              placeholder="Search by name…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="text-[12.5px]"
+            />
+          </div>
+        </motion.div>
+      )}
 
       {/* ───────────── Selection action bar ───────────── */}
       <AnimatePresence>

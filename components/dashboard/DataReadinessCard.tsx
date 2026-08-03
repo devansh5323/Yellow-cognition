@@ -30,7 +30,8 @@ type StepStatus = "done" | "in-progress" | "todo";
 
 type StepAction =
   | { kind: "link"; to: string; search?: Record<string, string> }
-  | { kind: "event"; event: string };
+  | { kind: "event"; event: string; detail?: Record<string, unknown> }
+  | { kind: "scroll"; target: string };
 
 type StepDef = {
   id: "walkthrough" | "connect" | "invite" | "checkin" | "behavior-log" | "positive-log" | "review";
@@ -108,7 +109,7 @@ function buildSteps(stats: InviteStats): StepDef[] {
       description: "Invite parents to provide valuable input.",
       Icon: Send,
       cta: inviteStatus === "done" ? "View roster" : "Send invites",
-      action: { kind: "link", to: "/settings", search: { tab: "roster" } },
+      action: { kind: "link", to: "/settings", search: { tab: "roster", highlight: "invites" } },
       status: inviteStatus,
     },
     {
@@ -126,9 +127,11 @@ function buildSteps(stats: InviteStats): StepDef[] {
       description: "Log a student behavior to track patterns.",
       Icon: MessageCircle,
       cta: "Log behavior",
-      action: { kind: "link", to: "/behavior" },
+      action: { kind: "event", event: "ah-open-behaviour-note", detail: { mode: "negative" } },
       status: tasksDone["behavior-log"] ? "done" : "todo",
-      activationId: "behavior-log",
+      // No activationId here on purpose — this task should only complete once
+      // a behaviour note is actually saved (see markTaskDone in
+      // lib/checkInTools.ts's logBehaviorEvent), not the moment the dialog opens.
     },
     {
       id: "positive-log",
@@ -136,17 +139,17 @@ function buildSteps(stats: InviteStats): StepDef[] {
       description: "Celebrate a strength you noticed in your class.",
       Icon: Heart,
       cta: "Log positive",
-      action: { kind: "link", to: "/behavior" },
+      action: { kind: "event", event: "ah-open-behaviour-note", detail: { mode: "positive" } },
       status: tasksDone["positive-log"] ? "done" : "todo",
-      activationId: "positive-log",
+      // Same as above — completion is derived from logPositiveEvent actually firing.
     },
     {
       id: "review",
       title: "Review your classroom health",
       description: "See your class health score and key insights.",
       Icon: BarChart3,
-      cta: "View dashboard",
-      action: { kind: "link", to: "/dashboard" },
+      cta: "View score",
+      action: { kind: "scroll", target: "[data-tour-target='classroom-health']" },
       status: tasksDone["review-health"] ? "done" : "todo",
       activationId: "review-health",
     },
@@ -432,10 +435,18 @@ function StepRow({
     if (step.activationId) markTaskDone(step.activationId);
   };
 
-  const triggerEvent = () => {
+  const triggerAction = () => {
     markDone();
-    if (step.action.kind !== "event") return;
-    window.dispatchEvent(new CustomEvent(step.action.event));
+    if (step.action.kind === "event") {
+      window.dispatchEvent(new CustomEvent(step.action.event, { detail: step.action.detail }));
+    } else if (step.action.kind === "scroll") {
+      const el = document.querySelector(step.action.target);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-pulse");
+        window.setTimeout(() => el.classList.remove("ring-pulse"), 2400);
+      }
+    }
   };
 
   return (
@@ -503,7 +514,14 @@ function StepRow({
           variant={done ? "outline" : "default"}
           className="h-8 rounded-lg px-3 text-[12px] font-bold gap-1 shrink-0"
         >
-          <Link href={step.action.to} onClick={markDone}>
+          <Link
+            href={
+              step.action.search
+                ? `${step.action.to}?${new URLSearchParams(step.action.search).toString()}`
+                : step.action.to
+            }
+            onClick={markDone}
+          >
             {step.cta}
             {!done && <ArrowRight className="h-3.5 w-3.5" />}
           </Link>
@@ -513,7 +531,7 @@ function StepRow({
           type="button"
           size="sm"
           variant={done ? "outline" : "default"}
-          onClick={triggerEvent}
+          onClick={triggerAction}
           className="h-8 rounded-lg px-3 text-[12px] font-bold gap-1 shrink-0"
         >
           {step.cta}

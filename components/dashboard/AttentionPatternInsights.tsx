@@ -1,7 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Clock, Ear, Eye, Layers, Shuffle, Sparkle, Timer, type LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Clock,
+  Ear,
+  Eye,
+  Layers,
+  Shuffle,
+  Sparkle,
+  Timer,
+  type LucideIcon,
+} from "lucide-react";
 import type { AttentionInsight, AttentionInsightTone } from "@/lib/classFocus";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -102,6 +113,14 @@ export function AttentionPatternInsights({ insights }: { insights: AttentionInsi
                 <p className="mt-1 text-[11.5px] leading-snug text-muted-foreground">
                   {insight.detail}
                 </p>
+                <Link
+                  href={`/students?ids=${insight.studentIds.join(",")}`}
+                  className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline"
+                  style={{ color: tone.hue }}
+                >
+                  View students
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
               </div>
             </motion.li>
           );

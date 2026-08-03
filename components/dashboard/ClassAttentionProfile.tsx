@@ -3,13 +3,9 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import {
-  DOMAIN_INTERVENTIONS,
-  studentAttentionDomains,
-  studentsByAttentionDomain,
-} from "@/data/mockData";
+import { DOMAIN_INTERVENTIONS, studentsByAttentionDomain } from "@/data/mockData";
 import type { FocusDomainKey, FocusDomainStat } from "@/lib/classFocus";
-import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
+import { AttentionSubDomainDrawer } from "@/components/dashboard/AttentionSubDomainDrawer";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -117,16 +113,15 @@ export function ClassAttentionProfile({ domains }: { domains: FocusDomainStat[] 
                 />
               </div>
 
-              <div className="mt-2.5 flex items-start justify-between gap-2">
+              <div className="mt-2.5 flex items-center justify-between gap-2">
                 <p className="text-[11px] leading-snug text-muted-foreground line-clamp-2">
                   {d.description}
                 </p>
                 <span
-                  aria-hidden
-                  className="inline-flex items-center gap-0.5 shrink-0 mt-0.5 text-[10.5px] font-bold uppercase tracking-[0.10em] opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100"
+                  className="inline-flex items-center gap-0.5 shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] transition-transform duration-200 group-hover:translate-x-0.5"
                   style={{ color: d.hue }}
                 >
-                  View
+                  View students
                   <ArrowUpRight className="h-3 w-3" strokeWidth={2.6} />
                 </span>
               </div>
@@ -135,32 +130,13 @@ export function ClassAttentionProfile({ domains }: { domains: FocusDomainStat[] 
         })}
       </div>
 
-      <StudentDrillDialog
+      <AttentionSubDomainDrawer
         open={!!openKey}
         onOpenChange={(o) => !o && setOpenKey(null)}
-        title={activeMeta ? `${activeMeta.label} — affected students` : ""}
-        description={
-          activeStudents.length === 0
-            ? "No students are currently below threshold for this sub-domain."
-            : `${activeStudents.length} student${activeStudents.length === 1 ? "" : "s"} scoring below 55 on ${activeMeta?.label ?? "this sub-domain"}.`
-        }
+        domain={activeMeta}
+        domainKey={openKey}
         students={activeStudents}
-        metricLabel="score"
-        metricValue={(s) => (openKey ? Math.round(studentAttentionDomains(s)[openKey]) : "")}
-        footer={
-          activeInterventions.length > 0 ? (
-            <div>
-              <div className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-muted-foreground mb-1.5">
-                Recommended interventions
-              </div>
-              <ul className="text-[12.5px] space-y-1 list-disc list-inside text-foreground/90">
-                {activeInterventions.map((i) => (
-                  <li key={i}>{i}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null
-        }
+        interventions={activeInterventions}
       />
     </section>
   );

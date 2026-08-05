@@ -5,6 +5,7 @@ import { AppShell } from "@/components/dashboard/AppShell";
 import { DataReadinessCard } from "@/components/dashboard/DataReadinessCard";
 import { ClassroomHealthScore } from "@/components/dashboard/ClassroomHealthScore";
 import { PillarHealthRow } from "@/components/dashboard/PillarHealthRow";
+import { StudentWellbeingRow } from "@/components/dashboard/StudentWellbeingRow";
 import { GrowthAlertRow } from "@/components/dashboard/GrowthAlertRow";
 import { TeacherCheckInTools } from "@/components/dashboard/TeacherCheckInTools";
 import { WeeklyFocus } from "@/components/dashboard/WeeklyFocus";
@@ -36,6 +37,7 @@ function DashboardPage() {
         <DataReadinessCard />
         <ClassroomHealthScore />
         <PillarHealthRow />
+        <StudentWellbeingRow />
         <GrowthAlertRow />
         <TeacherCheckInTools />
         <WeeklyFocus />

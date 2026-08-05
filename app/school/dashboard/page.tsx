@@ -14,6 +14,13 @@ import {
 } from "@/lib/schoolKpis";
 import { SchoolOnboardingChecklist } from "@/components/school/SchoolOnboardingChecklist";
 import { SchoolCoachmarkTour } from "@/components/school/SchoolCoachmarkTour";
+import { SchoolLeadershipActionHub } from "@/components/school/SchoolLeadershipActionHub";
+import { SchoolHealthScoreCard } from "@/components/school/SchoolHealthScoreCard";
+import { SchoolHealthDriverCards } from "@/components/school/SchoolHealthDriverCards";
+import { GradeClassroomOverview } from "@/components/school/GradeClassroomOverview";
+import { TierSupportDistribution } from "@/components/school/TierSupportDistribution";
+import { InterventionImplementation } from "@/components/school/InterventionImplementation";
+import { TeacherClassroomSupportNeeds } from "@/components/school/TeacherClassroomSupportNeeds";
 import { SchoolContextHeader } from "@/components/school/SchoolContextHeader";
 import { SchoolPillarRow } from "@/components/school/SchoolPillarRow";
 import { SchoolGrowthAlertRow } from "@/components/school/SchoolGrowthAlertRow";
@@ -59,6 +66,27 @@ function SchoolDashboard() {
       >
         {/* Tier 0 · Activation */}
         <SchoolOnboardingChecklist />
+
+        {/* Segment 1 · School Data Readiness & Leadership Action Hub */}
+        <SchoolLeadershipActionHub />
+
+        {/* Segment 2 · School Health Score */}
+        <SchoolHealthScoreCard />
+
+        {/* Segment 3 · School Health Driver Cards */}
+        <SchoolHealthDriverCards />
+
+        {/* Segment 4 · Grade & Classroom Overview */}
+        <GradeClassroomOverview />
+
+        {/* Segment 5 · Tier Support Distribution */}
+        <TierSupportDistribution />
+
+        {/* Segment 5.1 · Intervention Implementation */}
+        <InterventionImplementation />
+
+        {/* Segment 6 · Teacher & Classroom Support Needs */}
+        <TeacherClassroomSupportNeeds />
 
         {/* Header · context + filters */}
         <SchoolContextHeader

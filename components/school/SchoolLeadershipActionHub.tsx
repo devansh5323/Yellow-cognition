@@ -126,20 +126,9 @@ export function SchoolLeadershipActionHub() {
   const actions = useMemo(() => buildLeadershipActions(), []);
   const kpis = useMemo(() => getSchoolKpis(), []);
 
-  // A single consistent "healthy" bar (60%) across every ratio — the same
-  // benchmark this app already treats as meaningful elsewhere (see the
-  // "Parent activation crossed 60%" celebration event).
+  // Same 60%-is-healthy benchmark this app already treats as meaningful
+  // elsewhere (see the "Parent activation crossed 60%" celebration event).
   const HEALTHY_BAR = 0.6;
-  const dataHealth = useMemo(() => {
-    const teacherActivityRatio = kpis.totalTeachers > 0 ? kpis.activeTeachers / kpis.totalTeachers : 0;
-    const checkInRatio = kpis.monthlyCheckInsTotal > 0 ? kpis.monthlyCheckInsDone / kpis.monthlyCheckInsTotal : 0;
-    return [
-      { label: "Data quality", good: kpis.dataReadinessPct / 100 >= HEALTHY_BAR },
-      { label: "Consistency", good: teacherActivityRatio >= HEALTHY_BAR },
-      { label: "Timeliness", good: checkInRatio >= HEALTHY_BAR },
-      { label: "Family engagement", good: kpis.parentActivationPct / 100 >= HEALTHY_BAR },
-    ];
-  }, [kpis]);
   const readinessTone =
     kpis.dataReadinessPct / 100 >= HEALTHY_BAR ? "hsl(142 55% 42%)" : "hsl(38 92% 45%)";
 
@@ -177,7 +166,7 @@ export function SchoolLeadershipActionHub() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground shrink-0 transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")}
+            className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
           />
         </span>
       </button>
@@ -192,6 +181,43 @@ export function SchoolLeadershipActionHub() {
             className="overflow-hidden"
           >
             <div className="pt-5 mt-4 border-t border-border/60">
+              {/* School Data Overview — shrunk to a compact strip up top instead of a right-hand column. */}
+              <div className="mb-5 rounded-xl border border-border/60 bg-background/40 p-3.5 flex items-center gap-4 flex-wrap">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground shrink-0">
+                  School Data Overview
+                </span>
+                <div className="flex items-baseline gap-1.5 shrink-0">
+                  <span className="font-heading font-extrabold text-[19px] leading-none tabular-nums text-blue-600 dark:text-blue-400">
+                    {kpis.classroomsConnected}
+                    <span className="text-muted-foreground/70 text-[12px] font-bold"> of {kpis.totalClassrooms}</span>
+                  </span>
+                  <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                    classrooms active
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-border/60 shrink-0" />
+                <div className="flex items-baseline gap-1.5 shrink-0">
+                  <span
+                    className="font-heading font-extrabold text-[19px] leading-none tabular-nums"
+                    style={{ color: readinessTone }}
+                  >
+                    {kpis.dataReadinessPct}%
+                  </span>
+                  <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                    data readiness
+                  </span>
+                </div>
+                <div className="flex-1 min-w-[100px] h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${kpis.dataReadinessPct}%`, background: readinessTone }}
+                  />
+                </div>
+                <span className="text-[10.5px] text-muted-foreground shrink-0">
+                  Last update: Today, {new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-5 xl:gap-0 xl:divide-x divide-border/60">
                 {/* Today's leadership actions */}
                 <div className="xl:pr-6">
@@ -209,43 +235,8 @@ export function SchoolLeadershipActionHub() {
                   </ul>
                 </div>
 
-                {/* School Data Overview */}
+                {/* Remaining data-readiness detail */}
                 <div className="xl:pl-6 space-y-4">
-                  <div>
-                    <h3 className="font-heading font-bold text-[13.5px] mb-3">School Data Overview</h3>
-                    <div className="flex items-stretch gap-4 divide-x divide-border/60">
-                      <div>
-                        <div className="font-heading font-extrabold text-[28px] leading-none tabular-nums text-blue-600 dark:text-blue-400">
-                          {kpis.classroomsConnected}
-                          <span className="text-muted-foreground/70 text-[15px] font-bold"> of {kpis.totalClassrooms}</span>
-                        </div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.10em] text-muted-foreground mt-1">
-                          classrooms active
-                        </div>
-                      </div>
-                      <div className="pl-4">
-                        <div
-                          className="font-heading font-extrabold text-[28px] leading-none tabular-nums"
-                          style={{ color: readinessTone }}
-                        >
-                          {kpis.dataReadinessPct}%
-                        </div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.10em] text-muted-foreground mt-1">
-                          data readiness
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${kpis.dataReadinessPct}%`, background: readinessTone }}
-                      />
-                    </div>
-                    <div className="mt-2 text-[10.5px] text-muted-foreground">
-                      Last update: Today, {new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-2.5">
                     <StatTile Icon={Users} tone="hsl(212 90% 58%)" value={kpis.activeTeachers} label="Active teachers" />
                     <StatTile
@@ -266,27 +257,6 @@ export function SchoolLeadershipActionHub() {
                       value={kpis.followUpsDue}
                       label="Follow-ups due"
                     />
-                  </div>
-
-                  <div>
-                    <h4 className="text-[11.5px] font-bold text-muted-foreground mb-2.5">Data health at a glance</h4>
-                    <ul className="space-y-2">
-                      {dataHealth.map((h) => (
-                        <li key={h.label} className="flex items-center justify-between gap-2">
-                          <span className="text-[12px] font-semibold text-foreground/85">{h.label}</span>
-                          <span
-                            className="inline-flex items-center gap-1.5 text-[11px] font-bold"
-                            style={{ color: h.good ? "hsl(142 55% 42%)" : "hsl(38 92% 45%)" }}
-                          >
-                            <span
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ background: h.good ? "hsl(142 55% 42%)" : "hsl(38 92% 45%)" }}
-                            />
-                            {h.good ? "Good" : "Needs improvement"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
 
                   <div>

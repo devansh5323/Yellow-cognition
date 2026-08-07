@@ -1,24 +1,50 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Activity,
   BarChart3,
   BookOpen,
+  Building2,
+  CalendarDays,
   ChevronDown,
+  GraduationCap,
   HeartHandshake,
   Info,
-  School,
-  ShieldAlert,
+  LayoutGrid,
   ShieldCheck,
   Sparkles,
-  Star,
-  Target,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { schoolHealthOverview, type SchoolDriverKey } from "@/lib/schoolData";
+import {
+  coverageLabelFor,
+  gradeOverviewRows,
+  schoolHealthCoverage,
+  schoolHealthOverview,
+  schoolHealthTrend,
+  schoolPillarMetrics,
+  schoolSupportFocus,
+  type SchoolPillarKey,
+  type SchoolPillarMetric,
+  type SchoolHealthCoverage,
+  type SchoolHealthOverview,
+  type SupportFocusRow,
+} from "@/lib/schoolData";
 import { SCORE_BANDS, type ScoreBand } from "@/lib/classHealth";
 import { cn } from "@/lib/utils";
 
@@ -38,40 +64,50 @@ const STATUS_LABEL: Record<ScoreBand, string> = {
   "needs-support": "Needs Support",
 };
 
-const DRIVER_ICON: Record<SchoolDriverKey, LucideIcon> = {
-  focus: Target,
-  academic: BookOpen,
-  behavior: ShieldCheck,
-  task: BarChart3,
-  positiveBehavior: HeartHandshake,
-  interventionResponse: Users,
+const COVERAGE_TONE: Record<string, string> = {
+  "High coverage": "hsl(142 55% 42%)",
+  "Moderate coverage": "hsl(38 92% 45%)",
+  "Low coverage": "hsl(0 78% 55%)",
 };
 
-const DRIVER_TONE: Record<SchoolDriverKey, string> = {
-  focus: "hsl(212 90% 58%)",
-  academic: "hsl(142 55% 45%)",
-  behavior: "hsl(262 55% 55%)",
-  task: "hsl(28 88% 54%)",
-  positiveBehavior: "hsl(340 70% 58%)",
-  interventionResponse: "hsl(190 65% 45%)",
+const PILLAR_ICON: Record<SchoolPillarKey, LucideIcon> = {
+  studentWellbeing: HeartHandshake,
+  classroomPerformance: BarChart3,
+  teacherEfficiency: Users,
 };
 
-const TIER_TONE: Record<string, string> = {
-  strong: "hsl(142 55% 42%)",
-  solid: "hsl(142 45% 55%)",
-  watch: "hsl(38 92% 48%)",
-  "needs-support": "hsl(28 88% 54%)",
-  intensive: "hsl(0 78% 55%)",
+const PILLAR_TONE: Record<SchoolPillarKey, string> = {
+  studentWellbeing: "hsl(142 55% 42%)",
+  classroomPerformance: "hsl(262 60% 55%)",
+  teacherEfficiency: "hsl(28 88% 54%)",
 };
+
+function comingSoon(action: string) {
+  toast("Coming soon", { description: `${action} isn't available yet.` });
+}
 
 export function SchoolHealthScoreCard() {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(true);
-  const overview = useMemo(() => schoolHealthOverview(), []);
-  const totalClassrooms = useMemo(
-    () => overview.distribution.reduce((acc, d) => acc + d.count, 0),
-    [overview],
-  );
+
+  const gradeLabels = useMemo(() => gradeOverviewRows().map((r) => r.gradeLabel), []);
+  const [gradeFilter, setGradeFilter] = useState("All Grades");
+  const [subjectFilter, setSubjectFilter] = useState("All Subjects");
+  const [periodFilter, setPeriodFilter] = useState("This Week");
+  const [visible, setVisible] = useState<Record<SchoolPillarKey, boolean>>({
+    studentWellbeing: true,
+    classroomPerformance: true,
+    teacherEfficiency: true,
+  });
+
+  const scopedGrade = gradeFilter === "All Grades" ? null : gradeFilter.replace("Grade ", "");
+
+  const overview = useMemo(() => schoolHealthOverview(scopedGrade), [scopedGrade]);
+  const coverage = useMemo(() => schoolHealthCoverage(scopedGrade), [scopedGrade]);
+  const pillars = useMemo(() => schoolPillarMetrics(scopedGrade), [scopedGrade]);
+  const supportFocus = useMemo(() => schoolSupportFocus(scopedGrade), [scopedGrade]);
+  const trend = useMemo(() => schoolHealthTrend(scopedGrade), [scopedGrade]);
+
   const statusTone = STATUS_TONE[overview.status];
 
   return (
@@ -96,7 +132,7 @@ export function SchoolHealthScoreCard() {
             School Health Score
           </h2>
           <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
-            Provides the principal&apos;s north-star measure of overall school functioning.
+            A summary of student well-being, classroom performance and teacher efficiency.
           </p>
         </div>
         <span
@@ -104,7 +140,7 @@ export function SchoolHealthScoreCard() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground shrink-0 transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")}
+            className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
           />
         </span>
       </button>
@@ -118,164 +154,53 @@ export function SchoolHealthScoreCard() {
             transition={{ duration: 0.3, ease: EASE }}
             className="overflow-hidden"
           >
-            <div className="pt-5 mt-4 border-t border-border/60 space-y-5">
-              {/* Score + drivers */}
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-5 xl:gap-0 xl:divide-x divide-border/60">
-                <div className="xl:pr-6">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex items-baseline gap-2">
-                      <span
-                        className="font-heading font-black tabular-nums leading-none text-[68px]"
-                        style={{ color: statusTone }}
-                      >
-                        {overview.score}
-                      </span>
-                      <span className="text-[18px] font-extrabold text-muted-foreground/80">/100</span>
-                    </div>
-                    <div className="flex flex-col gap-1.5 items-start">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
-                        style={{
-                          background: `color-mix(in srgb, ${statusTone} 14%, transparent)`,
-                          color: statusTone,
-                        }}
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        {STATUS_LABEL[overview.status]}
-                      </span>
-                      <div
-                        className="inline-flex items-center gap-1 text-[11.5px] font-bold tabular-nums"
-                        style={{ color: overview.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
-                      >
-                        {overview.delta >= 0 ? "↑" : "↓"} {overview.delta >= 0 ? "+" : ""}
-                        {overview.delta} from last week
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-[12.5px] text-foreground/80 leading-snug mt-4 max-w-[42ch]">
-                    {overview.interpretation}
-                  </p>
-                </div>
-
-                <div className="xl:pl-6">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-3">
-                    Score summarises 6 key drivers
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {overview.drivers.map((d) => {
-                      const Icon = DRIVER_ICON[d.key];
-                      const tone = DRIVER_TONE[d.key];
-                      return (
-                        <div
-                          key={d.key}
-                          className="rounded-xl border p-2.5 flex items-center gap-2"
-                          style={{
-                            borderColor: `color-mix(in srgb, ${tone} 20%, transparent)`,
-                            background: `color-mix(in srgb, ${tone} 5%, transparent)`,
-                          }}
-                        >
-                          <span
-                            className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
-                            style={{ background: `color-mix(in srgb, ${tone} 16%, transparent)`, color: tone }}
-                          >
-                            <Icon className="h-3.5 w-3.5" strokeWidth={2.4} />
-                          </span>
-                          <div className="min-w-0">
-                            <div className="text-[10.5px] font-semibold text-foreground/80 leading-snug line-clamp-2">
-                              {d.label}
-                            </div>
-                            <div
-                              className="font-heading font-extrabold text-[15px] tabular-nums leading-tight"
-                              style={{ color: tone }}
-                            >
-                              {d.score}
-                              <span className="text-[10px] text-muted-foreground font-bold"> /100</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            <div className="pt-5 mt-4 border-t border-border/60 space-y-4">
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-2 flex items-center gap-2 flex-wrap">
+                <FilterSelect
+                  icon={CalendarDays}
+                  value={periodFilter}
+                  onChange={(v) => {
+                    if (v !== "This Week") {
+                      comingSoon("Historical date ranges");
+                      return;
+                    }
+                    setPeriodFilter(v);
+                  }}
+                  options={["This Week", "This Month", "Custom range"]}
+                />
+                <FilterSelect
+                  icon={GraduationCap}
+                  value={gradeFilter}
+                  onChange={setGradeFilter}
+                  options={["All Grades", ...gradeLabels]}
+                />
+                <FilterSelect
+                  icon={BookOpen}
+                  value={subjectFilter}
+                  onChange={(v) => {
+                    if (v !== "All Subjects") {
+                      comingSoon("Subject-level breakdown");
+                      return;
+                    }
+                    setSubjectFilter(v);
+                  }}
+                  options={["All Subjects", "Math", "Reading", "Science"]}
+                />
               </div>
 
-              {/* Strongest / needs attention */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4 flex items-start gap-3">
-                  <span className="h-10 w-10 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center shrink-0">
-                    <Star className="h-[18px] w-[18px]" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground">
-                      Strongest school-wide area
-                    </div>
-                    <div className="font-heading font-extrabold text-[15px] text-emerald-700 dark:text-emerald-400 mt-1">
-                      {overview.strongest.label}
-                    </div>
-                    <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">
-                      Consistently strong across most grades.
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4 flex items-start gap-3">
-                  <span className="h-10 w-10 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center shrink-0">
-                    <ShieldAlert className="h-[18px] w-[18px]" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground">
-                      Area needing attention
-                    </div>
-                    <div className="font-heading font-extrabold text-[15px] text-amber-700 dark:text-amber-400 mt-1">
-                      {overview.weakest.label}
-                    </div>
-                    <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">
-                      {overview.interpretation.split(". ").slice(1).join(". ") || "Lower scores observed this period."}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <ScoreDetailCard
+                overview={overview}
+                coverage={coverage}
+                pillars={pillars}
+                supportFocus={supportFocus}
+                statusTone={statusTone}
+              />
 
-              {/* Classroom distribution */}
-              <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-                <div className="flex items-center gap-2 mb-3.5">
-                  <School className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-heading font-bold text-[13.5px]">Classroom distribution</h3>
-                  <span className="text-[11px] text-muted-foreground">{totalClassrooms} classrooms</span>
-                </div>
-
-                <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/50">
-                  {overview.distribution.map((d) => {
-                    if (d.count <= 0) return null;
-                    return (
-                      <span
-                        key={d.tier}
-                        className="h-full"
-                        style={{ flex: `${d.pct} 1 0`, background: TIER_TONE[d.tier] }}
-                        title={`${d.label}: ${d.count}`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {overview.distribution.map((d) => (
-                    <div key={d.tier} className="min-w-0">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className="h-2 w-2 rounded-full shrink-0"
-                          style={{ background: TIER_TONE[d.tier] }}
-                          aria-hidden
-                        />
-                        <span className="text-[11.5px] font-bold text-foreground/90">{d.label}</span>
-                      </span>
-                      <div className="text-[13px] font-heading font-extrabold tabular-nums mt-1" style={{ color: TIER_TONE[d.tier] }}>
-                        {d.count} <span className="text-[10.5px] text-muted-foreground font-bold">({d.pct}%)</span>
-                      </div>
-                      <p className="text-[10.5px] text-muted-foreground leading-snug mt-0.5">{d.meaning}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <TrendChart
+                trend={trend}
+                visible={visible}
+                onToggle={(key) => setVisible((v) => ({ ...v, [key]: !v[key] }))}
+              />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -304,9 +229,7 @@ export function SchoolHealthScoreCard() {
                     {overview.drivers.map((d) => (
                       <li key={d.key} className="flex items-center justify-between text-[11.5px]">
                         <span className="text-foreground/85">{d.label}</span>
-                        <span className="font-bold tabular-nums" style={{ color: DRIVER_TONE[d.key] }}>
-                          {d.score}
-                        </span>
+                        <span className="font-bold tabular-nums">{d.score}</span>
                       </li>
                     ))}
                   </ul>
@@ -332,3 +255,355 @@ export function SchoolHealthScoreCard() {
     </motion.section>
   );
 }
+
+function FilterSelect({
+  icon: Icon,
+  value,
+  onChange,
+  options,
+}: {
+  icon: LucideIcon;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <div className="relative shrink-0">
+      <Icon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none h-9 pl-8 pr-7 text-[12.5px] font-semibold rounded-lg border border-border/60 bg-card text-foreground hover:border-primary/30 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-colors cursor-pointer max-w-[180px] truncate"
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+    </div>
+  );
+}
+
+function CoverageStat({
+  icon: Icon,
+  label,
+  pct,
+  detail,
+}: {
+  icon: LucideIcon;
+  label: string;
+  pct: number;
+  detail: string;
+}) {
+  const coverageLabel = coverageLabelFor(pct);
+  const tone = COVERAGE_TONE[coverageLabel];
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-3 min-w-0">
+      <span
+        className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0 mb-2"
+        style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
+      </span>
+      <div className="font-heading font-extrabold text-[17px] tabular-nums leading-none">{detail}</div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mt-1">{label}</div>
+      <div className="h-1 w-full rounded-full bg-muted/60 mt-2 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: tone }} />
+      </div>
+      <div className="inline-flex items-center gap-1 text-[10px] font-bold mt-1.5" style={{ color: tone }}>
+        {coverageLabel}
+      </div>
+    </div>
+  );
+}
+
+function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
+  const Icon = PILLAR_ICON[metric.key];
+  const tone = PILLAR_TONE[metric.key];
+
+  return (
+    <div
+      className="rounded-xl border p-3 min-w-0"
+      style={{
+        borderColor: `color-mix(in srgb, ${tone} 22%, var(--border))`,
+        background: `color-mix(in srgb, ${tone} 5%, transparent)`,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0"
+          style={{ background: `color-mix(in srgb, ${tone} 16%, transparent)`, color: tone }}
+        >
+          <Icon className="h-4 w-4" strokeWidth={2.2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10.5px] font-bold text-foreground/85 leading-tight truncate">{metric.label}</div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="font-heading font-extrabold text-[18px] tabular-nums leading-none" style={{ color: tone }}>
+              {metric.score}%
+            </span>
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums"
+              style={{ color: metric.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
+            >
+              {metric.delta >= 0 ? "↑" : "↓"} {Math.abs(metric.delta)}%
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="h-1 w-full rounded-full bg-muted/60 mt-2.5 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, metric.score)}%`, background: tone }} />
+      </div>
+    </div>
+  );
+}
+
+function ScoreDetailCard({
+  overview,
+  coverage,
+  pillars,
+  supportFocus,
+  statusTone,
+}: {
+  overview: SchoolHealthOverview;
+  coverage: SchoolHealthCoverage;
+  pillars: SchoolPillarMetric[];
+  supportFocus: SupportFocusRow[];
+  statusTone: string;
+}) {
+  const classroomsPct =
+    coverage.classroomsTotal > 0 ? Math.round((coverage.classroomsUsed / coverage.classroomsTotal) * 100) : 0;
+  const teachersPct = coverage.teachersTotal > 0 ? Math.round((coverage.teachersUsed / coverage.teachersTotal) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background overflow-hidden">
+      <div
+        className="p-4 md:p-5"
+        style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${statusTone} 7%, transparent), transparent 60%)` }}
+      >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-2">
+              School Health Score
+            </div>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span
+                className="font-heading font-black tabular-nums leading-none text-[52px]"
+                style={{ color: statusTone }}
+              >
+                {overview.score}
+              </span>
+              <span className="text-[13px] font-extrabold text-muted-foreground/80">/100</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold"
+              style={{ background: `color-mix(in srgb, ${statusTone} 14%, transparent)`, color: statusTone }}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              {STATUS_LABEL[overview.status]}
+            </span>
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums"
+              style={{ color: overview.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
+            >
+              {overview.delta >= 0 ? "↑" : "↓"} {Math.abs(overview.delta)} from last week
+            </span>
+          </div>
+        </div>
+        <p className="text-[12px] text-foreground/80 leading-snug mt-3 max-w-[64ch]">{overview.interpretation}</p>
+
+        <div className="mt-4">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2">
+            Complementary scores
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {pillars.map((metric) => (
+              <PillarMiniCard key={metric.key} metric={metric} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-5 pt-4 border-t border-border/60 grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div>
+          <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-3">
+            Coverage
+            <Info className="h-3 w-3" />
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <CoverageStat
+              icon={Building2}
+              label="Classrooms"
+              pct={classroomsPct}
+              detail={`${coverage.classroomsUsed}/${coverage.classroomsTotal}`}
+            />
+            <CoverageStat
+              icon={Users}
+              label="Teachers"
+              pct={teachersPct}
+              detail={`${coverage.teachersUsed}/${coverage.teachersTotal}`}
+            />
+            <CoverageStat
+              icon={Activity}
+              label="Data readiness"
+              pct={coverage.dataReadinessPct}
+              detail={`${coverage.dataReadinessPct}%`}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground">
+            Support Focus
+            <Info className="h-3 w-3" />
+          </div>
+          <p className="text-[10.5px] text-muted-foreground mt-1 mb-2.5">
+            Grades or staff groups needing closer review
+          </p>
+          {supportFocus.length === 0 ? (
+            <p className="text-[11.5px] text-muted-foreground">Nothing currently needs closer review.</p>
+          ) : (
+            <div className="rounded-lg border border-border/60 overflow-hidden">
+              <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 px-2.5 py-1.5 bg-muted/40 text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                <span>Grade / Area</span>
+                <span>Details</span>
+                <span>CTA</span>
+              </div>
+              <ul className="divide-y divide-border/60">
+                {supportFocus.map((row) => (
+                  <li key={row.pillar} className="grid grid-cols-[auto_1fr_auto] gap-x-3 items-center px-2.5 py-2">
+                    <div className="min-w-0">
+                      <div className="text-[11.5px] font-bold">{row.gradeLabel}</div>
+                      <div className="text-[9.5px] text-muted-foreground">{row.area}</div>
+                    </div>
+                    <div className="text-[10.5px] text-foreground/80 leading-snug">{row.details}</div>
+                    <Link
+                      href={row.ctaHref}
+                      className="text-[10.5px] font-bold text-primary hover:underline inline-flex items-center gap-0.5 shrink-0"
+                    >
+                      {row.ctaLabel} →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => comingSoon("The full support-focus list")}
+            className="mt-2.5 text-[11px] font-bold text-primary hover:underline"
+          >
+            View all support items →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrendChart({
+  trend,
+  visible,
+  onToggle,
+}: {
+  trend: ReturnType<typeof schoolHealthTrend>;
+  visible: Record<SchoolPillarKey, boolean>;
+  onToggle: (key: SchoolPillarKey) => void;
+}) {
+  const [periodFilter, setPeriodFilter] = useState("Weekly");
+  const keys: SchoolPillarKey[] = ["studentWellbeing", "classroomPerformance", "teacherEfficiency"];
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <div className="inline-flex items-center gap-1.5 text-[13px] font-bold">
+          School Health Score Trend
+          <Info className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {keys.map((key) => (
+            <label key={key} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <Checkbox
+                checked={visible[key]}
+                onCheckedChange={() => onToggle(key)}
+                style={
+                  visible[key]
+                    ? { borderColor: PILLAR_TONE[key], background: PILLAR_TONE[key] }
+                    : { borderColor: PILLAR_TONE[key] }
+                }
+              />
+              <span className="text-[11.5px] font-bold" style={{ color: PILLAR_TONE[key] }}>
+                {PILLAR_LABEL_SHORT[key]}
+              </span>
+            </label>
+          ))}
+          <FilterSelect
+            icon={CalendarDays}
+            value={periodFilter}
+            onChange={(v) => {
+              if (v !== "Weekly") {
+                comingSoon("Alternate trend granularity");
+                return;
+              }
+              setPeriodFilter(v);
+            }}
+            options={["Weekly", "Monthly"]}
+          />
+          <button
+            type="button"
+            onClick={() => comingSoon("Table view")}
+            className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors shrink-0"
+            aria-label="View as table"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="h-[260px]">
+        <ResponsiveContainer>
+          <LineChart data={trend} margin={{ top: 10, right: 24, left: -10, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" vertical={false} />
+            <XAxis dataKey="weekLabel" stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis domain={[0, 100]} stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
+            <RechartsTooltip
+              contentStyle={{
+                borderRadius: 10,
+                border: "1px solid hsl(240 15% 88%)",
+                background: "hsl(0 0% 100% / 0.98)",
+                backdropFilter: "blur(12px)",
+                boxShadow: "0 10px 28px -12px hsl(230 50% 18% / 0.25)",
+                fontSize: 12,
+              }}
+            />
+            {keys.map(
+              (key) =>
+                visible[key] && (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    name={PILLAR_LABEL_SHORT[key]}
+                    stroke={PILLAR_TONE[key]}
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: PILLAR_TONE[key], strokeWidth: 0 }}
+                    label={{ position: "top", fontSize: 10, fill: PILLAR_TONE[key], fontWeight: 700 }}
+                  />
+                ),
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+const PILLAR_LABEL_SHORT: Record<SchoolPillarKey, string> = {
+  studentWellbeing: "Student Well-being",
+  classroomPerformance: "Classroom Performance Index",
+  teacherEfficiency: "Teacher Efficiency",
+};

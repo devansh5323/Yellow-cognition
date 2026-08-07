@@ -55,6 +55,15 @@ export function getBehaviorLogCountThisWeek(): number {
   return readLog(BEHAVIOR_KEY).filter((e) => isThisWeek(e.at)).length;
 }
 
+/** Raw timestamps of this week's logged behaviour events, class-wide — the
+ * real signal behind the time-of-day pattern (bucketed from the hour each
+ * log was actually submitted). */
+export function getBehaviorLogTimestampsThisWeek(): string[] {
+  return readLog(BEHAVIOR_KEY)
+    .filter((e) => isThisWeek(e.at))
+    .map((e) => e.at);
+}
+
 export function getBehaviorLogTotalCount(): number {
   return readLog(BEHAVIOR_KEY).length;
 }

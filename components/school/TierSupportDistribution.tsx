@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, type TooltipProps } from "recharts";
 import {
   Activity,
   AlertOctagon,
@@ -150,7 +150,7 @@ export function TierSupportDistribution() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground shrink-0 transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")}
+            className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
           />
         </span>
       </button>
@@ -262,13 +262,32 @@ function FilterSelect({
   );
 }
 
+type PieDatum = { name: string; value: number; tier: "tier1" | "tier2" | "tier3" };
+
+function TierDistributionTooltip({ active, payload }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+  const datum = payload[0].payload as PieDatum;
+
+  return (
+    <div className="rounded-[10px] border border-border bg-card/98 backdrop-blur-md shadow-lg px-3 py-2">
+      <div className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full shrink-0" style={{ background: TIER_COLOR[datum.tier] }} />
+        <span className="text-[11.5px] font-bold text-foreground">{datum.name}</span>
+      </div>
+      <div className="text-[11.5px] text-muted-foreground mt-0.5">{datum.value} students</div>
+    </div>
+  );
+}
+
 function TierDistributionPanel({
   pieData,
   distribution,
 }: {
-  pieData: { name: string; value: number; tier: "tier1" | "tier2" | "tier3" }[];
+  pieData: PieDatum[];
   distribution: ReturnType<typeof schoolTierDistribution>;
 }) {
+  const [hovering, setHovering] = useState(false);
+
   return (
     <div className="rounded-xl border border-border/60 bg-background/40 p-4">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -299,23 +318,24 @@ function TierDistributionPanel({
                 paddingAngle={3}
                 cornerRadius={6}
                 strokeWidth={0}
+                onMouseEnter={() => setHovering(true)}
+                onMouseLeave={() => setHovering(false)}
               >
                 {pieData.map((d) => (
                   <Cell key={d.tier} fill={TIER_COLOR[d.tier]} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid hsl(240 15% 90%)",
-                  background: "hsl(0 0% 100% / 0.95)",
-                  fontSize: 12,
-                }}
-                formatter={(value: number, name: string) => [`${value} students`, name]}
-              />
+              <Tooltip content={<TierDistributionTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+          {/* Hidden while hovering so the tooltip never overlaps this label — the
+              chart's small radius otherwise places the tooltip right on top of it. */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 grid place-items-center text-center transition-opacity duration-150",
+              hovering ? "opacity-0" : "opacity-100",
+            )}
+          >
             <div>
               <div className="font-heading font-black text-[26px] tabular-nums leading-none">
                 {distribution.totalStudents}

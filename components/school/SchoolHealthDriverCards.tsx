@@ -13,7 +13,6 @@ import {
   Lightbulb,
   Shield,
   Target,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -64,6 +63,12 @@ const STATUS_LABEL: Record<ScoreBand, string> = {
   "needs-support": "Needs Support",
 };
 
+const COVERAGE_TONE: Record<string, string> = {
+  "High coverage": "hsl(142 55% 42%)",
+  "Moderate coverage": "hsl(38 92% 45%)",
+  "Low coverage": "hsl(0 78% 55%)",
+};
+
 export function SchoolHealthDriverCards() {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(true);
@@ -101,7 +106,7 @@ export function SchoolHealthDriverCards() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground shrink-0 transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")}
+            className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
           />
         </span>
       </button>
@@ -226,34 +231,25 @@ function DriverCard({
           {STATUS_LABEL[card.status]}
         </span>
       </div>
-      <div className="flex items-center justify-between gap-2 mt-1">
-        <div
-          className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums"
-          style={{ color: card.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
-        >
-          {card.delta >= 0 ? "↑" : "↓"} {card.delta >= 0 ? "+" : ""}
-          {card.delta} from last week
-        </div>
-        <div className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
-          <Users className="h-3 w-3" />
-          {card.classroomsContributing} classrooms
-        </div>
+      <div
+        className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums mt-1"
+        style={{ color: card.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
+      >
+        {card.delta >= 0 ? "↑" : "↓"} {Math.abs(card.delta)}% from last week
       </div>
 
-      <p className="text-[11.5px] text-foreground/80 leading-snug mt-3.5 pt-3.5 border-t border-border/60">
-        {card.pattern}
-      </p>
-
-      <div className="flex items-center justify-between gap-2 mt-2.5 flex-wrap">
-        <span
-          className="inline-flex text-[11px] font-bold px-2 py-1 rounded-full"
-          style={{ background: `color-mix(in srgb, ${tone} 12%, transparent)`, color: tone }}
+      <div className="mt-3.5 pt-3.5 border-t border-border/60">
+        <div className="text-[11px] text-foreground/80">
+          Coverage: {card.coverageUsed}/{card.coverageTotal} classrooms
+        </div>
+        <div className="text-[10.5px] text-muted-foreground mt-1">{card.coveragePct}% coverage</div>
+        <div
+          className="inline-flex items-center gap-1 text-[10px] font-bold mt-0.5"
+          style={{ color: COVERAGE_TONE[card.coverageLabel] }}
         >
-          {card.mostVisibleIn}
-        </span>
-        <span className="text-[10.5px] text-muted-foreground font-medium">
-          {card.needAttentionCount} need{card.needAttentionCount === 1 ? "s" : ""} attention
-        </span>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: COVERAGE_TONE[card.coverageLabel] }} />
+          {card.coverageLabel}
+        </div>
       </div>
 
       <button

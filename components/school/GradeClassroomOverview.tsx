@@ -153,7 +153,7 @@ export function GradeClassroomOverview() {
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground shrink-0 transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
         >
           <ChevronDown
-            className={cn("h-4 w-4 transition-transform duration-200", !open && "-rotate-90")}
+            className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")}
           />
         </span>
       </button>

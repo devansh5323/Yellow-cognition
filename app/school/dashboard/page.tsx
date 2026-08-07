@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Users } from "lucide-react";
 import { SchoolAppShell } from "@/components/school/SchoolAppShell";
 import { getSchoolTeachers } from "@/lib/schoolData";
-import {
-  DEFAULT_FILTERS,
-  SCHOOL_CONTEXT,
-  getSchoolKpiList,
-  type FilterKey,
-} from "@/lib/schoolKpis";
+import { DEFAULT_FILTERS, SCHOOL_CONTEXT, type FilterKey } from "@/lib/schoolKpis";
 import { SchoolOnboardingChecklist } from "@/components/school/SchoolOnboardingChecklist";
 import { SchoolCoachmarkTour } from "@/components/school/SchoolCoachmarkTour";
 import { SchoolLeadershipActionHub } from "@/components/school/SchoolLeadershipActionHub";
@@ -21,10 +16,8 @@ import { GradeClassroomOverview } from "@/components/school/GradeClassroomOvervi
 import { TierSupportDistribution } from "@/components/school/TierSupportDistribution";
 import { InterventionImplementation } from "@/components/school/InterventionImplementation";
 import { TeacherClassroomSupportNeeds } from "@/components/school/TeacherClassroomSupportNeeds";
+import { PositiveBehaviourCulture } from "@/components/school/PositiveBehaviourCulture";
 import { SchoolContextHeader } from "@/components/school/SchoolContextHeader";
-import { SchoolPillarRow } from "@/components/school/SchoolPillarRow";
-import { SchoolGrowthAlertRow } from "@/components/school/SchoolGrowthAlertRow";
-import { SchoolFocus } from "@/components/school/SchoolFocus";
 
 export default function Page() {
   return (
@@ -43,7 +36,6 @@ const fadeIn = {
 function SchoolDashboard() {
   const reduce = useReducedMotion();
   const teachers = getSchoolTeachers();
-  const kpis = useMemo(() => getSchoolKpiList(), []);
 
   const [filters, setFilters] =
     useState<Record<FilterKey, string>>(DEFAULT_FILTERS);
@@ -64,6 +56,15 @@ function SchoolDashboard() {
         variants={fadeIn}
         className="relative space-y-6"
       >
+        {/* School performance overview · context + filters */}
+        <SchoolContextHeader
+          context={SCHOOL_CONTEXT}
+          filters={filters}
+          onFilterChange={(key, value) =>
+            setFilters((p) => ({ ...p, [key]: value }))
+          }
+        />
+
         {/* Tier 0 · Activation */}
         <SchoolOnboardingChecklist />
 
@@ -88,23 +89,8 @@ function SchoolDashboard() {
         {/* Segment 6 · Teacher & Classroom Support Needs */}
         <TeacherClassroomSupportNeeds />
 
-        {/* Header · context + filters */}
-        <SchoolContextHeader
-          context={SCHOOL_CONTEXT}
-          filters={filters}
-          onFilterChange={(key, value) =>
-            setFilters((p) => ({ ...p, [key]: value }))
-          }
-        />
-
-        {/* Tier 1 · Where do we stand — 3 compact pillar tiles */}
-        <SchoolPillarRow kpis={kpis} />
-
-        {/* Tier 2 · What changed this month — win + priority alert */}
-        <SchoolGrowthAlertRow />
-
-        {/* Tier 3 · Yellow recommends — prescribed next steps */}
-        <SchoolFocus />
+        {/* Segment 7 · Positive Behaviour Culture */}
+        <PositiveBehaviourCulture />
 
         {/* Footer entry points to detail pages */}
         <CohortFooter

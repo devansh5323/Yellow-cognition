@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   FileText,
@@ -33,6 +35,7 @@ import {
   type CaseloadTier,
 } from "@/lib/specialEdCaseload";
 import {
+  buildPlaceholderAssignments,
   fillPlanTrackerPlaceholders,
   fillReviewQueuePlaceholders,
   placeholderActionHubItems,
@@ -75,18 +78,35 @@ function SpecialistDashboard() {
   const reduce = useReducedMotion();
   const router = useRouter();
 
-  const entries = useMemo(() => getCaseloadEntries(), []);
+  // The full, unfiltered caseload — used as the stable base for the
+  // header filters and for the placeholder pathway assignment (so a
+  // student's placeholder IEP/504 pathway doesn't shift as filters change).
+  const fullEntries = useMemo(() => getCaseloadEntries(), []);
+  const assignments = useMemo(() => buildPlaceholderAssignments(fullEntries), [fullEntries]);
   const gradeOptions = useMemo(() => Array.from(new Set(STUDENTS.map((s) => s.grade))).sort(), []);
   const tierOptions = useMemo(
-    () => Array.from(new Set(entries.map((e) => e.tier))).sort() as CaseloadTier[],
-    [entries],
+    () => Array.from(new Set(fullEntries.map((e) => e.tier))).sort() as CaseloadTier[],
+    [fullEntries],
   );
 
   const [view, setView] = useState<ViewKey>("overview");
   const [grade, setGrade] = useState<string>("all");
   const [tier, setTier] = useState<string>("all");
 
-  const activeViewLabel = VIEW_TABS.find((t) => t.key === view)?.label;
+  // Header filters + the view switch all persist and narrow what every
+  // section below shows — Support Overview keeps the full caseload,
+  // Special Education / 504 filter to that pathway (via the stable
+  // placeholder assignment until a real IEP/504 plan model exists).
+  const entries = useMemo(() => {
+    let result = fullEntries;
+    if (grade !== "all") result = result.filter((e) => e.student.grade === grade);
+    if (tier !== "all") result = result.filter((e) => e.tier === tier);
+    if (view !== "overview") {
+      const wantedPathway = view === "special-education" ? "IEP" : "504";
+      result = result.filter((e) => assignments.get(e.student.id)?.pathway === wantedPathway);
+    }
+    return result;
+  }, [fullEntries, grade, tier, view, assignments]);
 
   // Real, but localStorage-backed — fetched client-side only to avoid an
   // SSR/hydration mismatch, same pattern used on the teacher /behavior page.
@@ -110,8 +130,8 @@ function SpecialistDashboard() {
   const studentsImproving = useMemo(() => studentsImprovingCount(), []);
 
   const reviewQueueRows = useMemo(
-    () => fillReviewQueuePlaceholders(getReviewQueueRows(entries, overduePending)),
-    [entries, overduePending],
+    () => fillReviewQueuePlaceholders(getReviewQueueRows(entries, overduePending), assignments),
+    [entries, overduePending, assignments],
   );
   const planTrackerRows = useMemo(
     () => fillPlanTrackerPlaceholders(getPlanTrackerRows(entries, followUpRecords), entries),
@@ -134,9 +154,16 @@ function SpecialistDashboard() {
   const activeIepCount = reviewQueueRows.filter((r) => r.pathway === "IEP").length;
   const active504Count = reviewQueueRows.filter((r) => r.pathway === "504").length;
   const upcomingReviewsCount = reviewQueueRows.filter(
-    (r) => r.nextReview && +new Date(r.nextReview) <= nowMs + 7 * 24 * 60 * 60 * 1000,
+    (r) =>
+      r.nextReview &&
+      +new Date(r.nextReview) >= nowMs &&
+      +new Date(r.nextReview) <= nowMs + 7 * 24 * 60 * 60 * 1000,
   ).length;
 
+  // Each metric opens its own filtered Review Queue L2 (per L2.2) —
+  // "Overdue Follow-Ups" is the one exception, since it's a Plan &
+  // Follow-Up Tracker concept (pending intervention follow-ups), not a
+  // Review Queue scheduling concept.
   const metricTiles: MetricTile[] = [
     {
       key: "students-to-review",
@@ -152,7 +179,7 @@ function SpecialistDashboard() {
       value: activeIepCount,
       icon: FileText,
       tone: "hsl(258 55% 60%)",
-      onClick: () => setView("special-education"),
+      onClick: () => router.push("/specialist/special-education"),
     },
     {
       key: "active-504-plans",
@@ -160,7 +187,7 @@ function SpecialistDashboard() {
       value: active504Count,
       icon: ShieldCheck,
       tone: "hsl(196 75% 50%)",
-      onClick: () => setView("504"),
+      onClick: () => router.push("/specialist/review-queue?filter=504"),
     },
     {
       key: "overdue-follow-ups",
@@ -176,7 +203,7 @@ function SpecialistDashboard() {
       value: upcomingReviewsCount,
       icon: CalendarClock,
       tone: "hsl(142 55% 42%)",
-      onClick: () => router.push("/specialist/meetings"),
+      onClick: () => router.push("/specialist/review-queue?filter=upcoming"),
     },
     {
       key: "priority-escalations",
@@ -184,7 +211,7 @@ function SpecialistDashboard() {
       value: priorityEscalationsCount,
       icon: AlertTriangle,
       tone: "hsl(38 92% 48%)",
-      onClick: () => router.push("/specialist/review-queue"),
+      onClick: () => router.push("/specialist/review-queue?filter=escalations"),
     },
   ];
 
@@ -253,8 +280,19 @@ function SpecialistDashboard() {
           </div>
 
           {view !== "overview" && (
-            <p className="text-[11.5px] text-muted-foreground italic">
-              The {activeViewLabel} view hasn&apos;t been designed yet — showing overview content below.
+            <p className="text-[11.5px] text-muted-foreground flex flex-wrap items-center gap-2">
+              <span>
+                Showing {entries.length} student{entries.length === 1 ? "" : "s"} on {view === "special-education" ? "an IEP" : "a 504 plan"}.
+              </span>
+              {view === "special-education" && (
+                <Link
+                  href="/specialist/special-education"
+                  className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                >
+                  Open IEP Management
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              )}
             </p>
           )}
         </section>

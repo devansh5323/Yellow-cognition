@@ -285,3 +285,34 @@ export function concernBreakdown(entries: CaseloadEntry[]): ConcernBreakdownEntr
 export function studentsImprovingCount(allStudents: Student[] = STUDENTS): number {
   return studentComposites(allStudents).filter((c) => c.status === "improving").length;
 }
+
+/* ─────────────────────────────────────────────────────────
+ * Review Queue Summary (L2.2). "New referrals" vs "Yellow-generated flags"
+ * needs a real referral-vs-flag distinction that doesn't exist yet (no
+ * structured teacher-referral capture — see RecordBehaviorForm's referral
+ * checkbox, which only writes to free-text notes today), so the split
+ * comes from the caller via `newReferralIds`; everything else here is a
+ * real count over the rows actually on screen.
+ * ───────────────────────────────────────────────────────── */
+
+export type ReviewQueueSummaryStats = {
+  totalAwaitingReview: number;
+  newReferrals: number;
+  yellowGeneratedFlags: number;
+  overdueForReview: number;
+};
+
+export function reviewQueueSummary(
+  rows: ReviewQueueRow[],
+  newReferralIds: Set<string>,
+  nowMs: number,
+): ReviewQueueSummaryStats {
+  const newReferrals = rows.filter((r) => newReferralIds.has(r.studentId)).length;
+  const overdueForReview = rows.filter((r) => r.nextReview && +new Date(r.nextReview) < nowMs).length;
+  return {
+    totalAwaitingReview: rows.length,
+    newReferrals,
+    yellowGeneratedFlags: rows.length - newReferrals,
+    overdueForReview,
+  };
+}

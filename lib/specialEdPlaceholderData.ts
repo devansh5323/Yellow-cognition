@@ -20,21 +20,73 @@ export function placeholderPathwayFor(index: number): PlaceholderPathway {
   return PATHWAYS[index % PATHWAYS.length];
 }
 
-const REVIEW_DAYS_OUT = [2, 5, 9, 14, 20, 3, 7, 11, 16];
+// A mix of past (overdue) and future (upcoming) offsets, so the Review
+// Queue's "overdue" and "upcoming" filters/summary each have something
+// real to show rather than an all-future list.
+const REVIEW_DAYS_OUT = [-3, 2, 5, -6, 9, 14, 3, 7, 11, 16];
 
 export function placeholderNextReviewFor(index: number): string {
   const daysOut = REVIEW_DAYS_OUT[index % REVIEW_DAYS_OUT.length];
   return new Date(Date.now() + daysOut * 24 * 60 * 60 * 1000).toISOString();
 }
 
+export type PlaceholderGoalStatus = "On Track" | "Needs Attention" | "Not Started";
+
+const GOAL_STATUSES: PlaceholderGoalStatus[] = ["On Track", "On Track", "Needs Attention", "Not Started"];
+
+export type PlaceholderAssignment = {
+  pathway: PlaceholderPathway;
+  nextReview: string;
+  /** Whether this is a brand-new (teacher/self) referral vs. a Yellow-
+   * generated flag — real referral capture doesn't exist yet (see
+   * RecordBehaviorForm's "special educator referral" checkbox, which only
+   * folds into free-text notes today), so this is a small stable subset
+   * standing in for it. */
+  isNewReferral: boolean;
+  /** No IEP goal-tracking model exists yet — a small stable subset
+   * standing in for per-goal progress until that model is built. */
+  goalStatus: PlaceholderGoalStatus;
+  /** No related-services (OT/speech/counseling) confirmation model exists
+   * yet — true for a small stable subset, standing in for "teacher/provider
+   * hasn't confirmed this service is happening as written." */
+  servicesAwaitingConfirmation: boolean;
+};
+
+/** Assigns each student a stable pathway + next-review date + referral
+ * flag, keyed by student ID, built once from the *full, unfiltered*
+ * caseload. Stable keying matters once the header filters (grade/status/
+ * view) can shrink `entries` before it reaches this function elsewhere —
+ * without it, a given student's placeholder pathway would flicker
+ * depending on which index they happened to land at after filtering. */
+export function buildPlaceholderAssignments(fullEntries: CaseloadEntry[]): Map<string, PlaceholderAssignment> {
+  const map = new Map<string, PlaceholderAssignment>();
+  fullEntries.forEach((e, i) => {
+    map.set(e.student.id, {
+      pathway: placeholderPathwayFor(i),
+      nextReview: placeholderNextReviewFor(i),
+      isNewReferral: i === 0,
+      goalStatus: GOAL_STATUSES[i % GOAL_STATUSES.length],
+      servicesAwaitingConfirmation: i % 3 === 0,
+    });
+  });
+  return map;
+}
+
 /** Fills Review Queue's "Pathway" and "Next Review" columns wherever the
- * real derivation came back empty. */
-export function fillReviewQueuePlaceholders(rows: ReviewQueueRow[]): ReviewQueueRow[] {
-  return rows.map((row, i) => ({
-    ...row,
-    pathway: row.pathway === "Not yet assigned" ? placeholderPathwayFor(i) : row.pathway,
-    nextReview: row.nextReview ?? placeholderNextReviewFor(i),
-  }));
+ * real derivation came back empty, using the stable per-student assignment
+ * so a student's placeholder pathway doesn't change as filters are applied. */
+export function fillReviewQueuePlaceholders(
+  rows: ReviewQueueRow[],
+  assignments: Map<string, PlaceholderAssignment>,
+): ReviewQueueRow[] {
+  return rows.map((row) => {
+    const a = assignments.get(row.studentId);
+    return {
+      ...row,
+      pathway: row.pathway === "Not yet assigned" ? a?.pathway ?? "IEP" : row.pathway,
+      nextReview: row.nextReview ?? a?.nextReview ?? null,
+    };
+  });
 }
 
 type TrackerTemplate = {
@@ -157,6 +209,61 @@ export function placeholderMeetings(entries: CaseloadEntry[]): PlaceholderMeetin
     ...m,
     studentName: entries[i % Math.max(1, entries.length)]?.student.name.split(" ")[0] ?? "—",
   })).filter(() => entries.length > 0);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Review Queue Trend — "is the workload increasing, stabilising, or
+ * resolving?" needs real week-over-week history this app doesn't persist
+ * anywhere (same limitation as Support Signals' Overall Support Trend).
+ * Static placeholder datasets per time filter, scaled to a caseload this
+ * size — not derived from anything, purely illustrative until real
+ * history exists.
+ * ───────────────────────────────────────────────────────── */
+
+export type ReviewQueueTrendPeriod = "week" | "month" | "term";
+
+export type ReviewQueueTrendData = {
+  newReferrals: number;
+  studentsReviewed: number;
+  studentsEscalated: number;
+  studentsMovedToMonitoring: number;
+  casesClosed: number;
+  avgDaysAwaitingReview: number;
+  insight: string;
+};
+
+const REVIEW_QUEUE_TREND: Record<ReviewQueueTrendPeriod, ReviewQueueTrendData> = {
+  week: {
+    newReferrals: 1,
+    studentsReviewed: 3,
+    studentsEscalated: 1,
+    studentsMovedToMonitoring: 1,
+    casesClosed: 0,
+    avgDaysAwaitingReview: 4,
+    insight: "Workload is stable this week — reviews are keeping pace with new referrals.",
+  },
+  month: {
+    newReferrals: 4,
+    studentsReviewed: 11,
+    studentsEscalated: 2,
+    studentsMovedToMonitoring: 3,
+    casesClosed: 2,
+    avgDaysAwaitingReview: 5,
+    insight: "Reviews are resolving faster than new referrals are arriving this month.",
+  },
+  term: {
+    newReferrals: 9,
+    studentsReviewed: 26,
+    studentsEscalated: 4,
+    studentsMovedToMonitoring: 7,
+    casesClosed: 6,
+    avgDaysAwaitingReview: 6,
+    insight: "Workload has been increasing gradually this term — escalations are up slightly.",
+  },
+};
+
+export function reviewQueueTrendFor(period: ReviewQueueTrendPeriod): ReviewQueueTrendData {
+  return REVIEW_QUEUE_TREND[period];
 }
 
 /** Action Hub — the three rungs that need IEP/504/meeting data this

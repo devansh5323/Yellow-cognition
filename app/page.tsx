@@ -24,6 +24,7 @@ import {
   Sparkles,
   ShieldCheck,
   Building2,
+  HeartHandshake,
 } from "lucide-react";
 import { signIn, getSession, type UserRole } from "@/lib/auth";
 import { isOnboarded } from "@/lib/onboarding";
@@ -55,6 +56,7 @@ export default function LoginPage() {
 
   const destinationFor = (r: UserRole) => {
     if (r === "admin") return isSchoolOnboarded() ? "/school/dashboard" : "/school/welcome";
+    if (r === "specialEducator") return "/specialist/dashboard";
     return isOnboarded() ? "/dashboard" : "/welcome";
   };
 
@@ -72,13 +74,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [invalidShake, setInvalidShake] = useState(0);
 
+  const PRESET_EMAILS: Record<UserRole, string> = {
+    teacher: "teacher@school.edu",
+    admin: "admin@school.edu",
+    specialEducator: "specialist@school.edu",
+  };
+
   const switchRole = (r: UserRole) => {
     setRole(r);
     setError(null);
-    if (r === "admin" && (!email || email === "teacher@school.edu")) {
-      setEmail("admin@school.edu");
-    } else if (r === "teacher" && (!email || email === "admin@school.edu")) {
-      setEmail("teacher@school.edu");
+    if (!email || (Object.values(PRESET_EMAILS) as string[]).includes(email)) {
+      setEmail(PRESET_EMAILS[r]);
     }
   };
 
@@ -124,7 +130,7 @@ export default function LoginPage() {
   const continueWithGoogle = () => {
     setError(null);
     try {
-      const presetEmail = role === "admin" ? "admin@school.edu" : "teacher@school.edu";
+      const presetEmail = PRESET_EMAILS[role];
       signIn(presetEmail, "google-sso", role);
       router.push(destinationFor(role));
     } catch (err) {
@@ -333,12 +339,18 @@ export default function LoginPage() {
 
               <motion.div variants={rise}>
                 <h2 className="font-heading font-extrabold text-[28px] leading-tight tracking-tight">
-                  {role === "admin" ? "Welcome back, admin" : "Welcome back, teacher"}
+                  {role === "admin"
+                    ? "Welcome back, admin"
+                    : role === "specialEducator"
+                      ? "Welcome back"
+                      : "Welcome back, teacher"}
                 </h2>
                 <p className="mt-1.5 text-[14px] text-muted-foreground">
                   {role === "admin"
                     ? "Sign in to oversee your school's classrooms."
-                    : "Sign in to step into your classroom."}
+                    : role === "specialEducator"
+                      ? "Sign in to manage your student support caseload."
+                      : "Sign in to step into your classroom."}
                 </p>
               </motion.div>
 
@@ -354,14 +366,21 @@ export default function LoginPage() {
                     layoutId={prefersReducedMotion ? undefined : "auth-role-pill"}
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     className={cn(
-                      "absolute top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-[10px]",
+                      "absolute top-1 bottom-1 w-[calc(33.333%-0.1875rem)] rounded-[10px]",
                       "bg-card shadow-[0_4px_14px_-6px_hsl(230_50%_18%/0.18)] border border-border/60"
                     )}
-                    style={{ left: role === "teacher" ? "0.25rem" : "calc(50% + 0rem)" }}
+                    style={{
+                      left:
+                        role === "teacher"
+                          ? "0.25rem"
+                          : role === "admin"
+                            ? "calc(33.333% + 0.0625rem)"
+                            : "calc(66.666% - 0.0625rem)",
+                    }}
                     aria-hidden
                   />
-                  {(["teacher", "admin"] as const).map((r) => {
-                    const Icon = r === "teacher" ? GraduationCap : Building2;
+                  {(["teacher", "admin", "specialEducator"] as const).map((r) => {
+                    const Icon = r === "teacher" ? GraduationCap : r === "admin" ? Building2 : HeartHandshake;
                     const active = role === r;
                     return (
                       <button
@@ -372,12 +391,14 @@ export default function LoginPage() {
                         onClick={() => switchRole(r)}
                         className={cn(
                           "relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-[10px]",
-                          "font-heading font-bold text-[13px] transition-colors",
+                          "font-heading font-bold text-[12px] transition-colors px-1",
                           active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        <Icon className="h-4 w-4" />
-                        {r === "teacher" ? "Teacher" : "School admin"}
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {r === "teacher" ? "Teacher" : r === "admin" ? "School admin" : "Specialist"}
+                        </span>
                       </button>
                     );
                   })}

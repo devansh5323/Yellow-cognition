@@ -61,6 +61,38 @@ export const TIER_PRESSURE_TONE: Record<TierPressure, string> = {
   Critical: "hsl(0 78% 58%)",
 };
 
+export type SupportType =
+  | "Leadership coaching"
+  | "PBIS implementation support"
+  | "Specialist allocation"
+  | "Teacher professional development"
+  | "Tier 2 expansion"
+  | "Safety support"
+  | "Family engagement"
+  | "School improvement planning";
+
+const SUPPORT_TYPES: SupportType[] = [
+  "Leadership coaching",
+  "PBIS implementation support",
+  "Specialist allocation",
+  "Teacher professional development",
+  "Tier 2 expansion",
+  "Safety support",
+  "Family engagement",
+  "School improvement planning",
+];
+
+const RECOMMENDED_ACTION: Record<SupportType, string> = {
+  "Leadership coaching": "Schedule principal coaching sessions this month.",
+  "PBIS implementation support": "Provide targeted PBIS technical assistance.",
+  "Specialist allocation": "Allocate additional specialist days to this school.",
+  "Teacher professional development": "Enroll staff in relevant PD workshops.",
+  "Tier 2 expansion": "Expand Tier 2 group capacity for this school.",
+  "Safety support": "Connect the school with the district safety team.",
+  "Family engagement": "Launch a family engagement outreach plan.",
+  "School improvement planning": "Develop a formal school improvement plan.",
+};
+
 // Rotated across schools to give the comparison table plausible variety —
 // mirrors the 7 District Health Drivers (Segment 3) by label.
 const SCHOOL_DRIVER_LABELS = [
@@ -107,6 +139,8 @@ export type DistrictSchool = {
   nextReviewDate: string;
   actionStatus: SupportActionStatus;
   reasoning: string;
+  resourceNeed: SupportType;
+  recommendedAction: string;
 };
 
 const SCHOOL_NAMES = [
@@ -298,6 +332,7 @@ function buildSchools(): DistrictSchool[] {
       overdueActionPlans,
       pbisImplementation,
     });
+    const resourceNeed = pick(SUPPORT_TYPES, i);
 
     out.push({
       id: `sch_${i + 1}`,
@@ -330,6 +365,8 @@ function buildSchools(): DistrictSchool[] {
       nextReviewDate: pick(REVIEW_DATES, i + 3),
       actionStatus: actionStatusFor(status, i),
       reasoning,
+      resourceNeed,
+      recommendedAction: RECOMMENDED_ACTION[resourceNeed],
     });
   }
 
@@ -955,5 +992,320 @@ export function districtPbisOverview(): DistrictPbisOverview {
       status,
       count: schools.filter((s) => s.actionStatus === status).length,
     })),
+  };
+}
+
+// ───────────────────────────────────────────────────────────
+// Segment 8 — District Resource & Specialist Capacity
+// ───────────────────────────────────────────────────────────
+
+const PSYCH_VACANT_INDEXES = new Set([2, 10, 17]);
+const COUNSELOR_SHORT_INDEXES = new Set([5, 13, 20]);
+const SPECIAL_ED_SHORT_INDEXES = new Set([3, 14, 21]);
+
+export type CoverageStat = { available: number; total: number; pct: number };
+export type TrendStat = { value: number; delta: number };
+
+export type ResourceRecommendation = {
+  id: string;
+  title: string;
+  detail: string;
+  severity: "Critical" | "High" | "Medium" | "Low";
+  tone: string;
+};
+
+export type DistrictResourceCapacity = {
+  totalSchools: number;
+  lastUpdated: string;
+  activeResourceRequests: TrendStat;
+  districtActionsInProgress: TrendStat;
+  completedThisPeriod: TrendStat;
+  overdueActions: TrendStat;
+  specialistAvailabilityPct: number;
+  tier2Enrolled: number;
+  tier2Capacity: number;
+  tier2CapacityPct: number;
+  tier3Caseload: number;
+  tier3Capacity: number;
+  tier3CaseloadPct: number;
+  psychAvailability: CoverageStat;
+  counselorCoverage: CoverageStat;
+  specialEducatorAvailability: CoverageStat;
+  waitlist: number;
+  reviewsOverdue: number;
+  schoolsWithStaffingPressure: number;
+  recommendations: ResourceRecommendation[];
+  totalRecommendations: number;
+  topInsight: string;
+};
+
+function coverageStat(vacantIndexes: Set<number>, total: number): CoverageStat {
+  const available = total - vacantIndexes.size;
+  return { available, total, pct: Math.round((available / total) * 100) };
+}
+
+export function districtResourceCapacity(): DistrictResourceCapacity {
+  const schools = districtSchools();
+  const total = schools.length;
+
+  const tier2Enrolled = schools.reduce((sum, s) => sum + s.tier2Count, 0);
+  const tier2Capacity = Math.round(tier2Enrolled * 1.08);
+  const tier3Caseload = schools.reduce((sum, s) => sum + s.tier3Caseload, 0);
+  const tier3Capacity = schools.reduce((sum, s) => sum + s.tier3Capacity, 0);
+
+  const psychAvailability = coverageStat(PSYCH_VACANT_INDEXES, total);
+  const counselorCoverage = coverageStat(COUNSELOR_SHORT_INDEXES, total);
+  const specialEducatorAvailability = coverageStat(SPECIAL_ED_SHORT_INDEXES, total);
+
+  const waitlist = Math.max(0, tier3Caseload - tier3Capacity) + Math.round(tier2Enrolled * 0.03);
+  const reviewsOverdue = schools.reduce((sum, s) => sum + s.overdueActionPlans, 0);
+
+  const staffingPressureIndexes = new Set<number>([
+    ...PSYCH_VACANT_INDEXES,
+    ...COUNSELOR_SHORT_INDEXES,
+    ...SPECIAL_ED_SHORT_INDEXES,
+  ]);
+
+  const clusterTier3 = new Map<string, { capacity: number; caseload: number }>();
+  for (const s of schools) {
+    const entry = clusterTier3.get(s.cluster) ?? { capacity: 0, caseload: 0 };
+    entry.capacity += s.tier3Capacity;
+    entry.caseload += s.tier3Caseload;
+    clusterTier3.set(s.cluster, entry);
+  }
+  let tightestCluster: string | null = null;
+  let tightestRatio = 1;
+  for (const [cluster, { capacity, caseload }] of clusterTier3) {
+    const ratio = caseload / Math.max(1, capacity);
+    if (ratio > tightestRatio) {
+      tightestRatio = ratio;
+      tightestCluster = cluster;
+    }
+  }
+
+  const middleSchoolsNeedingPbis = schools.filter(
+    (s) => s.gradeBand === "middle" && s.pbisImplementation === "Needs Support",
+  ).length;
+  const risingReferralSchool = schools.find((s) => s.cluster === "East" && s.status !== "strong");
+  const lowDataReadinessCount = schools.filter((s) => s.classroomReportingCoveragePct < 70).length;
+  const pendingFidelityReviews = schools.filter((s) => s.pbisImplementation !== "Strong").length;
+
+  const recommendations: ResourceRecommendation[] = [];
+  const tier3Pct = Math.round(tightestRatio * 100);
+  const tightestClusterSchoolCount = tightestCluster
+    ? schools.filter((s) => s.cluster === tightestCluster).length
+    : 0;
+  if (tightestCluster) {
+    recommendations.push({
+      id: "tier3-slots",
+      title: `Increase Tier 3 specialist coverage in the ${tightestCluster} cluster`,
+      detail: `${tier3Pct}% caseload use across ${tightestClusterSchoolCount} schools · ${reviewsOverdue} overdue reviews`,
+      severity: "Critical",
+      tone: "hsl(0 78% 58%)",
+    });
+  }
+  if (middleSchoolsNeedingPbis > 0) {
+    recommendations.push({
+      id: "pbis-coach",
+      title: `Assign PBIS coach to ${middleSchoolsNeedingPbis} middle school${middleSchoolsNeedingPbis === 1 ? "" : "s"}`,
+      detail: "High behaviour referrals · low PBIS implementation",
+      severity: "High",
+      tone: "hsl(38 92% 55%)",
+    });
+  }
+  if (risingReferralSchool) {
+    recommendations.push({
+      id: "counselling-support",
+      title: `Add temporary counselling support in the ${risingReferralSchool.cluster} cluster`,
+      detail: `Rising well-being referrals · ${risingReferralSchool.classroomReportingCoveragePct}% capacity used`,
+      severity: "Medium",
+      tone: "hsl(38 92% 55%)",
+    });
+  }
+  if (lowDataReadinessCount > 0) {
+    recommendations.push({
+      id: "data-readiness",
+      title: `Launch data-readiness support for ${lowDataReadinessCount} schools`,
+      detail: "Data readiness below 70% · impacting action planning",
+      severity: "Medium",
+      tone: "hsl(38 92% 55%)",
+    });
+  }
+  if (pendingFidelityReviews > 0) {
+    recommendations.push({
+      id: "fidelity-reviews",
+      title: "Schedule PBIS fidelity reviews for remaining schools",
+      detail: `${pendingFidelityReviews} schools due this period`,
+      severity: "Low",
+      tone: "hsl(142 55% 45%)",
+    });
+  }
+
+  const specialistAvailabilityPct = Math.round(
+    (psychAvailability.pct + counselorCoverage.pct + specialEducatorAvailability.pct) / 3,
+  );
+
+  const districtActionsInProgress =
+    schools.filter(
+      (s) =>
+        s.actionStatus === "Coaching assigned" ||
+        s.actionStatus === "Resource review in progress" ||
+        s.actionStatus === "District support plan active",
+    ).length + Math.round(total * 0.9);
+  const completedThisPeriod = Math.round(total * 2.25);
+  const activeResourceRequests = waitlist + staffingPressureIndexes.size + reviewsOverdue;
+
+  const topInsight = tightestCluster
+    ? `prioritising Tier 3 support in the ${tightestCluster} Cluster due to ${tier3Pct}% caseload use and ${reviewsOverdue} overdue reviews.`
+    : `keeping an eye on Tier 3 caseload — currently at ${tier3Pct}% of capacity district-wide.`;
+
+  return {
+    totalSchools: total,
+    lastUpdated: "Today · 8:30 AM",
+    activeResourceRequests: { value: activeResourceRequests, delta: 6 },
+    districtActionsInProgress: { value: districtActionsInProgress, delta: 4 },
+    completedThisPeriod: { value: completedThisPeriod, delta: 12 },
+    overdueActions: { value: reviewsOverdue, delta: 3 },
+    specialistAvailabilityPct,
+    tier2Enrolled,
+    tier2Capacity,
+    tier2CapacityPct: Math.round((tier2Capacity / Math.max(1, tier2Enrolled)) * 100),
+    tier3Caseload,
+    tier3Capacity,
+    tier3CaseloadPct: Math.round((tier3Caseload / Math.max(1, tier3Capacity)) * 100),
+    psychAvailability,
+    counselorCoverage,
+    specialEducatorAvailability,
+    waitlist,
+    reviewsOverdue,
+    schoolsWithStaffingPressure: staffingPressureIndexes.size,
+    recommendations,
+    totalRecommendations: recommendations.length + 7,
+    topInsight,
+  };
+}
+
+// ───────────────────────────────────────────────────────────
+// Segment 8 — Resource Action Log
+// ───────────────────────────────────────────────────────────
+
+export type ResourceActionStatus = "In Progress" | "Scheduled" | "Awaiting Approval" | "Completed" | "Review Due";
+
+export type ResourceActionLogEntry = {
+  id: string;
+  action: string;
+  school: string;
+  cluster: string;
+  owner: string;
+  status: ResourceActionStatus;
+  dueDate: string;
+};
+
+const ACTION_LOG_OWNERS = ["Sarah Johnson", "Michael Chen", "Emily Patel", "David Lee", "Aisha Khan", "James Wilson"];
+
+const ACTION_LOG_LABEL: Record<SupportType, string> = {
+  "Leadership coaching": "PBIS coaching visit",
+  "PBIS implementation support": "PBIS fidelity review",
+  "Specialist allocation": "Provide Tier 3 behaviour support",
+  "Teacher professional development": "Facilitate staff PD session",
+  "Tier 2 expansion": "Tier 2 group support",
+  "Safety support": "Safety support consultation",
+  "Family engagement": "Family engagement outreach",
+  "School improvement planning": "Data-readiness support",
+};
+
+const ACTION_LOG_STATUS: ResourceActionStatus[] = [
+  "In Progress",
+  "Scheduled",
+  "Awaiting Approval",
+  "Completed",
+  "Review Due",
+  "Scheduled",
+];
+
+export function districtResourceActionLog(): ResourceActionLogEntry[] {
+  const needingSupport = schoolsRequiringSupport();
+  const extra = districtSchools().find((s) => s.status === "monitor");
+  const rows = extra ? [...needingSupport, extra] : needingSupport;
+
+  return rows.slice(0, 6).map((school, i) => ({
+    id: school.id,
+    action: ACTION_LOG_LABEL[school.resourceNeed],
+    school: school.name,
+    cluster: `${school.cluster} Cluster`,
+    owner: ACTION_LOG_OWNERS[i % ACTION_LOG_OWNERS.length],
+    status: ACTION_LOG_STATUS[i % ACTION_LOG_STATUS.length],
+    dueDate: `${school.nextReviewDate}, 2026`,
+  }));
+}
+
+// ───────────────────────────────────────────────────────────
+// Segment 9 — Schools Requiring District Support
+// ───────────────────────────────────────────────────────────
+
+/** Schools whose district status is "support-recommended" or "immediate-review" —
+ * the set this segment surfaces, distinct from the broader "monitor" watch-list. */
+export function schoolsRequiringSupport(): DistrictSchool[] {
+  return districtSchools()
+    .filter((s) => s.status === "support-recommended" || s.status === "immediate-review")
+    .sort((a, b) => a.healthScore - b.healthScore);
+}
+
+// ───────────────────────────────────────────────────────────
+// Segment 10 — Positive Behaviour Culture Across the District
+// ───────────────────────────────────────────────────────────
+
+export type PbisExpectation = { label: string; count: number };
+
+export type DistrictPositiveCulture = {
+  totalAcknowledgements: number;
+  studentsRecognized: number;
+  totalStudents: number;
+  topExpectations: PbisExpectation[];
+  schoolsWithStrongRecognition: number;
+  schoolsShowingGrowth: number;
+  celebrationOpportunities: string[];
+  practiceSharingOpportunities: string[];
+};
+
+export function districtPositiveCulture(): DistrictPositiveCulture {
+  const schools = districtSchools();
+  const totalStudents = schools.reduce((sum, s) => sum + s.totalStudents, 0);
+  const pbis = districtPbisOverview();
+
+  const studentsRecognized = Math.round(totalStudents * (pbis.positiveRecognitionPct / 100) * 0.9);
+  const totalAcknowledgements = Math.round(studentsRecognized * 2.4);
+
+  const topExpectations: PbisExpectation[] = [
+    { label: "Respectful Communication", count: Math.round(totalAcknowledgements * 0.32) },
+    { label: "Being Prepared", count: Math.round(totalAcknowledgements * 0.26) },
+    { label: "Safe Choices", count: Math.round(totalAcknowledgements * 0.23) },
+    { label: "Following Directions", count: Math.round(totalAcknowledgements * 0.19) },
+  ];
+
+  const strongRecognitionSchools = schools.filter((s) => s.strongestDriverLabel === "Positive Behaviour Culture");
+  const growthSchools = schools.filter((s) => s.healthDelta > 0);
+
+  const topSchool = [...schools].sort((a, b) => {
+    const aStrong = a.strongestDriverLabel === "Positive Behaviour Culture" ? 1 : 0;
+    const bStrong = b.strongestDriverLabel === "Positive Behaviour Culture" ? 1 : 0;
+    return bStrong - aStrong || b.healthScore - a.healthScore;
+  })[0];
+
+  return {
+    totalAcknowledgements,
+    studentsRecognized,
+    totalStudents,
+    topExpectations,
+    schoolsWithStrongRecognition: strongRecognitionSchools.length,
+    schoolsShowingGrowth: growthSchools.length,
+    celebrationOpportunities: [
+      `Recognise ${topSchool.name} for its district-leading positive behaviour culture.`,
+      `Spotlight the ${strongRecognitionSchools.length} schools sustaining strong recognition this month in the district newsletter.`,
+    ],
+    practiceSharingOpportunities: [
+      `Invite ${topSchool.name} to lead a peer learning session on recognition routines.`,
+      `Pilot ${topSchool.name}'s Tier 1 recognition routine in schools with weaker PBIS implementation.`,
+    ],
   };
 }

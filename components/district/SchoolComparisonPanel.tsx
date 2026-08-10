@@ -68,6 +68,9 @@ export function SchoolComparisonPanel() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [view, setView] = useState<"table" | "quadrant">("table");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAllRows, setShowAllRows] = useState(false);
+
+  const ROW_LIMIT = 5;
 
   const clusters = useMemo(() => Array.from(new Set(schools.map((s) => s.cluster))).sort(), [schools]);
 
@@ -228,14 +231,27 @@ export function SchoolComparisonPanel() {
         </div>
 
         {view === "table" ? (
-          <SchoolTable
-            schools={sorted}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={toggleSort}
-            expandedId={expandedId}
-            onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-          />
+          <>
+            <SchoolTable
+              schools={showAllRows ? sorted : sorted.slice(0, ROW_LIMIT)}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={toggleSort}
+              expandedId={expandedId}
+              onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+            />
+            {sorted.length > ROW_LIMIT && (
+              <button
+                type="button"
+                onClick={() => setShowAllRows((v) => !v)}
+                className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold hover:underline"
+                style={{ color: LINK_BLUE }}
+              >
+                {showAllRows ? "Show fewer schools" : `Show all ${sorted.length} schools`}
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllRows && "rotate-180")} />
+              </button>
+            )}
+          </>
         ) : (
           <QuadrantView schools={sorted} />
         )}

@@ -9,6 +9,9 @@ import { SchoolComparisonPanel } from "@/components/district/SchoolComparisonPan
 import { DistrictTrendRow } from "@/components/district/DistrictTrendRow";
 import { DistrictTierSupportOverview } from "@/components/district/DistrictTierSupportOverview";
 import { DistrictPbisImplementationOverview } from "@/components/district/DistrictPbisImplementationOverview";
+import { DistrictResourceCapacityOverview } from "@/components/district/DistrictResourceCapacityOverview";
+import { SchoolsRequiringSupportPanel } from "@/components/district/SchoolsRequiringSupportPanel";
+import { DistrictPositiveBehaviorCulture } from "@/components/district/DistrictPositiveBehaviorCulture";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const fadeIn = {
@@ -39,6 +42,9 @@ function DistrictDashboard() {
         <DistrictTrendRow />
         <DistrictTierSupportOverview />
         <DistrictPbisImplementationOverview />
+        <DistrictResourceCapacityOverview />
+        <SchoolsRequiringSupportPanel />
+        <DistrictPositiveBehaviorCulture />
       </motion.div>
     </div>
   );

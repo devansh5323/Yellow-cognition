@@ -100,7 +100,9 @@ const ROLES: {
 ];
 
 function mapRole(role: RoleKey): UserRole {
-  return role === "principal" || role === "district" ? "admin" : "teacher";
+  if (role === "principal") return "admin";
+  if (role === "district") return "district";
+  return "teacher";
 }
 
 export default function LoginPage() {
@@ -109,6 +111,7 @@ export default function LoginPage() {
 
   const destinationFor = (r: UserRole) => {
     if (r === "admin") return isSchoolOnboarded() ? "/school/dashboard" : "/school/welcome";
+    if (r === "district") return "/district/dashboard";
     return isOnboarded() ? "/dashboard" : "/welcome";
   };
 

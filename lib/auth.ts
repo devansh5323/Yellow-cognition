@@ -3,7 +3,7 @@
 
 const KEY = "ah_teacher_session";
 
-export type UserRole = "teacher" | "admin";
+export type UserRole = "teacher" | "admin" | "district";
 
 export type TeacherSession = {
   email: string;
@@ -31,7 +31,7 @@ export function signIn(
     throw new Error("Please enter a valid email and password (min 4 characters).");
   }
   const namePart = email.split("@")[0].replace(/[._-]+/g, " ");
-  const fallback = role === "admin" ? "School Admin" : "Teacher";
+  const fallback = role === "admin" ? "School Admin" : role === "district" ? "District Leader" : "Teacher";
   const name = namePart
     .split(" ")
     .filter(Boolean)
@@ -43,7 +43,7 @@ export function signIn(
       .map((w) => w[0])
       .join("")
       .slice(0, 2)
-      .toUpperCase() || (role === "admin" ? "SA" : "T");
+      .toUpperCase() || (role === "admin" ? "SA" : role === "district" ? "DL" : "T");
   const session: TeacherSession = { email, name, initials, role };
   window.localStorage.setItem(KEY, JSON.stringify(session));
   return session;

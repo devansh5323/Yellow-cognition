@@ -86,7 +86,7 @@ const CARDS: WellbeingCard[] = [
   },
   {
     key: "frustration",
-    title: "Frustration Tolerance",
+    title: "Anger & Emotional Regulation",
     Icon: Frown,
     tone: ORANGE,
     score: 64,

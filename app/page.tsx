@@ -101,7 +101,9 @@ const ROLES: {
 ];
 
 function mapRole(role: RoleKey): UserRole {
-  return role === "principal" || role === "district" ? "admin" : "teacher";
+  if (role === "principal") return "admin";
+  if (role === "district") return "district";
+  return "teacher";
 }
 
 export default function LoginPage() {
@@ -110,7 +112,11 @@ export default function LoginPage() {
 
   const destinationFor = (r: UserRole) => {
     if (r === "admin") return isSchoolOnboarded() ? "/school/dashboard" : "/school/welcome";
+<<<<<<< HEAD
     if (r === "specialEducator") return "/specialist/dashboard";
+=======
+    if (r === "district") return "/district/dashboard";
+>>>>>>> 0059461 (Add district-level mock data for Superintendent Dashboard)
     return isOnboarded() ? "/dashboard" : "/welcome";
   };
 

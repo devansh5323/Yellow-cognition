@@ -1,23 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Users } from "lucide-react";
 import { SchoolAppShell } from "@/components/school/SchoolAppShell";
 import { getSchoolTeachers } from "@/lib/schoolData";
-import {
-  DEFAULT_FILTERS,
-  SCHOOL_CONTEXT,
-  getSchoolKpiList,
-  type FilterKey,
-} from "@/lib/schoolKpis";
+import { DEFAULT_FILTERS, SCHOOL_CONTEXT, type FilterKey } from "@/lib/schoolKpis";
 import { SchoolOnboardingChecklist } from "@/components/school/SchoolOnboardingChecklist";
 import { SchoolCoachmarkTour } from "@/components/school/SchoolCoachmarkTour";
+import { SchoolLeadershipActionHub } from "@/components/school/SchoolLeadershipActionHub";
+import { SchoolHealthScoreCard } from "@/components/school/SchoolHealthScoreCard";
+import { SchoolHealthDriverCards } from "@/components/school/SchoolHealthDriverCards";
+import { GradeClassroomOverview } from "@/components/school/GradeClassroomOverview";
+import { TierSupportDistribution } from "@/components/school/TierSupportDistribution";
+import { InterventionImplementation } from "@/components/school/InterventionImplementation";
+import { TeacherClassroomSupportNeeds } from "@/components/school/TeacherClassroomSupportNeeds";
+import { PositiveBehaviourCulture } from "@/components/school/PositiveBehaviourCulture";
 import { SchoolContextHeader } from "@/components/school/SchoolContextHeader";
-import { SchoolPillarRow } from "@/components/school/SchoolPillarRow";
-import { SchoolGrowthAlertRow } from "@/components/school/SchoolGrowthAlertRow";
-import { SchoolFocus } from "@/components/school/SchoolFocus";
 
 export default function Page() {
   return (
@@ -36,7 +36,6 @@ const fadeIn = {
 function SchoolDashboard() {
   const reduce = useReducedMotion();
   const teachers = getSchoolTeachers();
-  const kpis = useMemo(() => getSchoolKpiList(), []);
 
   const [filters, setFilters] =
     useState<Record<FilterKey, string>>(DEFAULT_FILTERS);
@@ -57,10 +56,7 @@ function SchoolDashboard() {
         variants={fadeIn}
         className="relative space-y-6"
       >
-        {/* Tier 0 · Activation */}
-        <SchoolOnboardingChecklist />
-
-        {/* Header · context + filters */}
+        {/* School performance overview · context + filters */}
         <SchoolContextHeader
           context={SCHOOL_CONTEXT}
           filters={filters}
@@ -69,14 +65,32 @@ function SchoolDashboard() {
           }
         />
 
-        {/* Tier 1 · Where do we stand — 3 compact pillar tiles */}
-        <SchoolPillarRow kpis={kpis} />
+        {/* Tier 0 · Activation */}
+        <SchoolOnboardingChecklist />
 
-        {/* Tier 2 · What changed this month — win + priority alert */}
-        <SchoolGrowthAlertRow />
+        {/* Segment 1 · School Data Readiness & Leadership Action Hub */}
+        <SchoolLeadershipActionHub />
 
-        {/* Tier 3 · Yellow recommends — prescribed next steps */}
-        <SchoolFocus />
+        {/* Segment 2 · School Health Score */}
+        <SchoolHealthScoreCard />
+
+        {/* Segment 3 · School Health Driver Cards */}
+        <SchoolHealthDriverCards />
+
+        {/* Segment 4 · Grade & Classroom Overview */}
+        <GradeClassroomOverview />
+
+        {/* Segment 5 · Tier Support Distribution */}
+        <TierSupportDistribution />
+
+        {/* Segment 5.1 · Intervention Implementation */}
+        <InterventionImplementation />
+
+        {/* Segment 6 · Teacher & Classroom Support Needs */}
+        <TeacherClassroomSupportNeeds />
+
+        {/* Segment 7 · Positive Behaviour Culture */}
+        <PositiveBehaviourCulture />
 
         {/* Footer entry points to detail pages */}
         <CohortFooter

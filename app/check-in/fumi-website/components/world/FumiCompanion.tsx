@@ -4,7 +4,17 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoundedBox, Trail } from "@react-three/drei";
-import { BED_POS, ISLAND_T_CENTERS, WANDER_CENTER, WANDER_RADIUS, ZONES, cameraCurve, progressToCurveU } from "./path";
+import {
+  BED_POS,
+  CONSEQUENCES_GREET_POS,
+  CONSEQUENCES_SETTLE_POS,
+  ISLAND_T_CENTERS,
+  WANDER_CENTER,
+  WANDER_RADIUS,
+  ZONES,
+  cameraCurve,
+  progressToCurveU,
+} from "./path";
 import { PALETTE } from "./palette";
 import type { ChimeKind } from "../useSiteAudio";
 
@@ -21,6 +31,33 @@ const SIDE_OFFSET = new THREE.Vector3(0.9, -0.35, 0);
 const REACTION_DURATION = 1.3;
 const BURST_COUNT = 14;
 const BURST_LIFE = 1.1;
+const HEART_BURST_LIFE = 1.6;
+
+// Consequences zone: while unattended she settles alone and slows down; the
+// margins are eased so the transition into/out of the pose is gradual, not a
+// snap, and match the auto-resolve trigger point in FumiWorldExperience.tsx
+const SETTLE_IN_MARGIN = 0.04;
+const SETTLE_OUT_MARGIN = 0.05;
+const CELEBRATE_DURATION = 2.6;
+const HEART_COLORS = [PALETTE.blush, PALETTE.terracotta, PALETTE.goldenYellowLight];
+
+// through the Grow zone she visibly matures — a brief dip to kitten-small
+// right as the zone begins, then a steady rise to slightly-larger-than-her
+// default size by the end, holding that grown size for the rest of the
+// journey. Kept as one continuous curve (no cuts) per "beautiful transition
+// animations... everything happens naturally while scrolling."
+const GROWTH_KITTEN_SCALE = 0.62;
+const GROWTH_GROWN_SCALE = 1.08;
+
+function growthScaleAt(p: number): number {
+  if (p <= ZONES.grow.start) return 1;
+  if (p >= ZONES.grow.end) return GROWTH_GROWN_SCALE;
+  const localT = (p - ZONES.grow.start) / (ZONES.grow.end - ZONES.grow.start);
+  if (localT <= 0.15) {
+    return THREE.MathUtils.lerp(1, GROWTH_KITTEN_SCALE, THREE.MathUtils.smoothstep(localT, 0, 0.15));
+  }
+  return THREE.MathUtils.lerp(GROWTH_KITTEN_SCALE, GROWTH_GROWN_SCALE, THREE.MathUtils.smoothstep(localT, 0.15, 1));
+}
 
 export type CareActionEvent = { action: ChimeKind; token: number };
 
@@ -29,12 +66,14 @@ export function FumiCompanion({
   pointerRef,
   pointerActiveRef,
   careActionRef,
+  revivedRef,
   reducedMotion,
 }: {
   progressRef: React.MutableRefObject<number>;
   pointerRef: React.MutableRefObject<{ x: number; y: number }>;
   pointerActiveRef: React.MutableRefObject<boolean>;
   careActionRef: React.MutableRefObject<CareActionEvent | null>;
+  revivedRef: React.MutableRefObject<number>;
   reducedMotion: boolean;
 }) {
   const root = useRef<THREE.Group>(null);
@@ -53,6 +92,7 @@ export function FumiCompanion({
   const cheekL = useRef<THREE.Mesh>(null);
   const cheekR = useRef<THREE.Mesh>(null);
   const arm = useRef<THREE.Group>(null);
+  const tailGroup = useRef<THREE.Group>(null);
 
   const awakeAmount = useRef(0);
   const waving = useRef(false);
@@ -72,12 +112,19 @@ export function FumiCompanion({
 
   const burstGroup = useRef<THREE.Group>(null);
   const burstMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const burstMatRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
   const burstVelocities = useRef(Array.from({ length: BURST_COUNT }, () => new THREE.Vector3()));
   const burstActiveSince = useRef<number | null>(null);
+  const burstGravity = useRef(1.6);
+  const burstLife = useRef(BURST_LIFE);
   const burstColors = useMemo(
     () => [PALETTE.softBlue, PALETTE.goldenYellow, PALETTE.forestGreen, PALETTE.blush, PALETTE.cream],
     []
   );
+
+  // Consequences zone: settling in alone, and the one-shot "I'm Back" reunion
+  const lastRevivedToken = useRef(0);
+  const reviveStartElapsed = useRef<number | null>(null);
 
   useFrame((state, delta) => {
     const p = progressRef.current;
@@ -99,13 +146,55 @@ export function FumiCompanion({
         ? 0
         : THREE.MathUtils.smoothstep(sinceWake, 0.6, 1.2) * (1 - THREE.MathUtils.smoothstep(sinceWake, 1.7, 2.3));
 
+    // Consequences zone: while unrevived, she settles alone (curled up,
+    // slower, ears drooped); "I'm Back" (or simply scrolling through without
+    // clicking, once the auto-resolve fallback fires) plays a one-shot
+    // reunion — she runs toward the camera, tail wagging, before resuming
+    // her usual travel-with-camera behavior for the rest of the journey
+    const revived = revivedRef.current;
+    if (revived !== lastRevivedToken.current) {
+      lastRevivedToken.current = revived;
+      if (revived > 0) {
+        reviveStartElapsed.current = t;
+        // a burst of hearts, gently floating up rather than falling —
+        // distinct from the confetti-and-gravity feel of care-action bursts
+        burstActiveSince.current = t;
+        burstGravity.current = 0.12;
+        burstLife.current = HEART_BURST_LIFE;
+        burstMatRefs.current.forEach((mat, i) => mat?.color.set(HEART_COLORS[i % HEART_COLORS.length]));
+        burstVelocities.current.forEach((v) => {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 0.25 + Math.random() * 0.35;
+          v.set(Math.cos(angle) * speed, 0.9 + Math.random() * 0.6, Math.sin(angle) * speed);
+        });
+      }
+    }
+    const sinceRevive = reviveStartElapsed.current === null ? -1 : t - reviveStartElapsed.current;
+    const celebrateEnv = sinceRevive < 0 ? 0 : Math.max(0, 1 - sinceRevive / CELEBRATE_DURATION);
+    const settledEnvelope =
+      revived > 0
+        ? 0
+        : THREE.MathUtils.smoothstep(p, ZONES.consequences.start, ZONES.consequences.start + SETTLE_IN_MARGIN) *
+          (1 - THREE.MathUtils.smoothstep(p, ZONES.consequences.end - SETTLE_OUT_MARGIN, ZONES.consequences.end));
+    const curl = settledEnvelope * (1 - celebrateEnv);
+    // everything slows while she's settled alone — a gentler idle, not a freeze
+    const slowFactor = 1 - settledEnvelope * 0.6;
+
     // position: rest in bed -> wander near the bed once awake -> lead the
     // camera along the same path (offset to its side) once the journey starts
     const inBed = 1 - THREE.MathUtils.smoothstep(p, ZONES.wake.start, ZONES.wake.end);
     const u = progressToCurveU(Math.min(1, p + LEAD));
     cameraCurve.getPoint(u, tmpFollow.current);
     cameraCurve.getTangent(u, tmpTangent.current).normalize();
-    tmpSide.current.copy(SIDE_OFFSET).applyQuaternion(
+    // the Grow zone's gentle camera orbit passes close enough to her usual
+    // side-offset lane to clip through her at point-blank range — widen her
+    // berth specifically through this stretch (eased in/out so neighboring
+    // zones' already-tuned framing is untouched)
+    const growClearance =
+      THREE.MathUtils.smoothstep(p, ZONES.grow.start, ZONES.grow.start + 0.03) *
+      (1 - THREE.MathUtils.smoothstep(p, ZONES.grow.end - 0.03, ZONES.grow.end));
+    const sideBoost = 1 + growClearance * 0.9;
+    tmpSide.current.copy(SIDE_OFFSET).multiplyScalar(sideBoost).applyQuaternion(
       new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), tmpTangent.current)
     );
     tmpFollow.current.add(tmpSide.current);
@@ -117,22 +206,42 @@ export function FumiCompanion({
     const restZ = wandering ? WANDER_CENTER.z + Math.sin(wt * 1.4) * WANDER_RADIUS * 0.7 : BED_POS.z;
 
     const traveling = inBed < 0.98;
-    const bob = traveling && !reducedMotion ? Math.sin(t * 2.2) * 0.06 : traveling ? 0.02 : 0;
+    const bob = traveling && !reducedMotion ? Math.sin(t * 2.2 * slowFactor) * 0.06 * slowFactor : traveling ? 0.02 : 0;
 
     if (root.current) {
-      root.current.position.x = THREE.MathUtils.lerp(tmpFollow.current.x, restX, inBed);
-      root.current.position.y = THREE.MathUtils.lerp(tmpFollow.current.y, restY, inBed) + bob;
-      root.current.position.z = THREE.MathUtils.lerp(tmpFollow.current.z, restZ, inBed);
+      let x = THREE.MathUtils.lerp(tmpFollow.current.x, restX, inBed);
+      let y = THREE.MathUtils.lerp(tmpFollow.current.y, restY, inBed) + bob;
+      let z = THREE.MathUtils.lerp(tmpFollow.current.z, restZ, inBed);
+
+      // settle alone, sitting still, while unattended in the Consequences zone
+      x = THREE.MathUtils.lerp(x, CONSEQUENCES_SETTLE_POS.x, settledEnvelope);
+      y = THREE.MathUtils.lerp(y, CONSEQUENCES_SETTLE_POS.y, settledEnvelope);
+      z = THREE.MathUtils.lerp(z, CONSEQUENCES_SETTLE_POS.z, settledEnvelope);
+      // then, for a beat right after "I'm Back", run toward the visitor
+      x = THREE.MathUtils.lerp(x, CONSEQUENCES_GREET_POS.x, celebrateEnv);
+      y = THREE.MathUtils.lerp(y, CONSEQUENCES_GREET_POS.y, celebrateEnv);
+      z = THREE.MathUtils.lerp(z, CONSEQUENCES_GREET_POS.z, celebrateEnv);
+      root.current.position.set(x, y, z);
 
       // gentle bank while traveling, a curious wobble while wandering, upright while resting
       const wanderYaw = wandering ? Math.sin(wt * 0.8) * 0.35 : 0;
       const bankTarget = traveling && !reducedMotion ? THREE.MathUtils.clamp(-tmpTangent.current.x * 0.4, -0.3, 0.3) : 0;
-      root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, bankTarget, 0.05);
-      root.current.rotation.y = THREE.MathUtils.lerp(root.current.rotation.y, wanderYaw, 0.04);
+      // while settled/alone, she slowly looks around instead of banking with travel
+      const lookAroundYaw = Math.sin(t * 0.3) * 0.45 * settledEnvelope;
+      root.current.rotation.z = THREE.MathUtils.lerp(root.current.rotation.z, bankTarget * (1 - settledEnvelope), 0.05);
+      root.current.rotation.y = THREE.MathUtils.lerp(root.current.rotation.y, wanderYaw + lookAroundYaw, 0.04);
 
-      const breathe = THREE.MathUtils.lerp(Math.sin(t * 1.5) * 0.025, Math.sin(t * 2.2) * 0.008, a);
+      const breathe = THREE.MathUtils.lerp(Math.sin(t * 1.5 * slowFactor) * 0.025, Math.sin(t * 2.2 * slowFactor) * 0.008, a);
       const stretchLift = 1 + stretchEnvelope * 0.16;
-      root.current.scale.set(1 + breathe * 0.3, (1 + breathe) * stretchLift, 1 + breathe * 0.3);
+      const gs = growthScaleAt(p);
+      // curling into a small ball while alone — squashed low and a little wider
+      const curlY = 1 - curl * 0.3;
+      const curlXZ = 1 + curl * 0.1;
+      root.current.scale.set(
+        gs * (1 + breathe * 0.3) * curlXZ,
+        gs * (1 + breathe) * stretchLift * curlY,
+        gs * (1 + breathe * 0.3) * curlXZ
+      );
     }
 
     // gaze target — cursor-reactive near the start, softly forward-looking once traveling
@@ -145,8 +254,13 @@ export function FumiCompanion({
     const pitch = THREE.MathUtils.clamp(Math.atan2(-dy, dz), -0.3, 0.3) * (0.15 + a * 0.85);
 
     if (head.current) {
-      head.current.rotation.y = THREE.MathUtils.lerp(head.current.rotation.y, yaw, 0.08);
-      head.current.rotation.x = THREE.MathUtils.lerp(head.current.rotation.x, pitch, 0.08);
+      // while curled up alone she looks down and slowly side to side, rather
+      // than tracking the cursor; the celebration overrides back to a bright,
+      // forward look as she runs to greet the visitor
+      const aloneLookYaw = Math.sin(t * 0.5) * 0.3 * curl;
+      const alonePitch = 0.35 * curl;
+      head.current.rotation.y = THREE.MathUtils.lerp(head.current.rotation.y, THREE.MathUtils.lerp(yaw, aloneLookYaw, curl), 0.08);
+      head.current.rotation.x = THREE.MathUtils.lerp(head.current.rotation.x, THREE.MathUtils.lerp(pitch, alonePitch, curl), 0.08);
     }
 
     const pupilX = THREE.MathUtils.clamp(yaw * 0.09, -0.022, 0.022);
@@ -171,25 +285,32 @@ export function FumiCompanion({
     const smileMat = mouthSmile.current?.material as THREE.MeshStandardMaterial | undefined;
     const closedMat = mouthClosed.current?.material as THREE.MeshStandardMaterial | undefined;
     const yawnMat = mouthYawn.current?.material as THREE.MeshStandardMaterial | undefined;
-    if (smileMat) smileMat.opacity = Math.max(0, a - stretchEnvelope * 0.7);
-    if (closedMat) closedMat.opacity = Math.max(0, 1 - a - stretchEnvelope * 0.3);
+    // a quiet, neutral (not frowning) mouth while curled up alone; a big,
+    // unmistakable smile overrides everything the moment she's reunited
+    const neutralMouth = curl * (1 - celebrateEnv);
+    const bigSmile = celebrateEnv;
+    if (smileMat) smileMat.opacity = THREE.MathUtils.clamp(Math.max(0, a - stretchEnvelope * 0.7) - neutralMouth + bigSmile, 0, 1);
+    if (closedMat) closedMat.opacity = THREE.MathUtils.clamp(Math.max(0, 1 - a - stretchEnvelope * 0.3) + neutralMouth - bigSmile, 0, 1);
     if (yawnMat) yawnMat.opacity = stretchEnvelope;
-    if (mouthSmile.current) mouthSmile.current.scale.setScalar(0.7 + a * 0.3);
+    if (mouthSmile.current) mouthSmile.current.scale.setScalar(0.7 + a * 0.3 + bigSmile * 0.25);
     if (mouthYawn.current) mouthYawn.current.scale.setScalar(0.6 + stretchEnvelope * 0.5);
 
     const cheekLMat = cheekL.current?.material as THREE.MeshStandardMaterial | undefined;
     const cheekRMat = cheekR.current?.material as THREE.MeshStandardMaterial | undefined;
-    if (cheekLMat) cheekLMat.opacity = a * 0.65;
-    if (cheekRMat) cheekRMat.opacity = a * 0.65;
+    if (cheekLMat) cheekLMat.opacity = Math.max(0, a * 0.65 - neutralMouth * 0.5) + bigSmile * 0.3;
+    if (cheekRMat) cheekRMat.opacity = Math.max(0, a * 0.65 - neutralMouth * 0.5) + bigSmile * 0.3;
 
-    // ears: perk when awake, plus a quick extra flick as each island centers in frame
+    // ears: perk when awake, plus a quick extra flick as each island centers
+    // in frame; they droop while she's settled alone, unrelated to sleepiness
     for (const center of ISLAND_T_CENTERS) {
       if (Math.abs(p - center) < 0.004) earFlick.current = 1;
     }
     earFlick.current = THREE.MathUtils.damp(earFlick.current, 0, 4, delta);
     const flick = earFlick.current * 0.25;
-    if (earL.current) earL.current.rotation.z = THREE.MathUtils.lerp(0.55, 0.32, a) - flick;
-    if (earR.current) earR.current.rotation.z = THREE.MathUtils.lerp(-0.55, -0.32, a) + flick;
+    const perkedEarZ = THREE.MathUtils.lerp(0.32, 0.62, settledEnvelope);
+    const droopedEarZ = THREE.MathUtils.lerp(-0.32, -0.62, settledEnvelope);
+    if (earL.current) earL.current.rotation.z = THREE.MathUtils.lerp(0.55, perkedEarZ, a) - flick;
+    if (earR.current) earR.current.rotation.z = THREE.MathUtils.lerp(-0.55, droopedEarZ, a) + flick;
 
     // wave once she's just finished waking, and again at goodnight
     if (!wakeWaveFired.current && sinceWake > 2.3) {
@@ -211,8 +332,18 @@ export function FumiCompanion({
     } else if (stretchEnvelope > 0.05 && arm.current) {
       arm.current.rotation.z = THREE.MathUtils.lerp(arm.current.rotation.z, -1.6, 0.08);
     } else if (arm.current) {
-      const rest = a < 0.5 ? 0.15 : -0.35;
+      const rest = THREE.MathUtils.lerp(a < 0.5 ? 0.15 : -0.35, 0.85, curl);
       arm.current.rotation.z = THREE.MathUtils.lerp(arm.current.rotation.z, rest, 0.05);
+    }
+
+    // tail: a slow idle sway most of the time, held still and low while
+    // curled up alone, energetic wagging during the reunion and care reactions
+    if (tailGroup.current) {
+      const idleWag = Math.sin(t * 1.2) * 0.12;
+      const happyWag = Math.sin(t * 9) * 0.55;
+      const wagHappiness = Math.max(celebrateEnv, reactionAction.current ? Math.sin(reactionElapsed.current * 8) * 0.4 + 0.4 : 0);
+      tailGroup.current.rotation.y = THREE.MathUtils.lerp(idleWag * (1 - settledEnvelope), happyWag, wagHappiness);
+      tailGroup.current.rotation.x = THREE.MathUtils.lerp(tailGroup.current.rotation.x, curl * 0.5, 0.06);
     }
 
     // care-action reactions: a DOM button outside the canvas writes a new
@@ -225,6 +356,9 @@ export function FumiCompanion({
       reactionAction.current = care.action;
       reactionElapsed.current = 0;
       burstActiveSince.current = t;
+      burstGravity.current = 1.6;
+      burstLife.current = BURST_LIFE;
+      burstMatRefs.current.forEach((mat, i) => mat?.color.set(burstColors[i % burstColors.length]));
       burstVelocities.current.forEach((v) => {
         const angle = Math.random() * Math.PI * 2;
         const speed = 0.7 + Math.random() * 1.0;
@@ -272,18 +406,20 @@ export function FumiCompanion({
       if (earR.current) earR.current.rotation.z += 0.15 * reactionEnv;
     }
 
-    // confetti burst, emitted from wherever she currently is
+    // confetti (or, on reunion, heart) burst, emitted from wherever she currently is
     if (burstGroup.current && root.current) {
       burstGroup.current.position.set(root.current.position.x, root.current.position.y + 0.55, root.current.position.z);
     }
     if (burstActiveSince.current !== null) {
       const sinceBurst = t - burstActiveSince.current;
-      if (sinceBurst < BURST_LIFE) {
+      const life = burstLife.current;
+      if (sinceBurst < life) {
+        const gravity = burstGravity.current;
         burstMeshRefs.current.forEach((mesh, i) => {
           if (!mesh) return;
           const v = burstVelocities.current[i];
-          mesh.position.set(v.x * sinceBurst, v.y * sinceBurst - 1.6 * sinceBurst * sinceBurst, v.z * sinceBurst);
-          mesh.scale.setScalar(Math.max(0, 1 - sinceBurst / BURST_LIFE) * 0.5);
+          mesh.position.set(v.x * sinceBurst, v.y * sinceBurst - gravity * sinceBurst * sinceBurst, v.z * sinceBurst);
+          mesh.scale.setScalar(Math.max(0, 1 - sinceBurst / life) * 0.5);
         });
       } else {
         burstActiveSince.current = null;
@@ -420,6 +556,13 @@ export function FumiCompanion({
         <meshStandardMaterial color={FUR} roughness={0.78} />
       </RoundedBox>
 
+      <group ref={tailGroup} position={[0, -0.24, -0.2]}>
+        <mesh position={[0, 0, -0.14]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <capsuleGeometry args={[0.055, 0.26, 4, 10]} />
+          <meshStandardMaterial color={FUR_SHADOW} roughness={0.78} />
+        </mesh>
+      </group>
+
       <Trail
         width={1.2}
         length={4}
@@ -442,7 +585,14 @@ export function FumiCompanion({
             scale={0}
           >
             <sphereGeometry args={[0.048, 8, 8]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
+            <meshStandardMaterial
+              ref={(el) => {
+                burstMatRefs.current[i] = el;
+              }}
+              color={color}
+              emissive={color}
+              emissiveIntensity={0.6}
+            />
           </mesh>
         );
       })}

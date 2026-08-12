@@ -1,6 +1,7 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import type { Mesh } from "three";
 import { PALETTE } from "./palette";
@@ -26,9 +27,22 @@ export const WorldHeading = forwardRef<
   { children, position = [0, 0, 0], fontSize = 0.5, color = PALETTE.ink, maxWidth = 6, anchorX = "center", opacity = 1 },
   ref
 ) {
+  const mainRef = useRef<TroikaTextMesh>(null);
+  const shadowRef = useRef<TroikaTextMesh>(null);
+
+  // callers fade the visible text by mutating fillOpacity on the forwarded
+  // ref directly (not via the `opacity` prop) — track that live value here so
+  // the shadow layer fades in step instead of staying stuck at its initial opacity
+  useFrame(() => {
+    if (mainRef.current && shadowRef.current) {
+      shadowRef.current.fillOpacity = mainRef.current.fillOpacity * 0.12;
+    }
+  });
+
   return (
     <group position={position}>
       <Text
+        ref={shadowRef}
         position={[0.012, -0.014, -0.02]}
         fontSize={fontSize}
         color="#000000"
@@ -40,7 +54,11 @@ export const WorldHeading = forwardRef<
         {children}
       </Text>
       <Text
-        ref={ref}
+        ref={(el) => {
+          mainRef.current = el as TroikaTextMesh | null;
+          if (typeof ref === "function") ref(el as TroikaTextMesh | null);
+          else if (ref) ref.current = el as TroikaTextMesh | null;
+        }}
         fontSize={fontSize}
         color={color}
         fillOpacity={opacity}

@@ -112,6 +112,7 @@ function InterventionFollowUpDialog({
   const [selected, setSelected] = useState<PendingFollowUp | null>(initialSelected);
   const [support, setSupport] = useState<string | null>(null);
   const [implementation, setImplementation] = useState<ImplementationStatus | null>(null);
+  const [teacherResponse, setTeacherResponse] = useState("");
   const [outcome, setOutcome] = useState<OutcomeStatus | null>(null);
   const [evidence, setEvidence] = useState("");
   const [note, setNote] = useState("");
@@ -128,6 +129,10 @@ function InterventionFollowUpDialog({
     }
     if (!implementation) {
       toast.error("Record whether it was implemented.");
+      return;
+    }
+    if (!teacherResponse.trim()) {
+      toast.error("Record how you responded.");
       return;
     }
     if (!outcome) {
@@ -148,6 +153,7 @@ function InterventionFollowUpDialog({
       reason: selected.reason,
       support,
       implementation,
+      teacherResponse: teacherResponse.trim(),
       outcome,
       evidence: evidence.trim(),
       note: note.trim() || undefined,
@@ -159,6 +165,7 @@ function InterventionFollowUpDialog({
       body: [
         `Follow-up on: ${support}`,
         `Implementation: ${implementation}`,
+        `Teacher response: ${teacherResponse.trim()}`,
         `Outcome: ${outcome}`,
         `Evidence: ${evidence.trim()}`,
         note.trim() ? `Note: ${note.trim()}` : null,
@@ -186,6 +193,7 @@ function InterventionFollowUpDialog({
     setSelected(null);
     setSupport(null);
     setImplementation(null);
+    setTeacherResponse("");
     setOutcome(null);
     setEvidence("");
     setNote("");
@@ -278,7 +286,20 @@ function InterventionFollowUpDialog({
                   </div>
                 </Section>
 
-                <Section step={3} title="What was the outcome?" required>
+                <Section step={3} title="How did you respond?" required>
+                  <Textarea
+                    value={teacherResponse}
+                    onChange={(e) => setTeacherResponse(e.target.value.slice(0, 250))}
+                    placeholder="What did you say or do when this came up? e.g. Reminded him to use his noise-cancelling headphones."
+                    rows={2}
+                    className="text-[12.5px]"
+                  />
+                  <div className="text-right text-[10.5px] text-muted-foreground mt-1">
+                    {teacherResponse.length}/250
+                  </div>
+                </Section>
+
+                <Section step={4} title="What was the outcome?" required>
                   <div className="flex flex-wrap gap-2">
                     {OUTCOME_OPTIONS.map((o) => (
                       <OptionChip
@@ -292,7 +313,7 @@ function InterventionFollowUpDialog({
                   </div>
                 </Section>
 
-                <Section step={4} title="Evidence noticed" required>
+                <Section step={5} title="Evidence noticed" required>
                   <Textarea
                     value={evidence}
                     onChange={(e) => setEvidence(e.target.value.slice(0, 250))}
@@ -305,7 +326,7 @@ function InterventionFollowUpDialog({
                   </div>
                 </Section>
 
-                <Section step={5} title="Next step" required>
+                <Section step={6} title="Next step" required>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {NEXT_STEP_OPTIONS.map((n) => {
                       const Icon = NEXT_STEP_ICONS[n];

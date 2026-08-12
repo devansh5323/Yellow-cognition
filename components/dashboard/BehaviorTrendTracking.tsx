@@ -1,235 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  BEHAVIOR_STATUS_LABEL,
-  BEHAVIOR_STATUS_TONE,
-  statusFromScore,
-  type BehaviorSnapshotData,
-  type BehaviorStatus,
-} from "@/lib/classBehavior";
-import { cn } from "@/lib/utils";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { behaviorWeeklyTrend, type BehaviorSnapshotData } from "@/lib/classBehavior";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const DISTRIBUTION_ORDER: BehaviorStatus[] = ["strong", "stable", "reinforcement", "support"];
+const SERIES = [
+  { key: "score" as const, label: "Behaviour score", tone: "hsl(142 55% 42%)" },
+  { key: "minor" as const, label: "Minor behaviours", tone: "hsl(38 92% 48%)" },
+  { key: "major" as const, label: "Major behaviours", tone: "hsl(0 78% 56%)" },
+  { key: "positive" as const, label: "Positive behaviours", tone: "hsl(212 90% 58%)" },
+];
 
-type ChartMode = "disruptions" | "time" | "distribution";
-
-export function BehaviorTrendTracking({ snapshot }: { snapshot: BehaviorSnapshotData }) {
-  const [mode, setMode] = useState<ChartMode>("disruptions");
+export function BehaviorTrendTracking({
+  snapshot,
+  positiveLogs,
+}: {
+  snapshot: BehaviorSnapshotData;
+  positiveLogs: number;
+}) {
   const reduce = useReducedMotion();
 
-  const distribution = useMemo(() => buildDistribution(snapshot), [snapshot]);
+  const trend = useMemo(
+    () =>
+      behaviorWeeklyTrend({
+        score: snapshot.controlScore,
+        scoreDelta: snapshot.delta,
+        minor: snapshot.minorBehaviours,
+        minorDelta: snapshot.prevMinorBehaviours - snapshot.minorBehaviours,
+        major: snapshot.majorBehaviours,
+        majorDelta: snapshot.prevMajorBehaviours - snapshot.majorBehaviours,
+        positive: positiveLogs,
+        positiveDelta: 1,
+      }),
+    [snapshot, positiveLogs],
+  );
 
   return (
-    <section
-      aria-label="Behavior trend tracking"
-      className="rounded-2xl border border-border bg-card p-5 md:p-6"
+    <motion.section
+      initial={reduce ? undefined : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+      aria-label="Weekly behaviour trend"
+      className="rounded-2xl border border-border bg-card p-4 md:p-5"
     >
-      <header className="mb-4 flex items-end justify-between gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <div>
           <div className="premium-eyebrow">
-            <span>Trend tracking</span>
+            <span>Weekly trend</span>
           </div>
-          <h3 className="font-heading font-extrabold text-[17px] leading-tight mt-1.5">
-            How behaviour is moving over time
+          <h3 className="font-heading font-extrabold text-[15px] leading-tight mt-1">
+            Is behaviour getting better, worse, or staying stable?
           </h3>
-          <p className="text-[12px] text-muted-foreground mt-0.5 max-w-prose">
-            Monthly cadence — disruptions, time gained, and the shift in status bands.
-          </p>
         </div>
-
-        <div className="inline-flex rounded-full border border-border/60 bg-card/80 p-0.5">
-          {(
-            [
-              { k: "disruptions", l: "Disruptions" },
-              { k: "time", l: "Time gained" },
-              { k: "distribution", l: "Distribution" },
-            ] as const
-          ).map((m) => (
-            <button
-              key={m.k}
-              onClick={() => setMode(m.k)}
-              className={cn(
-                "px-3 h-7 rounded-full text-[11px] font-bold transition-colors",
-                mode === m.k
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {m.l}
-            </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {SERIES.map((s) => (
+            <span key={s.key} className="inline-flex items-center gap-1.5 text-[10.5px] font-bold">
+              <span className="h-2 w-2 rounded-full" style={{ background: s.tone }} aria-hidden />
+              <span style={{ color: s.tone }}>{s.label}</span>
+            </span>
           ))}
         </div>
-      </header>
-
-      {mode === "disruptions" && (
-        <BarChart
-          points={snapshot.trend.map((p) => ({ label: p.label, value: p.disruptions }))}
-          maxOverride={Math.max(...snapshot.trend.map((p) => p.disruptions), 10)}
-          tone="hsl(0 78% 56%)"
-          suffix=" / class"
-          reduce={!!reduce}
-        />
-      )}
-
-      {mode === "time" && (
-        <BarChart
-          points={snapshot.trend.map((p) => ({ label: p.label, value: p.timeGained }))}
-          maxOverride={Math.max(...snapshot.trend.map((p) => p.timeGained), 60)}
-          tone="hsl(142 55% 42%)"
-          suffix=" min"
-          reduce={!!reduce}
-        />
-      )}
-
-      {mode === "distribution" && (
-        <DistributionChart distribution={distribution} reduce={!!reduce} />
-      )}
-    </section>
-  );
-}
-
-function BarChart({
-  points,
-  maxOverride,
-  tone,
-  suffix,
-  reduce,
-}: {
-  points: { label: string; value: number }[];
-  maxOverride: number;
-  tone: string;
-  suffix: string;
-  reduce: boolean;
-}) {
-  const max = Math.max(maxOverride, 1);
-  return (
-    <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4">
-      <ul className="flex items-end gap-2 sm:gap-3 h-[160px]">
-        {points.map((p, i) => {
-          const ratio = p.value / max;
-          return (
-            <li
-              key={p.label + i}
-              className="flex-1 min-w-0 flex flex-col items-center gap-1.5 h-full"
-            >
-              <div className="w-full flex-1 rounded-md bg-muted/30 overflow-hidden flex items-end">
-                <motion.span
-                  initial={reduce ? undefined : { scaleY: 0 }}
-                  animate={{ scaleY: 1 }}
-                  transition={{ delay: 0.04 * i, duration: 0.5, ease: EASE }}
-                  className="block w-full origin-bottom rounded-md"
-                  style={{
-                    height: `${Math.max(ratio * 100, 6)}%`,
-                    background: `linear-gradient(180deg, color-mix(in srgb, ${tone} 92%, white 8%), ${tone})`,
-                    boxShadow: "inset 0 1px 0 0 hsl(0 0% 100% / 0.18)",
-                  }}
-                  title={`${p.label}: ${p.value}${suffix}`}
-                />
-              </div>
-              <span className="text-[10.5px] font-bold tabular-nums" style={{ color: tone }}>
-                {p.value}
-              </span>
-              <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
-                {p.label}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-type DistributionPoint = {
-  label: string;
-  counts: Record<BehaviorStatus, number>;
-};
-
-function buildDistribution(snapshot: BehaviorSnapshotData): DistributionPoint[] {
-  const total = Math.max(1, snapshot.total);
-  // Synth a 6-month band shift from the score trend so the bars tell the
-  // same story as the score line above. Higher score → more strong/stable.
-  return snapshot.trend.map((p) => {
-    const counts: Record<BehaviorStatus, number> = {
-      strong: 0,
-      stable: 0,
-      reinforcement: 0,
-      support: 0,
-    };
-    // Build a synthetic per-student distribution by jitter around the month's
-    // composite score so the stacked bar moves naturally with the trend.
-    for (let i = 0; i < total; i++) {
-      const offset = ((i * 7) % 21) - 10;
-      const score = Math.max(0, Math.min(100, p.score + offset));
-      counts[statusFromScore(score)] += 1;
-    }
-    return { label: p.label, counts };
-  });
-}
-
-function DistributionChart({
-  distribution,
-  reduce,
-}: {
-  distribution: DistributionPoint[];
-  reduce: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-4">
-      <ul className="flex items-end gap-2 sm:gap-3 h-[160px]">
-        {distribution.map((p, i) => {
-          const total = Math.max(
-            1,
-            p.counts.strong + p.counts.stable + p.counts.reinforcement + p.counts.support,
-          );
-          return (
-            <li
-              key={p.label + i}
-              className="flex-1 min-w-0 flex flex-col items-center gap-1.5 h-full"
-            >
-              <div className="w-full flex-1 rounded-md bg-muted/30 overflow-hidden flex flex-col">
-                {DISTRIBUTION_ORDER.map((band) => {
-                  const v = p.counts[band];
-                  const pct = (v / total) * 100;
-                  return (
-                    <motion.span
-                      key={band}
-                      initial={reduce ? undefined : { scaleY: 0 }}
-                      animate={{ scaleY: 1 }}
-                      transition={{ delay: 0.03 * i, duration: 0.45, ease: EASE }}
-                      className="block origin-top"
-                      style={{
-                        height: `${pct}%`,
-                        background: BEHAVIOR_STATUS_TONE[band],
-                      }}
-                      title={`${BEHAVIOR_STATUS_LABEL[band]}: ${v}`}
-                    />
-                  );
-                })}
-              </div>
-              <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
-                {p.label}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="mt-3 flex items-center gap-3 flex-wrap">
-        {DISTRIBUTION_ORDER.map((band) => (
-          <span key={band} className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ background: BEHAVIOR_STATUS_TONE[band] }}
-              aria-hidden
-            />
-            <span className="text-foreground/80">{BEHAVIOR_STATUS_LABEL[band]}</span>
-          </span>
-        ))}
       </div>
-    </div>
+
+      <div className="h-[160px]">
+        <ResponsiveContainer>
+          <LineChart data={trend} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" vertical={false} />
+            <XAxis dataKey="label" stroke="hsl(230 15% 55%)" fontSize={10} tickLine={false} axisLine={false} />
+            <YAxis stroke="hsl(230 15% 55%)" fontSize={10} tickLine={false} axisLine={false} width={28} />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 10,
+                border: "1px solid hsl(240 15% 88%)",
+                background: "hsl(0 0% 100% / 0.98)",
+                backdropFilter: "blur(12px)",
+                fontSize: 11,
+              }}
+            />
+            {SERIES.map((s) => (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                name={s.label}
+                stroke={s.tone}
+                strokeWidth={2}
+                dot={{ r: 3, fill: s.tone, strokeWidth: 0 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </motion.section>
   );
 }

@@ -296,7 +296,7 @@ function LogPositiveBehaviorDialog({
               <Star className="h-4 w-4 text-emerald-500" />
               Log Positive Behaviour
             </DialogTitle>
-            <DialogDescription className="text-[12.5px]">
+            <DialogDescription className="text-[13.5px]">
               Capture praise, strengths, and expected behaviours noticed in class.
             </DialogDescription>
           </DialogHeader>
@@ -327,7 +327,7 @@ function LogPositiveBehaviorDialog({
                       {recognitionTarget === "individual" ? (
                         <StudentPickerField student={student} onChange={setStudent} />
                       ) : (
-                        <div className="flex items-center rounded-xl border border-dashed border-border px-3 py-2 text-[12.5px] text-muted-foreground h-[38px]">
+                        <div className="flex items-center rounded-xl border border-dashed border-border px-3 py-2 text-[13.5px] text-muted-foreground h-[38px]">
                           Not needed for group recognition
                         </div>
                       )}
@@ -455,7 +455,7 @@ function LogPositiveBehaviorDialog({
                   </div>
                   {recognitionOptions.includes("Point / token awarded") && (
                     <div className="mt-3">
-                      <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                      <div className="text-[12px] font-semibold text-muted-foreground mb-1.5">
                         Points awarded (optional)
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -505,7 +505,7 @@ function LogPositiveBehaviorDialog({
                       rows={4}
                       className="text-[12.5px]"
                     />
-                    <div className="text-right text-[10.5px] text-muted-foreground mt-1">
+                    <div className="text-right text-[11.5px] text-muted-foreground mt-1">
                       {note.length}/250
                     </div>
                   </div>
@@ -520,7 +520,7 @@ function LogPositiveBehaviorDialog({
                 </div>
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     This strength maps to
                   </div>
                   <div className="space-y-1">
@@ -536,7 +536,7 @@ function LogPositiveBehaviorDialog({
                 </div>
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     Related skills
                   </div>
                   <ul className="space-y-1 text-[12.5px]">
@@ -551,7 +551,7 @@ function LogPositiveBehaviorDialog({
 
                 {student && recognitionTarget === "individual" && (
                   <div>
-                    <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                    <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                       Positive pattern insight
                     </div>
                     <p className="text-[12px] leading-snug">
@@ -571,7 +571,7 @@ function LogPositiveBehaviorDialog({
                               )}
                               style={{ height: `${Math.max(6, (count / max) * 40)}px` }}
                             />
-                            <span className="text-[9.5px] text-muted-foreground">{DAY_LABELS[i]}</span>
+                            <span className="text-[10.5px] text-muted-foreground">{DAY_LABELS[i]}</span>
                           </div>
                         );
                       })}
@@ -580,7 +580,7 @@ function LogPositiveBehaviorDialog({
                 )}
 
                 <div>
-                  <div className="text-[11.5px] font-bold text-muted-foreground mb-1.5">
+                  <div className="text-[12.5px] font-bold text-muted-foreground mb-1.5">
                     Suggested reinforcement
                   </div>
                   <ul className="space-y-1.5 text-[12px]">
@@ -595,7 +595,7 @@ function LogPositiveBehaviorDialog({
 
                 <div className="rounded-xl bg-amber-500/10 p-3 flex items-start gap-2">
                   <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <p className="text-[11.5px] leading-snug text-muted-foreground">
+                  <p className="text-[12.5px] leading-snug text-muted-foreground">
                     <span className="font-bold text-foreground">Tip:</span> Positive logs help Yellow
                     identify student strengths and reinforce what is working.
                   </p>
@@ -605,7 +605,7 @@ function LogPositiveBehaviorDialog({
           </div>
 
           <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-border shrink-0">
-            <label className="flex items-center gap-2 text-[12.5px] font-semibold text-muted-foreground cursor-pointer">
+            <label className="flex items-center gap-2 text-[13.5px] font-semibold text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={saveAnother}

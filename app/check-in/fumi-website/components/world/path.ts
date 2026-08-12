@@ -5,34 +5,39 @@ import * as THREE from "three";
 // Every zone/character file positions itself relative to these so the camera
 // path, the islands, and Fumi's travel all agree on the same world.
 export const ZONES = {
-  wake: { start: 0, end: 0.1 },
-  threshold: { start: 0.1, end: 0.22 },
-  play: { start: 0.22, end: 0.44 },
-  care: { start: 0.44, end: 0.62 },
-  grow: { start: 0.62, end: 0.78 },
-  parents: { start: 0.78, end: 0.92 },
-  goodnight: { start: 0.92, end: 1 },
+  wake: { start: 0, end: 0.09 },
+  threshold: { start: 0.09, end: 0.2 },
+  play: { start: 0.2, end: 0.4 },
+  care: { start: 0.4, end: 0.55 },
+  grow: { start: 0.55, end: 0.68 },
+  consequences: { start: 0.68, end: 0.84 },
+  parents: { start: 0.84, end: 0.94 },
+  goodnight: { start: 0.94, end: 1 },
 } as const;
 
 // Camera position waypoints, t-ordered. Forward travel is -Z.
 const CAMERA_WAYPOINTS: [number, number, number][] = [
   [0, 1.55, 3.4], // 0.00 wider establishing shot on sleeping Fumi
-  [0.0, 1.55, 3.4], // 0.07 pulling back, framing the bed + window
-  [-1.5, 1.9, -0.5], // 0.13 passing through the window frame
-  [-1.0, 2.3, -6.5], // 0.19 open sky, islands ahead
-  [-1.6, 2.1, -13], // 0.27 island 1 — Focus Maze
-  [1.6, 2.0, -20], // 0.35 island 2 — Memory Match
-  [-1.2, 2.0, -27], // 0.42 island 3 — Task Switch
-  [0.3, 1.8, -33], // 0.5 care nook — entering
-  [0.3, 1.7, -38], // 0.58 care nook — lingering
-  [0.6, 2.2, -46], // 0.66 growth garden — arriving
-  [1.0, 2.6, -50], // 0.74 growth garden — gentle orbit as she evolves
-  [0.2, 3.4, -58], // 0.8 rising toward the observatory
-  [0.3, 4.5, -68], // 0.87 orbiting the observatory dais
-  [0.0, 4.3, -74], // 0.95 settling
-  [0.0, 4.1, -75.5], // 1.00 goodnight
+  [0.0, 1.55, 3.4], // 0.06 pulling back, framing the bed + window
+  [-1.5, 1.9, -0.5], // 0.12 passing through the window frame
+  [-1.0, 2.3, -6.5], // 0.17 open sky, islands ahead
+  [-1.6, 2.1, -13], // 0.245 island 1 — Focus Maze
+  [1.6, 2.0, -20], // 0.32 island 2 — Memory Match
+  [-1.2, 2.0, -27], // 0.38 island 3 — Task Switch
+  [0.3, 1.8, -33], // 0.45 care nook — entering
+  [0.3, 1.7, -38], // 0.52 care nook — lingering
+  [0.6, 2.2, -46], // 0.58 growth garden — arriving
+  [1.0, 2.6, -50], // 0.65 growth garden — gentle orbit as she evolves
+  [0.5, 2.3, -55], // 0.72 the quiet room — everything slows down
+  [-0.4, 2.1, -60], // 0.8 the quiet room — waiting to be found again
+  [0.1, 3.0, -66], // 0.855 rising toward the observatory
+  [0.3, 4.5, -74], // 0.905 orbiting the observatory dais
+  [0.0, 4.3, -80], // 0.9625 settling
+  [0.0, 4.1, -81.5], // 1.00 goodnight
 ];
-const CAMERA_T = [0, 0.07, 0.13, 0.19, 0.27, 0.35, 0.42, 0.5, 0.58, 0.66, 0.74, 0.8, 0.87, 0.95, 1];
+const CAMERA_T = [
+  0, 0.06, 0.12, 0.17, 0.245, 0.32, 0.38, 0.45, 0.52, 0.58, 0.65, 0.72, 0.8, 0.855, 0.905, 0.9625, 1,
+];
 
 export const cameraCurve = new THREE.CatmullRomCurve3(
   CAMERA_WAYPOINTS.map((p) => new THREE.Vector3(...p)),
@@ -68,7 +73,18 @@ export const CARE_NOOK_POS = new THREE.Vector3(-1.9, 1.0, -35.5);
 // roughly x=0.6-1.0, y=2.2-2.6, z=-46..-50) so the evolving figure is never
 // at point-blank range as the camera passes
 export const GROWTH_GARDEN_POS = new THREE.Vector3(2.3, 1.5, -48);
-export const OBSERVATORY_POS = new THREE.Vector3(2.0, 2.2, -68);
+// the "quiet room" — kept clear of the camera waypoints through this stretch
+// (roughly x=0.5..-0.4, y=2.1-2.3, z=-55..-60), but closer to the path than
+// CARE_NOOK/GROWTH_GARDEN's lateral offset would put the title/caption text
+// too far off-axis and crop out of frame
+export const CONSEQUENCES_POS = new THREE.Vector3(-1.5, 1.0, -57);
+// where Fumi settles, sitting alone, while unattended in the Consequences
+// zone — close enough to stay onscreen as the camera glides past
+export const CONSEQUENCES_SETTLE_POS = new THREE.Vector3(-1.6, 0.5, -56.5);
+// where she runs to once "I'm Back" fires — close to where the camera sits
+// early in the zone, so she reads as running toward the visitor
+export const CONSEQUENCES_GREET_POS = new THREE.Vector3(0.15, 1.05, -55.2);
+export const OBSERVATORY_POS = new THREE.Vector3(2.0, 2.2, -74);
 
 export const BED_POS = new THREE.Vector3(0.85, 0.86, 1.05);
 
@@ -81,4 +97,4 @@ export const WANDER_RADIUS = 0.45;
 // Approximate overall-progress centers where each island is directly in frame
 // (matches the camera waypoints above) — used for "tell" moments (ear perk,
 // emissive pulse) that fire just as each island takes center stage.
-export const ISLAND_T_CENTERS = [0.27, 0.35, 0.42];
+export const ISLAND_T_CENTERS = [0.245, 0.32, 0.38];

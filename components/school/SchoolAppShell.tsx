@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getSession, signOut, type TeacherSession } from "@/lib/auth";
 import { PageTransition } from "@/components/dashboard/PageTransition";
+import { Toaster } from "@/components/ui/sonner";
 
 const NAV = [
   { to: "/school/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -254,6 +255,8 @@ export function SchoolAppShell({ children }: { children: React.ReactNode }) {
           <PageTransition>{children}</PageTransition>
         </main>
       </div>
+
+      <Toaster />
     </div>
   );
 }

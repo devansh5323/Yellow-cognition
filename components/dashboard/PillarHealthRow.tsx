@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  ChevronRight,
   ClipboardList,
   Shield,
   Sparkles,
@@ -15,7 +16,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { wavePoints, Sparkline } from "@/components/dashboard/Sparkline";
 import {
   classHealth,
   scoreBand,
@@ -153,12 +153,12 @@ export function PillarHealthRow() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span
-                    className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0"
+                    className="h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0"
                     style={{ background: `color-mix(in srgb, ${p.tone} 16%, transparent)`, color: p.tone }}
                   >
-                    <p.Icon className="h-4 w-4" />
+                    <p.Icon className="h-4.5 w-4.5" />
                   </span>
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.10em] leading-tight">
+                  <span className="font-heading font-extrabold text-[15px] leading-tight min-w-0">
                     {p.label}
                   </span>
                 </div>
@@ -172,26 +172,31 @@ export function PillarHealthRow() {
                 </div>
               </div>
 
-              {/* Score + status */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-baseline gap-1">
+              {/* Score + status + chart */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="font-heading font-extrabold text-[30px] leading-none tabular-nums"
+                      style={{ color: p.tone }}
+                    >
+                      {score}
+                    </span>
+                    <span className="text-muted-foreground text-[13px] font-bold">/100</span>
+                  </div>
                   <span
-                    className="font-heading font-extrabold text-[30px] leading-none tabular-nums"
-                    style={{ color: p.tone }}
+                    className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
+                    style={{
+                      background: `color-mix(in srgb, ${statusTone} 14%, transparent)`,
+                      color: statusTone,
+                    }}
                   >
-                    {score}
+                    {bandInfo.tag}
                   </span>
-                  <span className="text-muted-foreground text-[13px] font-bold">/100</span>
                 </div>
-                <span
-                  className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
-                  style={{
-                    background: `color-mix(in srgb, ${statusTone} 14%, transparent)`,
-                    color: statusTone,
-                  }}
-                >
-                  {bandInfo.tag}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <Sparkline data={trendData} tone={p.tone} />
+                </div>
               </div>
 
               <div className="border-t border-border/60" />
@@ -205,7 +210,7 @@ export function PillarHealthRow() {
                       className="font-heading font-extrabold text-[13px] leading-tight"
                       style={{ color: p.tone }}
                     >
-                      {statCount} Students
+                      {statCount} students
                     </div>
                     <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
                       {statLine}
@@ -257,12 +262,10 @@ export function PillarHealthRow() {
                   className="inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline shrink-0"
                   style={{ color: LINK_BLUE }}
                 >
-                  View Driver
-                  <ArrowRight className="h-3 w-3" />
+                  View driver
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-
-              <Sparkline data={trendData} tone={p.tone} />
             </article>
           );
         })}

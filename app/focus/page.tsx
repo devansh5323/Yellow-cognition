@@ -14,14 +14,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FocusSnapshot } from "@/components/dashboard/FocusSnapshot";
+import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfidence";
 import { AttentionPatternInsights } from "@/components/dashboard/AttentionPatternInsights";
 import { ClassAttentionProfile } from "@/components/dashboard/ClassAttentionProfile";
+import { FocusSupportTable } from "@/components/dashboard/FocusSupportTable";
 import { FocusRecommendsStrip } from "@/components/dashboard/FocusRecommendsStrip";
 import { MonthlyFocusCheckIn } from "@/components/dashboard/MonthlyFocusCheckIn";
 import {
   attentionPatternInsights,
   classFocusDomains,
   classFocusSnapshot,
+  focusSupportRoster,
   pickFocusRecommendations,
 } from "@/lib/classFocus";
 import { cn } from "@/lib/utils";
@@ -70,6 +73,7 @@ function FocusPage({ classroom, period }: { classroom: string; period: (typeof P
   const insights = useMemo(() => attentionPatternInsights(), []);
   const domains = useMemo(() => classFocusDomains(), []);
   const recommendations = useMemo(() => pickFocusRecommendations(domains, 3), [domains]);
+  const supportRows = useMemo(() => focusSupportRoster(), []);
 
   return (
     <div className="relative">
@@ -100,6 +104,9 @@ function FocusPage({ classroom, period }: { classroom: string; period: (typeof P
           </p>
         </header>
 
+        {/* Data sources & confidence */}
+        <DataSourcesConfidence />
+
         {/* Top row · Snapshot (left) + Yellow Recommends (right) */}
         <div className="grid grid-cols-12 gap-5">
           <div className="col-span-12 xl:col-span-8">
@@ -115,6 +122,9 @@ function FocusPage({ classroom, period }: { classroom: string; period: (typeof P
 
         {/* Class attention profile — full width */}
         <ClassAttentionProfile domains={domains} />
+
+        {/* Students needing focus support — full width */}
+        <FocusSupportTable rows={supportRows} />
 
         {/* Monthly check-in — full width */}
         <MonthlyFocusCheckIn />

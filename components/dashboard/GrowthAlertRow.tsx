@@ -33,18 +33,15 @@ export function GrowthAlertRow() {
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
-      className="rounded-2xl border border-border bg-card p-5 md:p-6"
+      className="space-y-3"
       aria-label="What changed this week"
     >
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-5">
-        <div className="min-w-0">
-          <div className="premium-eyebrow">
-            <span>What changed this week</span>
-          </div>
-          <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
-            A quick snapshot of what improved, what declined, and what needs your attention.
-          </p>
-        </div>
+      <div className="premium-eyebrow">
+        <span>What changed this week</span>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
+      <div className="flex items-center justify-end gap-3 mb-5">
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted/40 transition-colors shrink-0"
@@ -96,6 +93,7 @@ export function GrowthAlertRow() {
           action="Log positive acknowledgments"
           chart={<Sparkline data={wavePoints(85, 4)} tone={STRENGTH} area />}
         />
+      </div>
       </div>
     </motion.section>
   );

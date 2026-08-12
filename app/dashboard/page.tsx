@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { AppShell } from "@/components/dashboard/AppShell";
+import { AssignedSelProgramBanner } from "@/components/dashboard/AssignedSelProgramBanner";
 import { DataReadinessCard } from "@/components/dashboard/DataReadinessCard";
 import { ClassroomHealthScore } from "@/components/dashboard/ClassroomHealthScore";
 import { PillarHealthRow } from "@/components/dashboard/PillarHealthRow";
@@ -34,6 +35,7 @@ function DashboardPage() {
         variants={fadeIn}
         className="relative space-y-6"
       >
+        <AssignedSelProgramBanner />
         <DataReadinessCard />
         <ClassroomHealthScore />
         <PillarHealthRow />

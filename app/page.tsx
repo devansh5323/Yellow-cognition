@@ -27,6 +27,7 @@ import {
   Building2,
   Users,
   Landmark,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { signIn, getSession, type UserRole } from "@/lib/auth";
@@ -55,7 +56,7 @@ const rise = {
 
 const PURPLE = "hsl(262 65% 68%)";
 
-type RoleKey = "teacher" | "principal" | "educator" | "district";
+type RoleKey = "teacher" | "principal" | "educator" | "district" | "sel";
 
 const ROLES: {
   key: RoleKey;
@@ -97,11 +98,21 @@ const ROLES: {
     Icon: Landmark,
     tone: "hsl(28 88% 54%)",
   },
+  {
+    key: "sel",
+    title: "SEL Coordinator",
+    description: "Track social-emotional wellbeing and support programs.",
+    bestFor: "Best for SEL coordinators",
+    Icon: HeartHandshake,
+    tone: "hsl(330 65% 62%)",
+  },
 ];
 
 function mapRole(role: RoleKey): UserRole {
   if (role === "principal") return "admin";
   if (role === "district") return "district";
+  if (role === "educator") return "specialEducator";
+  if (role === "sel") return "selCoordinator";
   return "teacher";
 }
 
@@ -111,7 +122,9 @@ export default function LoginPage() {
 
   const destinationFor = (r: UserRole) => {
     if (r === "admin") return isSchoolOnboarded() ? "/school/dashboard" : "/school/welcome";
+    if (r === "specialEducator") return "/specialist/dashboard";
     if (r === "district") return "/district/dashboard";
+    if (r === "selCoordinator") return "/sel/dashboard";
     return isOnboarded() ? "/dashboard" : "/welcome";
   };
 
@@ -131,6 +144,14 @@ export default function LoginPage() {
   const [invalidShake, setInvalidShake] = useState(0);
 
   const selectedRoleMeta = ROLES.find((r) => r.key === selectedRole) ?? null;
+
+  const PRESET_EMAILS: Record<UserRole, string> = {
+    teacher: "teacher@school.edu",
+    admin: "admin@school.edu",
+    specialEducator: "specialist@school.edu",
+    district: "district@school.edu",
+    selCoordinator: "sel@school.edu",
+  };
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const mx = useMotionValue(0);
@@ -178,7 +199,7 @@ export default function LoginPage() {
     if (!selectedRole) return;
     const role = mapRole(selectedRole);
     try {
-      const presetEmail = role === "admin" ? "admin@school.edu" : "teacher@school.edu";
+      const presetEmail = PRESET_EMAILS[role];
       signIn(presetEmail, "google-sso", role);
       router.push(destinationFor(role));
     } catch (err) {
@@ -403,10 +424,14 @@ export default function LoginPage() {
                       </p>
                     </div>
 
-                    {/* Role cards */}
+                    {/* Role cards — an odd count leaves the last card alone in a
+                        2-col grid, so it spans full width in a horizontal
+                        layout instead of sitting orphaned with dead space
+                        beside it. */}
                     <div className="mt-5 grid grid-cols-2 gap-3">
-                      {ROLES.map((r) => {
+                      {ROLES.map((r, i) => {
                         const active = selectedRole === r.key;
+                        const wide = i === ROLES.length - 1 && ROLES.length % 2 === 1;
                         return (
                           <button
                             key={r.key}
@@ -414,6 +439,7 @@ export default function LoginPage() {
                             onClick={() => setSelectedRole((prev) => (prev === r.key ? null : r.key))}
                             className={cn(
                               "relative text-left rounded-2xl border p-3.5 transition-colors",
+                              wide && "col-span-2 flex items-start gap-3.5",
                               active ? "border-primary bg-primary/[0.07]" : "border-border/70 hover:border-border",
                             )}
                           >
@@ -428,15 +454,17 @@ export default function LoginPage() {
                             >
                               <r.Icon className="h-4.5 w-4.5" />
                             </span>
-                            <div className="mt-2.5 font-heading font-bold text-[13.5px] leading-tight">
-                              {r.title}
-                            </div>
-                            <p className="mt-1 text-[11.5px] text-muted-foreground leading-snug">
-                              {r.description}
-                            </p>
-                            <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                              <Users className="h-3 w-3 shrink-0" />
-                              {r.bestFor}
+                            <div className={wide ? "min-w-0 flex-1" : undefined}>
+                              <div className={cn("font-heading font-bold text-[13.5px] leading-tight", !wide && "mt-2.5")}>
+                                {r.title}
+                              </div>
+                              <p className="mt-1 text-[11.5px] text-muted-foreground leading-snug">
+                                {r.description}
+                              </p>
+                              <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+                                <Users className="h-3 w-3 shrink-0" />
+                                {r.bestFor}
+                              </div>
                             </div>
                           </button>
                         );

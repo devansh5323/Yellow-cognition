@@ -3,7 +3,7 @@
 
 const KEY = "ah_teacher_session";
 
-export type UserRole = "teacher" | "admin" | "district";
+export type UserRole = "teacher" | "admin" | "specialEducator" | "district" | "selCoordinator";
 
 export type TeacherSession = {
   email: string;
@@ -31,7 +31,16 @@ export function signIn(
     throw new Error("Please enter a valid email and password (min 4 characters).");
   }
   const namePart = email.split("@")[0].replace(/[._-]+/g, " ");
-  const fallback = role === "admin" ? "School Admin" : role === "district" ? "District Leader" : "Teacher";
+  const fallback =
+    role === "admin"
+      ? "School Admin"
+      : role === "specialEducator"
+        ? "Special Educator"
+        : role === "district"
+          ? "District Leader"
+          : role === "selCoordinator"
+            ? "SEL Coordinator"
+            : "Teacher";
   const name = namePart
     .split(" ")
     .filter(Boolean)
@@ -43,7 +52,16 @@ export function signIn(
       .map((w) => w[0])
       .join("")
       .slice(0, 2)
-      .toUpperCase() || (role === "admin" ? "SA" : role === "district" ? "DL" : "T");
+      .toUpperCase() ||
+    (role === "admin"
+      ? "SA"
+      : role === "specialEducator"
+        ? "SE"
+        : role === "district"
+          ? "DL"
+          : role === "selCoordinator"
+            ? "SC"
+            : "T");
   const session: TeacherSession = { email, name, initials, role };
   window.localStorage.setItem(KEY, JSON.stringify(session));
   return session;
@@ -60,4 +78,12 @@ export function getRole(): UserRole {
 
 export function isAdmin(): boolean {
   return getRole() === "admin";
+}
+
+export function isSpecialEducator(): boolean {
+  return getRole() === "specialEducator";
+}
+
+export function isSelCoordinator(): boolean {
+  return getRole() === "selCoordinator";
 }

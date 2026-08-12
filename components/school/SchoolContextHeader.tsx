@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import {
   ChevronDown,
@@ -91,8 +91,18 @@ function LastUpdatedPill({
   lastUpdated: string;
   cadence: string;
 }) {
-  const date = new Date(lastUpdated);
-  const relative = formatRelative(date);
+  const date = useMemo(() => new Date(lastUpdated), [lastUpdated]);
+  // Relative time ("47m ago") drifts between server render and client
+  // hydration since it depends on wall-clock Date.now() — compute it only
+  // after mount so SSR and the first client render agree (both render the
+  // placeholder), avoiding a hydration mismatch.
+  const [relative, setRelative] = useState<string | null>(null);
+  useEffect(() => {
+    const refresh = () => setRelative(formatRelative(date));
+    refresh();
+    const interval = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(interval);
+  }, [date]);
   const absolute = date.toLocaleString(undefined, {
     day: "numeric",
     month: "short",
@@ -106,7 +116,7 @@ function LastUpdatedPill({
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={`KPIs last updated ${relative}. ${cadence}.`}
+            aria-label={`KPIs last updated ${relative ?? "recently"}. ${cadence}.`}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border/60 bg-card/80 backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -114,7 +124,7 @@ function LastUpdatedPill({
               Updated
             </span>
             <span className="text-[12.5px] font-semibold text-foreground tabular-nums">
-              {relative}
+              {relative ?? "—"}
             </span>
           </button>
         </TooltipTrigger>

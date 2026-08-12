@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
@@ -13,19 +13,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfidence";
 import { BehaviorSnapshot } from "@/components/dashboard/BehaviorSnapshot";
 import { BehaviorRecommendsStrip } from "@/components/dashboard/BehaviorRecommendsStrip";
-import { DisruptionBreakdown } from "@/components/dashboard/DisruptionBreakdown";
-import { BehaviorTriggersActions } from "@/components/dashboard/BehaviorTriggersActions";
+import { BehaviorDriverCards } from "@/components/dashboard/BehaviorDriverCards";
 import { BehaviorTrendTracking } from "@/components/dashboard/BehaviorTrendTracking";
-import { BehaviorSupportTable } from "@/components/dashboard/BehaviorSupportTable";
+import { BehaviorPatternInsights } from "@/components/dashboard/BehaviorPatternInsights";
+import { BehaviorPriorityActions } from "@/components/dashboard/BehaviorPriorityActions";
+import { BehaviorActivityContext } from "@/components/dashboard/BehaviorActivityContext";
+import { BehaviorTimeOfDay } from "@/components/dashboard/BehaviorTimeOfDay";
+import { BehaviorWatchlistRail } from "@/components/dashboard/BehaviorWatchlistRail";
+import { PbisProgressLog } from "@/components/dashboard/PbisProgressLog";
 import { MonthlyBehaviorCheckIn } from "@/components/dashboard/MonthlyBehaviorCheckIn";
 import {
+  behaviorActivityContextPatterns,
+  behaviorPatternInsights,
+  behaviorPriorityActions,
+  behaviorTierRecommendations,
+  behaviorTimeOfDayPattern,
   classBehaviorSnapshot,
   classDisruptionBreakdown,
-  pickBehaviorStrategies,
   studentsNeedingBehaviorSupport,
 } from "@/lib/classBehavior";
+import { getBehaviorLogTimestampsThisWeek, getPositiveLogCountThisWeek } from "@/lib/checkInTools";
+import { getAllFollowUpRecords } from "@/lib/interventionFollowUps";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -70,8 +81,54 @@ function BehaviorPage({ classroom }: { classroom: string }) {
 
   const snapshot = useMemo(() => classBehaviorSnapshot(), []);
   const breakdown = useMemo(() => classDisruptionBreakdown(), []);
-  const strategies = useMemo(() => pickBehaviorStrategies(breakdown, 3), [breakdown]);
   const supportRoster = useMemo(() => studentsNeedingBehaviorSupport(), []);
+  const tierRecommendations = useMemo(
+    () => behaviorTierRecommendations(breakdown, supportRoster),
+    [breakdown, supportRoster],
+  );
+
+  // Real, but localStorage-backed — fetched client-side only to avoid an
+  // SSR/hydration mismatch, same pattern as DataSourcesConfidence.
+  const [positiveLogs, setPositiveLogs] = useState(0);
+  useEffect(() => {
+    const refresh = () => setPositiveLogs(getPositiveLogCountThisWeek());
+    refresh();
+    window.addEventListener("ah-positive-log-change", refresh);
+    return () => window.removeEventListener("ah-positive-log-change", refresh);
+  }, []);
+
+  const [followUps, setFollowUps] = useState<ReturnType<typeof getAllFollowUpRecords>>([]);
+  useEffect(() => {
+    const refresh = () => setFollowUps(getAllFollowUpRecords());
+    refresh();
+    window.addEventListener("ah-followup-change", refresh);
+    return () => window.removeEventListener("ah-followup-change", refresh);
+  }, []);
+
+  const patternInsights = useMemo(
+    () => behaviorPatternInsights(breakdown, followUps),
+    [breakdown, followUps],
+  );
+
+  const priorityActions = useMemo(
+    () => behaviorPriorityActions(breakdown, supportRoster, positiveLogs),
+    [breakdown, supportRoster, positiveLogs],
+  );
+
+  const activityContextRows = useMemo(() => behaviorActivityContextPatterns(breakdown), [breakdown]);
+
+  const [behaviorTimestamps, setBehaviorTimestamps] = useState<string[]>([]);
+  useEffect(() => {
+    const refresh = () => setBehaviorTimestamps(getBehaviorLogTimestampsThisWeek());
+    refresh();
+    window.addEventListener("ah-behavior-log-change", refresh);
+    return () => window.removeEventListener("ah-behavior-log-change", refresh);
+  }, []);
+
+  const timeOfDayPattern = useMemo(
+    () => behaviorTimeOfDayPattern(behaviorTimestamps, breakdown),
+    [behaviorTimestamps, breakdown],
+  );
 
   return (
     <div className="relative">
@@ -102,30 +159,49 @@ function BehaviorPage({ classroom }: { classroom: string }) {
           </p>
         </header>
 
-        {/* Top row · Snapshot (left) + Yellow Recommends (right) */}
-        <div className="grid grid-cols-12 gap-5">
-          <div className="col-span-12 xl:col-span-8">
-            <BehaviorSnapshot snapshot={snapshot} />
+        {/* 1. Data sources & confidence */}
+        <DataSourcesConfidence />
+
+        {/* 9. Students Watchlist + Quick Actions — sticky right rail on
+            desktop, so it's always the teacher's action console alongside
+            whatever section they're reading. */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
+          <div className="space-y-6 min-w-0">
+            {/* 2. Behaviour snapshot */}
+            <BehaviorSnapshot snapshot={snapshot} breakdown={breakdown} supportRoster={supportRoster} positiveLogs={positiveLogs} />
+
+            {/* Priority actions — right after the snapshot and above Yellow
+                Recommends, so the teacher journey is: score → what to do → strategies → trending → why. */}
+            <BehaviorPriorityActions actions={priorityActions} supportRoster={supportRoster} />
+
+            <BehaviorRecommendsStrip recommendations={tierRecommendations} />
+
+            {/* 3. Weekly trend — kept compact, its own visual */}
+            <BehaviorTrendTracking snapshot={snapshot} positiveLogs={positiveLogs} />
+
+            {/* 4 + 5. Where friction is coming from — collapsible driver cards + impacting skills */}
+            <BehaviorDriverCards stats={breakdown} />
+
+            {/* 6. Cross-pattern insights across all logs and check-ins */}
+            <BehaviorPatternInsights insights={patternInsights} />
+
+            {/* 10. Activity / context pattern — where the behaviour is happening */}
+            <BehaviorActivityContext rows={activityContextRows} />
+
+            {/* 11. Time-of-day pattern — compact */}
+            <BehaviorTimeOfDay pattern={timeOfDayPattern} />
+
+            {/* PBIS progress monitoring — log of every strategy tried */}
+            <PbisProgressLog />
+
+            {/* Monthly check-in */}
+            <MonthlyBehaviorCheckIn />
           </div>
-          <div className="col-span-12 xl:col-span-4">
-            <BehaviorRecommendsStrip strategies={strategies} />
+
+          <div className="xl:sticky xl:top-[84px]">
+            <BehaviorWatchlistRail supportRoster={supportRoster} />
           </div>
         </div>
-
-        {/* Disruption breakdown */}
-        <DisruptionBreakdown stats={breakdown} />
-
-        {/* Triggers · actions · skills — full-width, each card expands to reveal underlying skills */}
-        <BehaviorTriggersActions />
-
-        {/* Trend tracking */}
-        <BehaviorTrendTracking snapshot={snapshot} />
-
-        {/* Support roster */}
-        <BehaviorSupportTable items={supportRoster} />
-
-        {/* Monthly check-in */}
-        <MonthlyBehaviorCheckIn />
       </motion.div>
     </div>
   );

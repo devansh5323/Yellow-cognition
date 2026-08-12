@@ -332,10 +332,33 @@ function MultiDonut({
     });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.45))" }}
+    >
+      <defs>
+        {slices.map((s) => (
+          <linearGradient key={`grad-${s.key}`} id={`donut-grad-${s.key}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{ stopColor: `color-mix(in srgb, ${s.tone} 55%, white)` }} />
+            <stop offset="55%" style={{ stopColor: s.tone }} />
+            <stop offset="100%" style={{ stopColor: `color-mix(in srgb, ${s.tone} 80%, black)` }} />
+          </linearGradient>
+        ))}
+        <radialGradient id="donut-center-shade" cx="50%" cy="42%" r="65%">
+          <stop offset="0%" style={{ stopColor: "rgba(255,255,255,0.06)" }} />
+          <stop offset="100%" style={{ stopColor: "rgba(0,0,0,0.22)" }} />
+        </radialGradient>
+      </defs>
+
       {slices.map((s) => (
-        <path key={s.key} d={s.path} fill={s.tone} />
+        <path key={s.key} d={s.path} fill={`url(#donut-grad-${s.key})`} />
       ))}
+      {/* subtle depth shading across the ring, plus a soft inner-edge shadow */}
+      <circle cx={cx} cy={cy} r={(outerR + innerR) / 2} fill="none" stroke="url(#donut-center-shade)" strokeWidth={outerR - innerR} />
+      <circle cx={cx} cy={cy} r={innerR + 1.5} fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth={3} />
+      <circle cx={cx} cy={cy} r={outerR - 1} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
       {slices.map((s) => (
         <text
           key={`label-${s.key}`}

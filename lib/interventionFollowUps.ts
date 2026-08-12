@@ -51,6 +51,10 @@ export type FollowUpRecord = {
   reason: RiskReason;
   support: string;
   implementation: ImplementationStatus;
+  /** How the teacher personally responded/adjusted while trying the
+   * strategy — distinct from `evidence`, which is what happened to the
+   * student as a result. */
+  teacherResponse: string;
   outcome: OutcomeStatus;
   evidence: string;
   note?: string;
@@ -100,6 +104,12 @@ export function getFollowUpRecordsForStudent(studentId: string): FollowUpRecord[
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 }
 
+/** Every logged follow-up across the class, newest first — the PBIS
+ * progress-monitoring log draws from this. */
+export function getAllFollowUpRecords(): FollowUpRecord[] {
+  return readRecords().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+}
+
 /** True once a follow-up has been logged for this exact student + flagged reason. */
 export function isAddressed(studentId: string, reason: RiskReason): boolean {
   const resolved = new Set(readRecords().map((r) => resolvedKey(r.studentId, r.reason)));
@@ -124,4 +134,19 @@ export function getPendingFollowUps(): PendingFollowUp[] {
 export function getPendingFollowUpCount(): number {
   const ids = new Set(getPendingFollowUps().map((p) => p.student.id));
   return ids.size;
+}
+
+/** Completed vs. total flagged (student, reason) pairs — the same universe
+ * getPendingFollowUps() draws from, just counting resolved instead of pending. */
+export function getFollowUpProgress(): { completed: number; total: number } {
+  const resolved = new Set(readRecords().map((r) => resolvedKey(r.studentId, r.reason)));
+  let total = 0;
+  let completed = 0;
+  for (const group of classRiskRadar()) {
+    for (const student of group.students) {
+      total += 1;
+      if (resolved.has(resolvedKey(student.id, group.reason))) completed += 1;
+    }
+  }
+  return { completed, total };
 }

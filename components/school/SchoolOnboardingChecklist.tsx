@@ -149,7 +149,7 @@ export function SchoolOnboardingChecklist() {
             className="premium-icon-btn !h-8 !w-8"
             aria-label={collapsed ? "Expand checklist" : "Collapse checklist"}
           >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", collapsed && "-rotate-90")} />
+            <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} />
           </button>
           <button
             onClick={() => {

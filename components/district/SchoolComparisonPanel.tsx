@@ -252,6 +252,7 @@ export function SchoolComparisonPanel() {
               </button>
             )}
           </>
+
         ) : (
           <QuadrantView schools={sorted} />
         )}

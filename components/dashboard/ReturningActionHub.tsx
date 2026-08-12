@@ -441,7 +441,7 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
               transition={{ duration: 0.25, ease: [0.2, 0.7, 0.2, 1] }}
               className="overflow-hidden"
             >
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 md:items-start gap-5">
                 <div className="rounded-2xl border border-border bg-background p-5">
                   <div className="flex items-center justify-between gap-2 mb-4">
                     <h3 className="font-heading font-bold text-[13.5px] flex items-center gap-1.5">

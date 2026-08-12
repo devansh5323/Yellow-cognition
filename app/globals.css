@@ -1220,6 +1220,16 @@
   .yai-send-btn:active:not(:disabled) { transform: translateY(1px); }
   .yai-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  /* Temporary attention ring for scroll-to-target actions (checklist deep links). */
+  .ring-pulse {
+    animation: ring-pulse-anim 1.2s ease-out 2;
+    border-radius: inherit;
+  }
+  @keyframes ring-pulse-anim {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); }
+    100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); }
+  }
+
   /* Animated caret / loader ring */
   .ring-spin {
     width: 1.1rem; height: 1.1rem;

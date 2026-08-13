@@ -58,10 +58,6 @@ export type OnboardingState = {
   tasks: Record<ActivationTaskId, boolean>;
   tourCompleted?: boolean;
   checklistDismissed?: boolean;
-  /** Whether the classroom setup dialog has already auto-opened once on
-   * dashboard landing — set the first time, so it doesn't force itself
-   * open again on every later visit while classrooms is still empty. */
-  classroomPromptShown?: boolean;
   /** The teacher's chosen focus area for the "three steps to get started"
    * checklist — set once from a fixed option list, changeable anytime. */
   focusArea?: OnboardingGoal;

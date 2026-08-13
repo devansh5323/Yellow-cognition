@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
@@ -14,7 +14,9 @@ import {
   Target,
   type LucideIcon,
 } from "lucide-react";
-import { classHealth } from "@/lib/classHealth";
+import { classHealth, pillarScores, type PillarKey } from "@/lib/classHealth";
+import { STUDENTS, type RiskLevel, type Student } from "@/data/mockData";
+import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -50,11 +52,37 @@ function average(items: DriverItem[]): number {
   return Math.round(items.reduce((sum, i) => sum + i.score, 0) / items.length);
 }
 
+const PILLAR_KEYS: PillarKey[] = ["focus", "academic", "task", "behavior"];
+
+function isPillarKey(key: string): key is PillarKey {
+  return (PILLAR_KEYS as string[]).includes(key);
+}
+
+const RISK_RANK: Record<RiskLevel, number> = { "at-risk": 3, high: 2, medium: 1, low: 0 };
+
+/** Cognitive drivers map onto real per-student pillar scores, so the
+ * drilldown can show an exact number and sort weakest-first. Wellbeing
+ * drivers only have a class-level mock average (no per-student model exists
+ * yet), so their drilldown surfaces at-risk students instead of a fabricated
+ * per-driver score. */
+function driverDrilldown(key: string): {
+  students: Student[];
+  metricValue?: (s: Student) => string | number;
+} {
+  if (isPillarKey(key)) {
+    const students = [...STUDENTS].sort((a, b) => pillarScores(a)[key] - pillarScores(b)[key]);
+    return { students, metricValue: (s) => pillarScores(s)[key] };
+  }
+  const students = [...STUDENTS].sort((a, b) => RISK_RANK[b.risk] - RISK_RANK[a.risk]);
+  return { students };
+}
+
 export function DriverCards({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
   // Locked (FTUE) passes an empty roster so every pillar score is zero
   // instead of the mock class's simulated history.
   const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
+  const [drillKey, setDrillKey] = useState<string | null>(null);
 
   const cognitive: DriverItem[] = [
     {
@@ -122,6 +150,10 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
     },
   ];
 
+  const allItems = [...cognitive, ...wellbeing];
+  const drillItem = drillKey ? allItems.find((i) => i.key === drillKey) : undefined;
+  const drill = drillKey ? driverDrilldown(drillKey) : null;
+
   return (
     <motion.section
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
@@ -145,6 +177,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
           tone={BLUE}
           items={cognitive}
           reduce={!!reduce}
+          onSelect={locked ? undefined : setDrillKey}
         />
         <DriverGroup
           title="Student Wellbeing"
@@ -152,8 +185,25 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
           tone={INDIGO}
           items={wellbeing}
           reduce={!!reduce}
+          onSelect={locked ? undefined : setDrillKey}
         />
       </div>
+
+      {drillItem && drill && (
+        <StudentDrillDialog
+          open={!!drillKey}
+          onOpenChange={(open) => setDrillKey(open ? drillKey : null)}
+          title={drillItem.title}
+          description={
+            isPillarKey(drillItem.key)
+              ? `${drill.students.length} students, sorted lowest first for ${drillItem.title.toLowerCase()}.`
+              : `${drill.students.length} students to check in on for ${drillItem.title.toLowerCase()}.`
+          }
+          students={drill.students}
+          metricLabel={drill.metricValue ? "/100" : undefined}
+          metricValue={drill.metricValue}
+        />
+      )}
     </motion.section>
   );
 }
@@ -164,12 +214,14 @@ function DriverGroup({
   tone,
   items,
   reduce,
+  onSelect,
 }: {
   title: string;
   Icon: LucideIcon;
   tone: string;
   items: DriverItem[];
   reduce: boolean;
+  onSelect?: (key: string) => void;
 }) {
   const avg = average(items);
   const band = healthBand(avg);
@@ -208,13 +260,17 @@ function DriverGroup({
           const itemBand = healthBand(item.score);
           const isLastOdd = items.length % 2 === 1 && i === items.length - 1;
           return (
-            <motion.div
+            <motion.button
+              type="button"
               key={item.key}
+              onClick={onSelect ? () => onSelect(item.key) : undefined}
+              disabled={!onSelect}
               initial={reduce ? undefined : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.3, ease: EASE }}
               className={cn(
-                "group rounded-xl border border-border/60 bg-background/50 p-3 transition-colors hover:border-foreground/15 hover:bg-background/80",
+                "group w-full text-left rounded-xl border border-border/60 bg-background/50 p-3 transition-colors",
+                onSelect && "hover:border-foreground/15 hover:bg-background/80 cursor-pointer",
                 isLastOdd && "sm:col-span-2",
               )}
             >
@@ -258,7 +314,7 @@ function DriverGroup({
                   {itemBand.label}
                 </span>
               </div>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>

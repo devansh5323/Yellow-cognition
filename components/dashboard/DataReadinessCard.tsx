@@ -34,6 +34,12 @@ const BLUE = "hsl(212 90% 58%)";
 const VIOLET = "hsl(260 55% 60%)";
 const AMBER = "hsl(38 92% 55%)";
 
+// Static design placeholder — not wired to real roster/Fumi data yet. The
+// hero bar reads as "how many students have actually connected via Fumi,"
+// not step completion, so it only ever shows 100% once every student has.
+const FUMI_CONNECTED_STUDENTS = 20;
+const FUMI_TOTAL_STUDENTS = 24;
+
 type StartStepId = "classroom" | "focus" | "fumi";
 
 type StartStep = {
@@ -169,14 +175,29 @@ export function DataReadinessCard() {
 
   const doneCount = steps.filter((s) => s.done).length;
   const totalSteps = steps.length;
+  const stepsAllDone = doneCount === totalSteps;
+  // Before the 3 cards are done, the hero bar tracks step completion — once
+  // they're all done, that number stops being interesting (permanently
+  // 100%), so it switches to the next thing worth watching: how many
+  // students have actually connected via Fumi.
   const readinessPct = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
-  const heroTone = readinessPct === 100 ? GREEN : readinessPct === 0 ? AMBER : BLUE;
+  const fumiConnectedPct = Math.round((FUMI_CONNECTED_STUDENTS / FUMI_TOTAL_STUDENTS) * 100);
+  const heroPct = stepsAllDone ? fumiConnectedPct : readinessPct;
+  const heroTone = heroPct === 100 ? GREEN : heroPct === 0 ? AMBER : BLUE;
 
   // Steps are worked through in order: everything before the first
   // not-done step reads as complete, that first not-done step is the one
   // that glows (it's what the teacher should do next), and everything
   // after it stays blurred/locked until its turn comes.
   const activeIndex = steps.findIndex((s) => !s.done);
+
+  // The classroom step has two not-done sub-states — no classroom yet
+  // (header's "+ Add classroom" pill glows instead, this card stays grey)
+  // vs. classroom exists but its student list isn't set up yet (THIS card
+  // should glow so "Add your student list" is reachable). Using `!s.done`
+  // alone for "upcoming" would keep it greyed through both sub-states,
+  // stranding the teacher with no visible way to finish the roster step.
+  const hasClassroom = getOnboarding().classrooms.length > 0;
 
   const lastCheckin = listCheckInsForTeacher(TEACHER_NAME)[0];
   const firstName = TEACHER_NAME.split(" ")[0];
@@ -296,29 +317,35 @@ export function DataReadinessCard() {
                     className="font-heading font-extrabold text-[28px] tabular-nums leading-none"
                     style={{ color: heroTone }}
                   >
-                    {readinessPct}%
+                    {heroPct}%
                   </span>
                   <span
                     className="text-[10.5px] font-bold px-2 py-1 rounded-full"
                     style={{ background: `color-mix(in srgb, ${heroTone} 14%, transparent)`, color: heroTone }}
                   >
-                    {readinessPct === 0 ? "Getting started" : readinessPct === 100 ? "All set" : "In progress"}
+                    {heroPct === 0 ? "Getting started" : heroPct === 100 ? "All set" : "In progress"}
                   </span>
                 </div>
-                <div className="mt-2 flex items-center gap-2 justify-end">
-                  <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+                <div className="mt-2 h-1.5 w-32 rounded-full bg-muted/40 overflow-hidden ml-auto">
+                  <motion.span
+                    initial={reduce ? undefined : { scaleX: 0 }}
+                    animate={{ scaleX: heroPct / 100 }}
+                    transition={{ duration: 0.4, ease: EASE }}
+                    className="block h-full w-full origin-left rounded-full"
+                    style={{ background: heroTone }}
+                  />
+                </div>
+                {stepsAllDone ? (
+                  fumiConnectedPct < 100 && (
+                    <div className="mt-1.5 text-[11px] font-bold text-muted-foreground whitespace-nowrap">
+                      {FUMI_CONNECTED_STUDENTS} of {FUMI_TOTAL_STUDENTS} students connected via Fumi
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-1.5 text-[11px] font-bold tabular-nums text-muted-foreground whitespace-nowrap">
                     {doneCount} / {totalSteps} steps
-                  </span>
-                  <div className="h-1.5 w-20 rounded-full bg-muted/40 overflow-hidden">
-                    <motion.span
-                      initial={reduce ? undefined : { scaleX: 0 }}
-                      animate={{ scaleX: readinessPct / 100 }}
-                      transition={{ duration: 0.4, ease: EASE }}
-                      className="block h-full w-full origin-left rounded-full"
-                      style={{ background: heroTone }}
-                    />
                   </div>
-                </div>
+                )}
               </div>
               <span
                 aria-hidden
@@ -369,8 +396,22 @@ export function DataReadinessCard() {
                           index={i}
                           reduce={!!reduce}
                           onAction={handleStepAction}
-                          active={i === activeIndex}
-                          upcoming={activeIndex !== -1 && i > activeIndex}
+                          // "Set up your classroom" only stays grey while no
+                          // classroom exists at all — that's when the header's
+                          // "+ Add classroom" pill glows instead. The moment a
+                          // classroom exists but its student list isn't set
+                          // up yet, this card takes over the glow so "Add
+                          // your student list" stays reachable.
+                          active={
+                            step.id === "classroom"
+                              ? hasClassroom && !step.done
+                              : i === activeIndex
+                          }
+                          upcoming={
+                            step.id === "classroom"
+                              ? !hasClassroom
+                              : activeIndex !== -1 && i > activeIndex
+                          }
                         />
                         {i < steps.length - 1 && (
                           <div className="hidden md:flex items-center justify-center shrink-0 text-muted-foreground/40">

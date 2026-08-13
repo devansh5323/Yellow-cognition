@@ -224,6 +224,24 @@ export function sendAllPendingInvites(): number {
   return count;
 }
 
+// Nudges everyone who hasn't activated Fumi yet — covers both "never
+// invited" (pending-invite) and "invited but no response" (invited),
+// unlike sendAllPendingInvites() which only covers the former.
+export function sendReminders(): number {
+  const list = read();
+  const now = Date.now();
+  let count = 0;
+  const out = list.map((s) => {
+    if (s.status !== "active" && (s.parentEmail || s.parentPhone)) {
+      count++;
+      return { ...s, status: "invited" as StudentStatus, invitedAt: now };
+    }
+    return s;
+  });
+  if (count > 0) write(out);
+  return count;
+}
+
 export function simulateLogin(id: string): RosterStudent | null {
   const list = read();
   const idx = list.findIndex((s) => s.id === id);

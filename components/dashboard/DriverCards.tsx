@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { classHealth } from "@/lib/classHealth";
+import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -202,61 +203,60 @@ function DriverGroup({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {items.map((item, i) => {
           const itemBand = healthBand(item.score);
+          const isLastOdd = items.length % 2 === 1 && i === items.length - 1;
           return (
             <motion.div
               key={item.key}
               initial={reduce ? undefined : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.3, ease: EASE }}
-              className="group rounded-xl border border-border/60 bg-background/50 p-3.5 transition-colors hover:border-foreground/15 hover:bg-background/80"
+              className={cn(
+                "group rounded-xl border border-border/60 bg-background/50 p-3 transition-colors hover:border-foreground/15 hover:bg-background/80",
+                isLastOdd && "sm:col-span-2",
+              )}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-2.5">
                 <span
-                  className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+                  className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0"
                   style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
                 >
-                  <item.Icon className="h-4 w-4" strokeWidth={2.2} />
+                  <item.Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
                 </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-heading font-bold text-[13px] leading-tight">{item.title}</div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                        {item.description}
-                      </p>
-                    </div>
-                    <div className="flex items-baseline gap-1 shrink-0">
-                      <span
-                        className="font-heading font-extrabold text-[17px] tabular-nums leading-none"
-                        style={{ color: item.tone }}
-                      >
-                        {item.score}
-                      </span>
-                      <span className="text-muted-foreground text-[10px] font-bold">/100</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center gap-2.5">
-                    <div className="h-1.5 flex-1 rounded-full bg-muted/50 overflow-hidden">
-                      <motion.span
-                        initial={reduce ? undefined : { scaleX: 0 }}
-                        animate={{ scaleX: item.score / 100 }}
-                        transition={{ duration: 0.5, ease: EASE, delay: 0.05 * i }}
-                        className="block h-full w-full origin-left rounded-full"
-                        style={{ background: item.tone }}
-                      />
-                    </div>
-                    <span
-                      className="text-[9.5px] font-bold uppercase tracking-[0.06em] shrink-0"
-                      style={{ color: itemBand.tone }}
-                    >
-                      {itemBand.label}
-                    </span>
-                  </div>
+                <div className="min-w-0 flex-1 font-heading font-bold text-[12.5px] leading-tight truncate">
+                  {item.title}
                 </div>
+                <div className="flex items-baseline gap-0.5 shrink-0">
+                  <span
+                    className="font-heading font-extrabold text-[15px] tabular-nums leading-none"
+                    style={{ color: item.tone }}
+                  >
+                    {item.score}
+                  </span>
+                  <span className="text-muted-foreground text-[9px] font-bold">/100</span>
+                </div>
+              </div>
+
+              <p className="text-[10.5px] text-muted-foreground mt-1.5 leading-snug">{item.description}</p>
+
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-muted/50 overflow-hidden">
+                  <motion.span
+                    initial={reduce ? undefined : { scaleX: 0 }}
+                    animate={{ scaleX: item.score / 100 }}
+                    transition={{ duration: 0.5, ease: EASE, delay: 0.05 * i }}
+                    className="block h-full w-full origin-left rounded-full"
+                    style={{ background: item.tone }}
+                  />
+                </div>
+                <span
+                  className="text-[9px] font-bold uppercase tracking-[0.06em] shrink-0"
+                  style={{ color: itemBand.tone }}
+                >
+                  {itemBand.label}
+                </span>
               </div>
             </motion.div>
           );

@@ -27,14 +27,12 @@ export function ClassroomSetupPrompt() {
   // the student-list method picker — kept as separate dialog modes so
   // clicking "Add student list" doesn't also surface the classroom form.
   const [mode, setMode] = useState<"classroom" | "roster">("classroom");
-  // Computed once at mount, synchronously — a brand-new teacher shouldn't
-  // have to find and click a button to discover this. `classroomPromptShown`
-  // is flipped right after, so this only ever auto-opens the first time.
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const state = getOnboarding();
-    return state.classrooms.length === 0 && !state.classroomPromptShown;
-  });
+  // Never auto-opens on landing anymore — that felt like a popup shoved in
+  // the teacher's face. Instead AppShell's header pill carries a coachmark
+  // ("Add your first classroom") pointing at itself, and this dialog only
+  // opens from an explicit click (that pill, the banner below, or a
+  // dashboard step CTA dispatching "ah-open-classroom-setup").
+  const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -64,17 +62,6 @@ export function ClassroomSetupPrompt() {
     return () => window.removeEventListener("ah-open-classroom-setup", onOpen);
   }, []);
 
-  // Marking "shown" only happens when the dialog actually closes — not on
-  // mount. Writing it on mount raced with React Strict Mode's dev-only
-  // double-invoke (mount → unmount → remount): the first mount's write
-  // would already be visible to the *second* (real, rendered) mount's
-  // lazy `open` initializer above, making it compute false and silently
-  // cancel the auto-open. Closing only ever happens once for real.
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) setOnboarding({ classroomPromptShown: true });
-  };
-
   if (classrooms === null) return null;
 
   // Persist via setOnboarding directly (not from inside a setClassroomsState
@@ -100,6 +87,10 @@ export function ClassroomSetupPrompt() {
       rosterReady: false,
     };
     setOnboarding({ classrooms: [...current, classroom] });
+    // Closes right after adding — a teacher adding their first (or only)
+    // classroom shouldn't need a second "Done" click. Adding another one
+    // later just means reopening from the header's "+ Add classroom" pill.
+    setOpen(false);
   };
 
   const removeClassroom = (id: string) => {
@@ -149,7 +140,7 @@ export function ClassroomSetupPrompt() {
         </motion.section>
       )}
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           {mode === "roster" ? (
             <>
@@ -169,7 +160,7 @@ export function ClassroomSetupPrompt() {
               <Button
                 variant="secondary"
                 className="w-full h-11 gap-1.5 font-heading font-bold text-[13.5px]"
-                onClick={() => handleOpenChange(false)}
+                onClick={() => setOpen(false)}
               >
                 <Check className="h-4 w-4" />
                 Done
@@ -190,7 +181,7 @@ export function ClassroomSetupPrompt() {
                 <Button
                   variant="secondary"
                   className="w-full h-11 gap-1.5 font-heading font-bold text-[13.5px]"
-                  onClick={() => handleOpenChange(false)}
+                  onClick={() => setOpen(false)}
                 >
                   <Check className="h-4 w-4" />
                   Done

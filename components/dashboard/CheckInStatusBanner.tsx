@@ -58,7 +58,7 @@ function describeDaysAgo(days: number): string {
   return `${Math.floor(days / 30)} months ago`;
 }
 
-export function CheckInStatusBanner() {
+export function CheckInStatusBanner({ hideCta = false }: { hideCta?: boolean }) {
   const reduce = useReducedMotion();
   // Hydrate after mount — listCheckIns reads localStorage which is browser-only.
   const [history, setHistory] = useState<ClassCheckIn[]>([]);
@@ -129,12 +129,14 @@ export function CheckInStatusBanner() {
 
         <div className="flex items-center gap-4 md:gap-5 md:justify-self-end">
           <CycleRibbon cycles={cycles} />
-          <Button asChild size="sm" variant={palette.ctaVariant} className={palette.ctaClass}>
-            <Link href="/check-in">
-              <CtaIcon className="h-3.5 w-3.5" />
-              {palette.ctaLabel}
-            </Link>
-          </Button>
+          {!hideCta && (
+            <Button asChild size="sm" variant={palette.ctaVariant} className={palette.ctaClass}>
+              <Link href="/check-in">
+                <CtaIcon className="h-3.5 w-3.5" />
+                {palette.ctaLabel}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </motion.section>

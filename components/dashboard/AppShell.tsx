@@ -366,15 +366,33 @@ export function AppShell({
               {/* Always present, even once classrooms exist — a teacher can
                   teach more than one, so this shouldn't disappear after
                   the first is added. */}
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("ah-open-classroom-setup"))}
-                aria-label="Add classroom"
-                className="premium-pill !h-10 !px-3.5 !text-[13px] shrink-0 border-dashed"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {classrooms.length === 0 && "Add classroom"}
-              </button>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("ah-open-classroom-setup"))}
+                  aria-label="Add classroom"
+                  className={cn(
+                    "premium-pill !h-10 !px-3.5 !text-[13px] border-dashed",
+                    classrooms.length === 0 && "border-flicker",
+                  )}
+                  style={classrooms.length === 0 ? ({ "--attn": "hsl(142 55% 45%)" } as React.CSSProperties) : undefined}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {classrooms.length === 0 && "Add classroom"}
+                </button>
+                {classrooms.length === 0 && (
+                  <div
+                    className="absolute left-1/2 top-full mt-2.5 -translate-x-1/2 z-10 w-max max-w-[220px] rounded-xl bg-foreground text-background px-3 py-2 text-[11.5px] font-bold leading-snug shadow-lg pointer-events-none"
+                    role="status"
+                  >
+                    <span
+                      className="absolute -top-1 left-1/2 -translate-x-1/2 h-2 w-2 rotate-45 bg-foreground"
+                      aria-hidden
+                    />
+                    Add your first classroom
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

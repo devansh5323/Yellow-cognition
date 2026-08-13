@@ -1,59 +1,66 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
-import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
-  BarChart3,
+  Check,
   CheckCircle2,
   ChevronDown,
-  ClipboardCheck,
-  Compass,
-  Heart,
-  MessageCircle,
+  GraduationCap,
+  Lock,
+  Rocket,
   Send,
-  Users,
+  Sparkles,
+  Target,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReturningActionHub } from "@/components/dashboard/ReturningActionHub";
-import { getStats, type InviteStats } from "@/lib/roster";
+import { getStats, getRoster, type InviteStats, type RosterStudent } from "@/lib/roster";
 import { listCheckInsForTeacher } from "@/lib/checkIn";
-import { getOnboarding, markTaskDone, type ActivationTaskId } from "@/lib/onboarding";
+import { getOnboarding, setOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
 export const TEACHER_NAME = "Maya Khan";
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-type StepStatus = "done" | "in-progress" | "todo";
+// Same tone palette used across the rest of the dashboard (ClassroomHealthScore,
+// WeeklyFocus, TeacherCheckInTools) — keeps this card's colors on-theme instead
+// of introducing a separate Tailwind palette.
+const GREEN = "hsl(142 55% 45%)";
+const BLUE = "hsl(212 90% 58%)";
+const VIOLET = "hsl(260 55% 60%)";
+const AMBER = "hsl(38 92% 55%)";
 
-type StepAction =
-  | { kind: "link"; to: string; search?: Record<string, string> }
-  | { kind: "event"; event: string; detail?: Record<string, unknown> }
-  | { kind: "scroll"; target: string };
+type StartStepId = "classroom" | "focus" | "fumi";
 
-type StepDef = {
-  id: "walkthrough" | "connect" | "invite" | "checkin" | "behavior-log" | "positive-log" | "review";
+type StartStep = {
+  id: StartStepId;
   title: string;
   description: string;
-  Icon: typeof Send;
+  Icon: typeof Target;
+  done: boolean;
+  /** Once done, the action is no longer meaningful to repeat (e.g. "Activated"). */
+  lockedWhenDone: boolean;
+  status: string;
   cta: string;
-  action: StepAction;
-  status: StepStatus;
-  /** Optional inline progress text e.g. "2 of 24" */
-  progress?: string;
-  /** Set for steps that mark an onboarding activation task done on click */
-  activationId?: ActivationTaskId;
+  tone: string;
 };
 
-function checkinThisMonth(): boolean {
-  const list = listCheckInsForTeacher(TEACHER_NAME);
-  if (list.length === 0) return false;
-  const d = new Date(list[0].createdAt);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-}
+// The 7 driver cards from components/dashboard/DriverCards.tsx (4 Cognitive
+// Performance + 3 Student Wellbeing) — same ids, so a picked focus area maps
+// straight onto one of those driver keys.
+const FOCUS_OPTIONS: { id: OnboardingGoal; label: string }[] = [
+  { id: "focus", label: "Attention and focus" },
+  { id: "academic", label: "Learning readiness" },
+  { id: "task", label: "Task engagement" },
+  { id: "behavior", label: "Behavior and discipline" },
+  { id: "anxiety", label: "Anxiety and Coping Index" },
+  { id: "peer-safety", label: "Peer Safety and Belonging" },
+  { id: "frustration", label: "Anger and Emotional Regulation" },
+];
 
 function timeOfDayGreeting(): string {
   const hour = new Date().getHours();
@@ -69,89 +76,58 @@ function relativeDaysAgo(dateStr: string): string {
   return `${days} days ago`;
 }
 
-function buildSteps(stats: InviteStats): StepDef[] {
-  const total = Math.max(0, stats.total);
-  const allConnected = total > 0 && stats.active === total;
-  const someInvited = stats.invited > 0;
-
-  const connectStatus: StepStatus = allConnected ? "done" : someInvited ? "in-progress" : "todo";
-  const inviteStatus: StepStatus =
-    stats.pending === 0 && total > 0 ? "done" : someInvited ? "in-progress" : "todo";
-
-  const checkinDone = checkinThisMonth();
+function buildStartSteps(): StartStep[] {
   const onboarding = getOnboarding();
-  const tourDone = !!onboarding.tourCompleted;
-  const tasksDone = onboarding.tasks;
+  const classroomCount = onboarding.classrooms.length;
+  const hasClassroom = classroomCount > 0;
+  // A classroom object exists the moment it's created, but it starts with a
+  // default "sample" placeholder and rosterReady: false — this step should
+  // only tick once every classroom has an actual student list, not just
+  // filled-in grade/section/subjects. Requiring ALL (not just one) classroom
+  // to be roster-ready means adding a new classroom later makes this step
+  // reappear until that new classroom gets a student list too.
+  const rosterReady = hasClassroom && onboarding.classrooms.every((c) => c.rosterReady);
+  const classroomsDone = hasClassroom && rosterReady;
+  const focusOption = FOCUS_OPTIONS.find((f) => f.id === onboarding.focusArea);
+  const fumiDone = !!onboarding.fumiActivated;
 
   return [
     {
-      id: "walkthrough",
-      title: "Take the dashboard walkthrough",
-      description: "A quick 2-min tour to help you get familiar.",
-      Icon: Compass,
-      cta: tourDone ? "Completed" : "Start tour",
-      action: { kind: "event", event: "ah-start-tour" },
-      status: tourDone ? "done" : "todo",
+      id: "classroom",
+      title: "Set up your classroom",
+      description: "Add your grade, section, subjects, and student list.",
+      Icon: GraduationCap,
+      done: classroomsDone,
+      lockedWhenDone: false,
+      status: !hasClassroom
+        ? "Not started"
+        : rosterReady
+          ? `${classroomCount} classroom${classroomCount > 1 ? "s" : ""} ready`
+          : "Add your student list",
+      cta: !hasClassroom ? "Set up classroom" : rosterReady ? "Manage classrooms" : "Add student list",
+      tone: BLUE,
     },
     {
-      id: "connect",
-      title: "Connect every student",
-      description: "Link all your students to start seeing their insights.",
-      Icon: Users,
-      cta: connectStatus === "done" ? "View roster" : `${stats.active} / ${total} connected`,
-      action: { kind: "link", to: "/settings", search: { tab: "roster" } },
-      status: connectStatus,
-      progress: total > 0 ? `${stats.active} of ${total} linked` : undefined,
+      id: "focus",
+      title: "Select focus area",
+      description: "Tell us what matters most for your class this term.",
+      Icon: Target,
+      done: !!focusOption,
+      lockedWhenDone: false,
+      status: focusOption ? focusOption.label : "Not started",
+      cta: focusOption ? "Change focus area" : "Choose focus area",
+      tone: VIOLET,
     },
     {
-      id: "invite",
-      title: "Send parent invites",
-      description: "Invite parents to provide valuable input.",
-      Icon: Send,
-      cta: inviteStatus === "done" ? "View roster" : "Send invites",
-      action: { kind: "link", to: "/settings", search: { tab: "roster", highlight: "invites" } },
-      status: inviteStatus,
-    },
-    {
-      id: "checkin",
-      title: "Run your first class check-in",
-      description: "Capture how your class is doing this week.",
-      Icon: ClipboardCheck,
-      cta: checkinDone ? "View check-in" : "Start check-in",
-      action: { kind: "link", to: "/check-in" },
-      status: checkinDone ? "done" : "todo",
-    },
-    {
-      id: "behavior-log",
-      title: "Record your first behavior observation",
-      description: "Log a student behavior to track patterns.",
-      Icon: MessageCircle,
-      cta: "Log behavior",
-      action: { kind: "event", event: "ah-open-behaviour-note", detail: { mode: "negative" } },
-      status: tasksDone["behavior-log"] ? "done" : "todo",
-      // No activationId here on purpose — this task should only complete once
-      // a behaviour note is actually saved (see markTaskDone in
-      // lib/checkInTools.ts's logBehaviorEvent), not the moment the dialog opens.
-    },
-    {
-      id: "positive-log",
-      title: "Record a positive behavior",
-      description: "Celebrate a strength you noticed in your class.",
-      Icon: Heart,
-      cta: "Log positive",
-      action: { kind: "event", event: "ah-open-behaviour-note", detail: { mode: "positive" } },
-      status: tasksDone["positive-log"] ? "done" : "todo",
-      // Same as above — completion is derived from logPositiveEvent actually firing.
-    },
-    {
-      id: "review",
-      title: "Review your classroom health",
-      description: "See your class health score and key insights.",
-      Icon: BarChart3,
-      cta: "View score",
-      action: { kind: "scroll", target: "[data-tour-target='classroom-health']" },
-      status: tasksDone["review-health"] ? "done" : "todo",
-      activationId: "review-health",
+      id: "fumi",
+      title: "Activate Fumi",
+      description: "Turn on Fumi to start supporting your classroom.",
+      Icon: Rocket,
+      done: fumiDone,
+      lockedWhenDone: true,
+      status: fumiDone ? "Activated" : "Not started",
+      cta: fumiDone ? "Activated" : "Activate Fumi",
+      tone: AMBER,
     },
   ];
 }
@@ -159,11 +135,16 @@ function buildSteps(stats: InviteStats): StepDef[] {
 export function DataReadinessCard() {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<InviteStats | null>(null);
+  const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [collapsed, setCollapsed] = useState(false);
-  const [stepsExpanded, setStepsExpanded] = useState(false);
+  const [focusPromptOpen, setFocusPromptOpen] = useState(false);
+  const [fumiPromptOpen, setFumiPromptOpen] = useState(false);
 
   useEffect(() => {
-    const refresh = () => setStats(getStats());
+    const refresh = () => {
+      setStats(getStats());
+      setRoster(getRoster());
+    };
     refresh();
     window.addEventListener("ah-roster-change", refresh);
     window.addEventListener("ah-checkin-change", refresh);
@@ -177,7 +158,7 @@ export function DataReadinessCard() {
 
   const toggleCollapsed = () => setCollapsed((prev) => !prev);
 
-  const steps = useMemo(() => (stats ? buildSteps(stats) : []), [stats]);
+  const steps = useMemo(() => (stats ? buildStartSteps() : []), [stats]);
 
   if (!stats) {
     return null;
@@ -185,359 +166,452 @@ export function DataReadinessCard() {
 
   const total = Math.max(0, stats.total);
   const linked = Math.min(stats.active, total);
-  const coverage = total > 0 ? Math.round((linked / total) * 100) : 0;
 
-  const doneCount = steps.filter((s) => s.status === "done").length;
+  const doneCount = steps.filter((s) => s.done).length;
   const totalSteps = steps.length;
-  const primarySteps = steps.slice(0, 3);
-  const moreSteps = steps.slice(3);
+  const readinessPct = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+  const heroTone = readinessPct === 100 ? GREEN : readinessPct === 0 ? AMBER : BLUE;
 
-  // Once every FTUE step is complete and roster coverage is full, the card
-  // switches from the first-time setup checklist to the returning-user hub.
-  const isReturning = doneCount === totalSteps && coverage === 100;
+  // Steps are worked through in order: everything before the first
+  // not-done step reads as complete, that first not-done step is the one
+  // that glows (it's what the teacher should do next), and everything
+  // after it stays blurred/locked until its turn comes.
+  const activeIndex = steps.findIndex((s) => !s.done);
 
   const lastCheckin = listCheckInsForTeacher(TEACHER_NAME)[0];
   const firstName = TEACHER_NAME.split(" ")[0];
 
-  return (
-    <motion.section
-      initial={reduce ? undefined : { opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: EASE }}
-      className="rounded-2xl border border-border bg-card p-6 md:p-8"
-      aria-label="Data readiness"
-    >
-      {/* Header — clickable to expand/collapse the body */}
-      <button
-        type="button"
-        onClick={toggleCollapsed}
-        aria-expanded={!collapsed}
-        aria-controls="data-readiness-steps"
-        className="group w-full text-left flex items-end justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-      >
-        <div className="min-w-0">
-          <div className="premium-eyebrow">
-            <span>{isReturning ? `${timeOfDayGreeting()}, ${firstName} 👋` : "Data readiness"}</span>
-          </div>
-          <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
-            {isReturning
-              ? "Data Readiness & Action Hub"
-              : total === 0
-                ? "Add your roster to start seeing data"
-                : `Seeing data from ${linked} of ${total} students`}
-          </h2>
-          <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
-            {isReturning
-              ? "Here's what needs your attention today to keep your class insights accurate and up to date."
-              : total === 0
-                ? "Once your roster is in, the dashboard fills in as parents link their child and you log the first check-in."
-                : collapsed
-                  ? "Click to view the steps that unlock the full picture."
-                  : "Complete the steps below to unlock the full picture across the dashboard."}
-          </p>
-          {isReturning && (
-            <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground mt-3">
-              {lastCheckin ? (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  Last check-in: {relativeDaysAgo(lastCheckin.createdAt)}
-                </>
-              ) : (
-                "No check-ins logged yet"
-              )}
-            </p>
-          )}
-        </div>
+  // Finishing the 3 steps only unlocks the next segment's CTA (Class Health
+  // Score's "Start check-in") — it does NOT swap this card over to the
+  // returning-user hub. Gating on a real check-in doesn't work either: this
+  // app ships with seeded demo check-ins (SEED_CHECKINS in lib/checkIn.ts),
+  // so lastCheckin is already truthy before the teacher does anything. The
+  // returning-hub trigger is deferred — for now this always shows the 3
+  // steps (all checked off once done), never auto-switching.
+  const isReturning = false;
 
-        {isReturning ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="text-right">
-              <div className="premium-eyebrow">
-                <span>Class data overview</span>
-              </div>
-              <div className="font-heading font-extrabold text-[22px] tabular-nums leading-none mt-1.5">
-                {linked}
-                <span className="text-muted-foreground/70 text-[14px] font-bold"> of {total} connected</span>
-              </div>
-            </div>
-            <span
-              aria-hidden
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
-            >
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
-              />
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="text-right">
-              <div className="font-heading font-extrabold text-[22px] tabular-nums leading-none">
-                {doneCount}
-                <span className="text-muted-foreground/70 text-[14px] font-bold">/{totalSteps}</span>
-              </div>
-              <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mt-1">
-                steps complete
-              </div>
-            </div>
-            <span
-              aria-hidden
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
-            >
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
-              />
-            </span>
-          </div>
-        )}
-      </button>
-
-      {/* Roster coverage bar — always visible so the headline isn't orphaned */}
-      <div className="pt-5">
-        <CoverageBar stats={stats} />
-      </div>
-
-      {/* Body — collapsible */}
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div
-            key="steps"
-            id="data-readiness-steps"
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className="overflow-hidden"
-          >
-            {isReturning ? (
-              <ReturningActionHub stats={stats} />
-            ) : (
-              <>
-                <ul className="mt-4 space-y-2">
-                  {primarySteps.map((s, i) => (
-                    <StepRow key={s.id} step={s} index={i} reduce={!!reduce} />
-                  ))}
-                  <AnimatePresence initial={false}>
-                    {stepsExpanded &&
-                      moreSteps.map((s, i) => (
-                        <StepRow key={s.id} step={s} index={i} reduce={!!reduce} dropdown />
-                      ))}
-                  </AnimatePresence>
-                </ul>
-
-                {moreSteps.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setStepsExpanded((v) => !v)}
-                    aria-expanded={stepsExpanded}
-                    className="mt-2 w-full flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-[12px] font-bold text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  >
-                    <span>
-                      {stepsExpanded ? "Show fewer steps" : `Show ${moreSteps.length} more steps`}
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-transform duration-200",
-                        stepsExpanded && "rotate-180",
-                      )}
-                    />
-                  </button>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.section>
-  );
-}
-
-function CoverageBar({ stats }: { stats: InviteStats }) {
-  const total = Math.max(1, stats.total);
-  const coverage = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
-  // Tentative proxy — no dedicated "parent weekly input" tracking exists yet,
-  // so every linked parent counts as having input pending. Revisit in L2/L3.
-  const parentInputsPending = stats.active;
-
-  const segments = [
-    { label: "Linked", value: stats.active, tone: "hsl(142 55% 46%)" },
-    {
-      label: "Invited",
-      value: Math.max(0, stats.invited - stats.active),
-      tone: "hsl(38 92% 55%)",
-    },
-    { label: "Not invited", value: stats.pending, tone: "hsl(240 10% 80%)" },
-  ];
-
-  return (
-    <div>
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-muted/50">
-          {segments.map((s) => {
-            if (s.value <= 0) return null;
-            return (
-              <span
-                key={s.label}
-                className="h-full"
-                style={{
-                  flex: `${(s.value / total) * 100} 1 0`,
-                  background: s.tone,
-                }}
-                title={`${s.label}: ${s.value}`}
-              />
-            );
-          })}
-        </div>
-        {stats.total > 0 && (
-          <span className="text-[12px] font-bold tabular-nums text-muted-foreground shrink-0">
-            {coverage}%
-          </span>
-        )}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        {segments.map((s) => (
-          <span key={s.label} className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm" style={{ background: s.tone }} aria-hidden />
-            <span className="font-semibold text-foreground/80">{s.label}</span>
-            <span className="tabular-nums">{s.value}</span>
-          </span>
-        ))}
-        {stats.total > 0 && (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: "hsl(212 90% 58%)" }} aria-hidden />
-            <span className="font-semibold text-foreground/80">Parent input pending</span>
-            <span className="tabular-nums">{parentInputsPending}</span>
-          </span>
-        )}
-      </div>
-      <div className="mt-2 text-[10.5px] text-muted-foreground">
-        Data updated: Today, {new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-      </div>
-    </div>
-  );
-}
-
-function StepRow({
-  step,
-  index,
-  reduce,
-  dropdown = false,
-}: {
-  step: StepDef;
-  index: number;
-  reduce: boolean;
-  dropdown?: boolean;
-}) {
-  const Icon = step.Icon;
-  const done = step.status === "done";
-
-  const markDone = () => {
-    if (step.activationId) markTaskDone(step.activationId);
-  };
-
-  const triggerAction = () => {
-    markDone();
-    if (step.action.kind === "event") {
-      window.dispatchEvent(new CustomEvent(step.action.event, { detail: step.action.detail }));
-    } else if (step.action.kind === "scroll") {
-      const el = document.querySelector(step.action.target);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("ring-pulse");
-        window.setTimeout(() => el.classList.remove("ring-pulse"), 2400);
-      }
+  const handleStepAction = (id: StartStepId) => {
+    if (id === "classroom") {
+      const hasClassroom = getOnboarding().classrooms.length > 0;
+      const rosterReady = hasClassroom && getOnboarding().classrooms.every((c) => c.rosterReady);
+      // A classroom that already exists but has no student list yet should
+      // open straight to the roster picker — not the grade/section/subjects
+      // form the teacher already filled in.
+      const mode = hasClassroom && !rosterReady ? "roster" : "classroom";
+      window.dispatchEvent(new CustomEvent("ah-open-classroom-setup", { detail: { mode } }));
+    } else if (id === "focus") {
+      setFocusPromptOpen(true);
+    } else if (id === "fumi") {
+      setFumiPromptOpen(true);
     }
   };
 
-  return (
-    <motion.li
-      initial={
-        reduce ? undefined : dropdown ? { height: 0, opacity: 0, marginTop: 0 } : { opacity: 0, y: 4 }
-      }
-      animate={
-        dropdown ? { height: "auto", opacity: 1, marginTop: 8 } : { opacity: 1, y: 0 }
-      }
-      exit={dropdown ? (reduce ? { opacity: 0 } : { height: 0, opacity: 0, marginTop: 0 }) : undefined}
-      transition={
-        dropdown
-          ? { duration: 0.32, ease: EASE }
-          : { delay: 0.04 * index, duration: 0.3, ease: EASE }
-      }
-      className={cn(
-        "rounded-xl border bg-background px-3.5 py-3 flex items-center gap-3 transition-colors",
-        dropdown && "overflow-hidden",
-        done ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-border",
-      )}
-    >
-      <span
-        className={cn(
-          "h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0",
-          done
-            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-            : step.status === "in-progress"
-              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-              : "bg-muted/70 text-muted-foreground",
-        )}
-      >
-        {done ? (
-          <CheckCircle2 className="h-4 w-4" strokeWidth={2.4} />
-        ) : (
-          <Icon className="h-4 w-4" strokeWidth={2.4} />
-        )}
-      </span>
+  const fumiActivated = !!getOnboarding().fumiActivated;
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
+  // Sends the Fumi companion link to every parent already linked in the
+  // roster, in one shot — this dialog stays open afterward (not a one-step
+  // close-and-toast like the other two steps) so the teacher can see who
+  // it went to.
+  const sendFumiInvite = () => {
+    setOnboarding({ fumiActivated: true });
+    toast.success(
+      roster.length > 0
+        ? `Fumi invite sent to ${roster.length} parent${roster.length === 1 ? "" : "s"}.`
+        : "Fumi activated! Your classroom companion is now on.",
+    );
+  };
+
+  return (
+    <>
+      <motion.section
+        initial={reduce ? undefined : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: EASE }}
+        className="rounded-2xl border border-border bg-card p-6 md:p-8"
+        aria-label="Data readiness"
+      >
+        {/* Header — clickable to expand/collapse the body */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-controls="data-readiness-steps"
+          className="group w-full text-left flex items-center justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <div className="min-w-0">
+            <div className="premium-eyebrow">
+              <span>{isReturning ? `${timeOfDayGreeting()}, ${firstName} 👋` : "Data readiness"}</span>
+            </div>
+            {isReturning && (
+              <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
+                Data Readiness & Action Hub
+              </h2>
+            )}
+            <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
+              {isReturning
+                ? "Here's what needs your attention today to keep your class insights accurate and up to date."
+                : collapsed
+                  ? "Click to view the steps that unlock the full picture."
+                  : "Complete the steps below to unlock the full picture across the dashboard."}
+            </p>
+            {isReturning && (
+              <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground mt-3">
+                {lastCheckin ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} />
+                    Last check-in: {relativeDaysAgo(lastCheckin.createdAt)}
+                  </>
+                ) : (
+                  "No check-ins logged yet"
+                )}
+              </p>
+            )}
+          </div>
+
+          {isReturning ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right">
+                <div className="premium-eyebrow">
+                  <span>Class data overview</span>
+                </div>
+                <div className="font-heading font-extrabold text-[22px] tabular-nums leading-none mt-1.5">
+                  {linked}
+                  <span className="text-muted-foreground/70 text-[14px] font-bold"> of {total} connected</span>
+                </div>
+              </div>
+              <span
+                aria-hidden
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
+              >
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
+                />
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-right">
+                <div className="flex items-center gap-2 justify-end">
+                  <span
+                    className="font-heading font-extrabold text-[28px] tabular-nums leading-none"
+                    style={{ color: heroTone }}
+                  >
+                    {readinessPct}%
+                  </span>
+                  <span
+                    className="text-[10.5px] font-bold px-2 py-1 rounded-full"
+                    style={{ background: `color-mix(in srgb, ${heroTone} 14%, transparent)`, color: heroTone }}
+                  >
+                    {readinessPct === 0 ? "Getting started" : readinessPct === 100 ? "All set" : "In progress"}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center gap-2 justify-end">
+                  <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+                    {doneCount} / {totalSteps} steps
+                  </span>
+                  <div className="h-1.5 w-20 rounded-full bg-muted/40 overflow-hidden">
+                    <motion.span
+                      initial={reduce ? undefined : { scaleX: 0 }}
+                      animate={{ scaleX: readinessPct / 100 }}
+                      transition={{ duration: 0.4, ease: EASE }}
+                      className="block h-full w-full origin-left rounded-full"
+                      style={{ background: heroTone }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <span
+                aria-hidden
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
+              >
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
+                />
+              </span>
+            </div>
+          )}
+        </button>
+
+        {/* Body — collapsible */}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              key="steps"
+              id="data-readiness-steps"
+              initial={reduce ? false : { height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: EASE }}
+              className="overflow-hidden"
+            >
+              {isReturning ? (
+                <ReturningActionHub stats={stats} />
+              ) : (
+                <div className="mt-5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <h3 className="font-heading font-extrabold text-[14.5px]">Three steps to get started</h3>
+                      <span
+                        className="text-[10.5px] font-bold tabular-nums px-2 py-0.5 rounded-full"
+                        style={{ background: `color-mix(in srgb, ${BLUE} 10%, transparent)`, color: BLUE }}
+                      >
+                        {doneCount} of {totalSteps} complete
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-col md:flex-row items-stretch gap-2.5">
+                    {steps.map((step, i) => (
+                      <Fragment key={step.id}>
+                        <StartStepCard
+                          step={step}
+                          index={i}
+                          reduce={!!reduce}
+                          onAction={handleStepAction}
+                          active={i === activeIndex}
+                          upcoming={activeIndex !== -1 && i > activeIndex}
+                        />
+                        {i < steps.length - 1 && (
+                          <div className="hidden md:flex items-center justify-center shrink-0 text-muted-foreground/40">
+                            <ArrowRight className="h-4 w-4" />
+                          </div>
+                        )}
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.section>
+
+      <Dialog open={focusPromptOpen} onOpenChange={setFocusPromptOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select your focus area</DialogTitle>
+            <DialogDescription>
+              What matters most for your class this term? You can change this anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {FOCUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setOnboarding({ focusArea: opt.id });
+                  setFocusPromptOpen(false);
+                  toast.success(`Focus area set to ${opt.label}`);
+                }}
+                className="premium-pill !h-9 !px-3.5 !text-[12.5px]"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fumiPromptOpen} onOpenChange={setFumiPromptOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" />
+              Activate Fumi
+            </DialogTitle>
+            <DialogDescription>
+              Send every parent linked to your roster a link to Fumi, your class&apos;s companion
+              experience.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="premium-eyebrow">
+                <span>Your roster</span>
+              </div>
+              <span className="text-[11px] font-bold text-muted-foreground">
+                {roster.length} {roster.length === 1 ? "student" : "students"}
+              </span>
+            </div>
+
+            {roster.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground">
+                No students linked yet — add your roster first, then come back to invite parents to
+                Fumi.
+              </p>
+            ) : (
+              <ul className="rounded-2xl border border-border/60 overflow-hidden divide-y divide-border/60 max-h-[280px] overflow-y-auto">
+                {roster.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <span className="h-8 w-8 rounded-lg bg-muted/70 text-muted-foreground inline-flex items-center justify-center text-[11px] font-bold shrink-0">
+                      {s.childName
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-bold truncate">{s.childName}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {s.parentName ?? s.parentEmail ?? s.parentPhone ?? "No parent contact"}
+                      </div>
+                    </div>
+                    {fumiActivated && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
+                      >
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                        Sent
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              type="button"
+              onClick={sendFumiInvite}
+              disabled={roster.length === 0}
+              className={cn(
+                "w-full h-11 rounded-xl font-heading font-bold text-[13.5px] flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed",
+                fumiActivated
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary text-primary-foreground hover:brightness-95 disabled:opacity-50",
+              )}
+            >
+              {fumiActivated ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Invite sent — send again
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send invite
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function StartStepCard({
+  step,
+  index,
+  reduce,
+  onAction,
+  active = false,
+  upcoming = false,
+}: {
+  step: StartStep;
+  index: number;
+  reduce: boolean;
+  onAction: (id: StartStepId) => void;
+  /** This is the next thing the teacher should do — glows via the same
+   * tone-colored border flicker used before, no separate alert color. */
+  active?: boolean;
+  /** Hasn't been reached yet (an earlier step still isn't done) — stays
+   * blurred and non-interactive until its turn comes. */
+  upcoming?: boolean;
+}) {
+  const Icon = step.Icon;
+  const disabled = (step.done && step.lockedWhenDone) || upcoming;
+  // Uses the step's own tone for the glow — no separate "alert" color — via
+  // the --attn custom property so it doesn't bleed into descendant text.
+  const attnStyle = active ? ({ "--attn": step.tone } as React.CSSProperties) : undefined;
+  const iconTone = step.done ? GREEN : step.tone;
+
+  return (
+    <motion.article
+      initial={reduce ? undefined : { opacity: 0, y: 4 }}
+      animate={{ opacity: upcoming ? 0.55 : 1, y: 0 }}
+      transition={{ delay: 0.05 * index, duration: 0.3, ease: EASE }}
+      className={cn(
+        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-[filter] duration-300",
+        active ? "border-flicker" : "border-border",
+        upcoming && "blur-[2.5px] pointer-events-none select-none",
+      )}
+      style={{
+        ...attnStyle,
+        ...(step.done
+          ? { borderColor: `color-mix(in srgb, ${GREEN} 30%, transparent)`, background: `color-mix(in srgb, ${GREEN} 5%, transparent)` }
+          : undefined),
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="relative h-11 w-11 rounded-xl inline-flex items-center justify-center shrink-0"
+          style={{ background: `color-mix(in srgb, ${iconTone} 14%, transparent)`, color: iconTone }}
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
           <span
             className={cn(
-              "font-heading font-bold text-[13.5px] leading-tight",
-              done && "text-muted-foreground",
+              "absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-card border border-border inline-flex items-center justify-center text-[10px] font-bold",
+              step.done ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
             )}
+            style={step.done ? { color: GREEN } : undefined}
+            aria-hidden
+          >
+            {step.done ? <Check className="h-3 w-3" strokeWidth={3} /> : index + 1}
+          </span>
+        </span>
+        <div className="flex-1 min-w-0">
+          <h4
+            className={cn(
+              "font-heading font-extrabold text-[13.5px] leading-tight",
+              step.done && "line-through decoration-2 text-muted-foreground",
+            )}
+            style={step.done ? { textDecorationColor: `color-mix(in srgb, ${GREEN} 60%, transparent)` } : undefined}
           >
             {step.title}
-          </span>
-          {step.progress && (
-            <span className="text-[10.5px] font-bold tabular-nums text-muted-foreground rounded-full border border-border px-1.5 py-0.5">
-              {step.progress}
-            </span>
-          )}
-        </div>
-        <div className="text-[11.5px] text-muted-foreground leading-snug mt-0.5">
-          {step.description}
+          </h4>
+          <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">{step.description}</p>
         </div>
       </div>
 
-      {step.action.kind === "link" ? (
-        <Button
-          asChild
-          size="sm"
-          variant={done ? "outline" : "default"}
-          className="h-8 rounded-lg px-3 text-[12px] font-bold gap-1 shrink-0"
-        >
-          <Link
-            href={
-              step.action.search
-                ? `${step.action.to}?${new URLSearchParams(step.action.search).toString()}`
-                : step.action.to
-            }
-            onClick={markDone}
-          >
-            {step.cta}
-            {!done && <ArrowRight className="h-3.5 w-3.5" />}
-          </Link>
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          size="sm"
-          variant={done ? "outline" : "default"}
-          onClick={triggerAction}
-          className="h-8 rounded-lg px-3 text-[12px] font-bold gap-1 shrink-0"
-        >
-          {step.cta}
-          {!done && <ArrowRight className="h-3.5 w-3.5" />}
-        </Button>
-      )}
-    </motion.li>
+      <span
+        className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-1 rounded-full w-fit"
+        style={{ background: `color-mix(in srgb, ${iconTone} 10%, transparent)`, color: iconTone }}
+      >
+        {step.done && <Check className="h-3 w-3" strokeWidth={3} />}
+        {step.status}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => onAction(step.id)}
+        disabled={disabled}
+        className={cn(
+          "mt-auto flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold transition-colors",
+          disabled && "cursor-default",
+          step.done && !disabled && "border border-border bg-transparent",
+        )}
+        style={
+          disabled
+            ? { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }
+            : step.done
+              ? { color: "hsl(var(--foreground))" }
+              : { background: `color-mix(in srgb, ${step.tone} 12%, transparent)`, color: step.tone }
+        }
+      >
+        {upcoming ? "Locked" : step.cta}
+        {upcoming ? (
+          <Lock className="h-3.5 w-3.5" />
+        ) : disabled ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : (
+          <ArrowRight className="h-3.5 w-3.5" />
+        )}
+      </button>
+    </motion.article>
   );
 }

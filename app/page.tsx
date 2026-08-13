@@ -22,12 +22,14 @@ import {
   ArrowLeft,
   Check,
   AlertCircle,
-  Sparkles,
-  ShieldCheck,
   Building2,
   Users,
+  User,
   Landmark,
   HeartHandshake,
+  Bell,
+  Lightbulb,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { signIn, getSession, type UserRole } from "@/lib/auth";
@@ -62,7 +64,7 @@ const ROLES: {
   key: RoleKey;
   title: string;
   description: string;
-  bestFor: string;
+  subLabel: string;
   Icon: LucideIcon;
   tone: string;
 }[] = [
@@ -70,7 +72,7 @@ const ROLES: {
     key: "teacher",
     title: "Teacher",
     description: "Access classroom insights and student progress.",
-    bestFor: "Best for classroom educators",
+    subLabel: "Best for classroom educators",
     Icon: GraduationCap,
     tone: "hsl(142 55% 45%)",
   },
@@ -78,7 +80,7 @@ const ROLES: {
     key: "principal",
     title: "School Principal",
     description: "Monitor school health and teacher effectiveness.",
-    bestFor: "Best for school leaders",
+    subLabel: "Best for school leaders",
     Icon: Building2,
     tone: "hsl(212 90% 58%)",
   },
@@ -86,7 +88,7 @@ const ROLES: {
     key: "educator",
     title: "Special Educator",
     description: "Support students with personalized strategies.",
-    bestFor: "Best for special education experts",
+    subLabel: "Best for special education experts",
     Icon: Users,
     tone: "hsl(262 60% 62%)",
   },
@@ -94,7 +96,7 @@ const ROLES: {
     key: "district",
     title: "District Dashboard",
     description: "View district-wide trends and performance.",
-    bestFor: "Best for district administrators",
+    subLabel: "Best for district administrators",
     Icon: Landmark,
     tone: "hsl(28 88% 54%)",
   },
@@ -102,10 +104,17 @@ const ROLES: {
     key: "sel",
     title: "SEL Coordinator",
     description: "Track social-emotional wellbeing and support programs.",
-    bestFor: "Best for SEL coordinators",
+    subLabel: "Best for SEL coordinators",
     Icon: HeartHandshake,
     tone: "hsl(330 65% 62%)",
   },
+];
+
+const FEATURES: { label: string; Icon: LucideIcon }[] = [
+  { label: "Know your students better", Icon: Users },
+  { label: "Spot what needs your attention", Icon: Bell },
+  { label: "Receive practical recommendations", Icon: Lightbulb },
+  { label: "Track student growth", Icon: TrendingUp },
 ];
 
 function mapRole(role: RoleKey): UserRole {
@@ -134,7 +143,7 @@ export default function LoginPage() {
   }, [router]);
 
   const [step, setStep] = useState<"role" | "signin">("role");
-  const [selectedRole, setSelectedRole] = useState<RoleKey | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RoleKey | null>("teacher");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -278,89 +287,37 @@ export default function LoginPage() {
           </motion.div>
 
           <div className="max-w-xl">
-            <motion.div
-              variants={rise}
-              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 backdrop-blur px-3 py-1.5 text-[11px] text-muted-foreground mb-5"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span>New: Monthly growth digests are live</span>
-            </motion.div>
-
             <motion.h1
               variants={rise}
               className="font-heading font-extrabold text-[44px] xl:text-[56px] leading-[1.05] tracking-tight text-foreground"
             >
-              See every child.
+              Understand your classroom.
               <br />
-              <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-[hsl(142_55%_42%)] via-[hsl(200_60%_50%)] to-[hsl(260_55%_55%)] bg-clip-text text-transparent">
-                  Help every learner.
-                </span>
-                <motion.span
-                  aria-hidden
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ delay: 0.9, duration: 0.8, ease: EASE }}
-                  style={{ transformOrigin: "left" }}
-                  className="absolute left-0 -bottom-1 h-[3px] w-full rounded-full bg-gradient-to-r from-primary/70 via-[hsl(200_60%_60%)]/70 to-[hsl(260_55%_65%)]/70"
-                />
-              </span>
+              <span style={{ color: "hsl(142 55% 45%)" }}>Empower</span> every learner.
             </motion.h1>
 
             <motion.p variants={rise} className="mt-6 text-[15px] leading-relaxed text-muted-foreground max-w-md">
-              A calm, classroom-ready dashboard to monitor attention, spot students who need help,
-              and celebrate growth — all in one serene view.
+              Yellow Cognition brings together classroom insights, student well-being, and
+              behaviour patterns — so you can take the right action at the right time.
             </motion.p>
 
-            {/* Stats */}
-            <motion.div variants={rise} className="mt-10 grid grid-cols-3 gap-3 max-w-md">
-              {[
-                { k: "24", v: "Students tracked" },
-                { k: "8", v: "Attention domains" },
-                { k: "4w", v: "Growth history" },
-              ].map((s) => (
-                <div
-                  key={s.v}
-                  className="relative rounded-2xl border border-border/60 bg-card/70 backdrop-blur p-3.5 text-center overflow-hidden"
-                >
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-                  <div className="font-heading font-extrabold text-[26px] text-foreground leading-none">{s.k}</div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">{s.v}</div>
+            {/* Feature highlights */}
+            <motion.div variants={rise} className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-5 max-w-md">
+              {FEATURES.map((f) => (
+                <div key={f.label} className="flex flex-col items-center text-center gap-2.5">
+                  <span className="h-11 w-11 rounded-full bg-primary/15 text-primary inline-flex items-center justify-center shrink-0">
+                    <f.Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-[12px] font-semibold text-foreground/85 leading-snug">
+                    {f.label}
+                  </span>
                 </div>
               ))}
             </motion.div>
-
-            {/* Testimonial */}
-            <motion.figure
-              variants={rise}
-              className="mt-10 max-w-md rounded-2xl border border-border/60 bg-card/70 backdrop-blur px-5 py-4 relative overflow-hidden"
-            >
-              <div className="absolute -top-8 -right-6 h-24 w-24 rounded-full bg-primary/15 blur-2xl" aria-hidden />
-              <blockquote className="text-[13.5px] leading-relaxed text-foreground/90">
-                &ldquo;It quietly surfaces the two students I would have missed that month — every single
-                month. It feels like a calmer classroom.&rdquo;
-              </blockquote>
-              <figcaption className="mt-3 flex items-center gap-2.5 text-[12px]">
-                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[hsl(260_55%_70%)] to-[hsl(200_60%_60%)] text-white flex items-center justify-center font-heading font-bold text-[11px]">
-                  MR
-                </div>
-                <div className="leading-tight">
-                  <div className="font-semibold">Maya Ramírez</div>
-                  <div className="text-muted-foreground">Grade 4 · Lincoln Elementary</div>
-                </div>
-              </figcaption>
-            </motion.figure>
           </div>
 
-          <motion.div
-            variants={rise}
-            className="flex items-center justify-between text-[11px] text-muted-foreground"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              <span>SOC 2 · FERPA-aligned · End-to-end encrypted</span>
-            </div>
-            <div>© 2026 Yellow Cognition</div>
+          <motion.div variants={rise} className="text-[11px] text-muted-foreground">
+            © 2026 Yellow Cognition
           </motion.div>
         </motion.aside>
 
@@ -378,7 +335,7 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
-            className="relative w-full max-w-[440px] rounded-[22px] auth-card p-8 sm:p-9"
+            className="relative w-full max-w-[540px] rounded-[22px] auth-card p-8 sm:p-9"
           >
             <span className="auth-card-ring rounded-[22px]" aria-hidden />
 
@@ -417,10 +374,10 @@ export default function LoginPage() {
                   >
                     <div>
                       <h2 className="font-heading font-extrabold text-[28px] leading-tight tracking-tight">
-                        Let&apos;s get started
+                        Let&apos;s get you started
                       </h2>
                       <p className="mt-1.5 text-[14px] text-muted-foreground">
-                        Select your role to personalize your experience.
+                        Choose your role to continue
                       </p>
                     </div>
 
@@ -428,43 +385,50 @@ export default function LoginPage() {
                         2-col grid, so it spans full width in a horizontal
                         layout instead of sitting orphaned with dead space
                         beside it. */}
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      {ROLES.map((r, i) => {
+                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup" aria-label="Select your role">
+                      {ROLES.map((r) => {
                         const active = selectedRole === r.key;
-                        const wide = i === ROLES.length - 1 && ROLES.length % 2 === 1;
                         return (
                           <button
                             key={r.key}
                             type="button"
+                            role="radio"
+                            aria-checked={active}
                             onClick={() => setSelectedRole((prev) => (prev === r.key ? null : r.key))}
                             className={cn(
-                              "relative text-left rounded-2xl border p-3.5 transition-colors",
-                              wide && "col-span-2 flex items-start gap-3.5",
-                              active ? "border-primary bg-primary/[0.07]" : "border-border/70 hover:border-border",
+                              "group relative text-left rounded-2xl border p-3.5 transition-all cursor-pointer",
+                              r.key === "sel" && "sm:col-span-2",
+                              active
+                                ? "border-primary bg-primary/[0.07] shadow-[0_4px_14px_-8px_hsl(230_50%_18%/0.2)]"
+                                : "border-border/70 hover:border-primary/50 hover:bg-muted/20 hover:shadow-[0_2px_10px_-6px_hsl(230_50%_18%/0.15)]",
                             )}
                           >
-                            {active && (
-                              <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                                <Check className="h-3 w-3" strokeWidth={3} />
-                              </span>
-                            )}
                             <span
-                              className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0"
+                              className={cn(
+                                "absolute top-3 right-3 h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+                                active
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "border-border bg-background group-hover:border-primary/50",
+                              )}
+                              aria-hidden
+                            >
+                              {active && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
+                            </span>
+                            <span
+                              className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
                               style={{ background: `color-mix(in srgb, ${r.tone} 18%, transparent)`, color: r.tone }}
                             >
-                              <r.Icon className="h-4.5 w-4.5" />
+                              <r.Icon className="h-[18px] w-[18px]" />
                             </span>
-                            <div className={wide ? "min-w-0 flex-1" : undefined}>
-                              <div className={cn("font-heading font-bold text-[13.5px] leading-tight", !wide && "mt-2.5")}>
-                                {r.title}
-                              </div>
+                            <div className="min-w-0 mt-2.5 pr-5">
+                              <div className="font-heading font-bold text-[13.5px] leading-tight">{r.title}</div>
                               <p className="mt-1 text-[11.5px] text-muted-foreground leading-snug">
                                 {r.description}
                               </p>
-                              <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                                <Users className="h-3 w-3 shrink-0" />
-                                {r.bestFor}
-                              </div>
+                              <p className="mt-1.5 flex items-center gap-1 text-[10.5px] text-muted-foreground/80">
+                                <User className="h-2.5 w-2.5" />
+                                {r.subLabel}
+                              </p>
                             </div>
                           </button>
                         );
@@ -484,9 +448,10 @@ export default function LoginPage() {
                       </span>
                     </button>
 
-                    <p className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px] text-muted-foreground">
-                      <Lock className="h-3 w-3" />
-                      Your information is secure and encrypted
+                    <p className="mt-4 flex items-start justify-center gap-1.5 text-[11.5px] text-muted-foreground text-center leading-snug">
+                      <Lock className="h-3 w-3 mt-0.5 shrink-0" />
+                      Your data is secure and private. We&apos;re here to help you make a positive
+                      impact in your classroom.
                     </p>
                   </motion.div>
                 ) : (

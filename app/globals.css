@@ -1230,6 +1230,26 @@
     100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); }
   }
 
+  /* Gentle, ongoing border flicker — for a card that stays outstanding until
+   * the teacher acts on it. Fades the border's opacity up and down slowly
+   * rather than a hard on/off blink, so it stays noticeable without being
+   * hard on the eyes. Color comes from the --attn custom property (set
+   * inline per-use, usually the step's own tone) rather than currentColor,
+   * so it doesn't also bleed into descendant text color. */
+  .border-flicker {
+    animation: border-flicker-anim 1.5s ease-in-out infinite;
+  }
+  @keyframes border-flicker-anim {
+    0%, 100% { border-color: color-mix(in srgb, var(--attn, hsl(212 90% 58%)) 35%, transparent); }
+    50% { border-color: color-mix(in srgb, var(--attn, hsl(212 90% 58%)) 90%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .border-flicker {
+      animation: none;
+      border-color: color-mix(in srgb, var(--attn, hsl(212 90% 58%)) 65%, transparent);
+    }
+  }
+
   /* Animated caret / loader ring */
   .ring-spin {
     width: 1.1rem; height: 1.1rem;

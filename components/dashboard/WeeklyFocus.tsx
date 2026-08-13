@@ -24,13 +24,15 @@ const TIERS: TierMeta[] = [
   { tier: "Tier 3", category: "Individual Support", tone: RED, Icon: User },
 ];
 
-export function WeeklyFocus() {
+export function WeeklyFocus({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
+  // Locked (FTUE) passes an empty roster so every "N students" count is
+  // zero instead of the mock class's simulated history.
   const pairs = useMemo(() => {
-    const areas = topSupportAreas();
-    const recs = recommendations();
+    const areas = topSupportAreas(locked ? [] : undefined);
+    const recs = recommendations(locked ? [] : undefined);
     return areas.map((area, i) => ({ area, rec: recs[i] as Recommendation | undefined }));
-  }, []);
+  }, [locked]);
 
   return (
     <motion.section

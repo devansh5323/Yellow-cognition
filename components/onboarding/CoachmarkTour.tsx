@@ -3,8 +3,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Compass, ArrowRight, X, Command, Sparkles, Layers, BarChart3 } from "lucide-react";
-import { completeTour, getOnboarding } from "@/lib/onboarding";
+import { Compass, ArrowRight, X, Sparkles, Layers, BarChart3 } from "lucide-react";
+import { completeTour } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
 type Stop = {
@@ -24,14 +24,6 @@ const STOPS: Stop[] = [
     body: "Students, classroom, check-ins, reports — all one click away. The active page glides with you.",
     Icon: Layers,
     position: "right",
-  },
-  {
-    id: "search",
-    selector: "#global-search",
-    title: "⌘K to do anything fast",
-    body: "Jump to a student, run a check-in, message a parent — without leaving the keyboard.",
-    Icon: Command,
-    position: "bottom",
   },
   {
     id: "kpis",
@@ -60,16 +52,10 @@ export function CoachmarkTour() {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const reduce = useReducedMotion();
 
-  // Decide eligibility on mount: only run once for completed onboarders who haven't toured.
-  useEffect(() => {
-    const s = getOnboarding();
-    if (!s.completed) return;
-    if (s.tourCompleted) return;
-    setEligible(true);
-    // Slight delay so the dashboard has settled
-    const t = window.setTimeout(() => setActive(true), 600);
-    return () => window.clearTimeout(t);
-  }, []);
+  // No longer auto-starts on first dashboard landing — the classroom setup
+  // popup takes that moment instead (see ClassroomSetupPrompt.tsx). The
+  // tour is still fully available, just on-demand only now, via the
+  // "Take the dashboard walkthrough" checklist step below.
 
   // Allow the activation card (or anything else) to re-run the tour on demand
   // by dispatching a window-level "ah-start-tour" event.

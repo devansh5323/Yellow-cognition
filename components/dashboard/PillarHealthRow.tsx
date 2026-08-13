@@ -106,10 +106,13 @@ const PILLARS: PillarMeta[] = [
   },
 ];
 
-export function PillarHealthRow() {
+export function PillarHealthRow({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
-  const ch = useMemo(() => classHealth(), []);
-  const composites = useMemo(() => studentComposites(), []);
+  // Locked (FTUE) shows every score/count at zero instead of the mock
+  // class's simulated history — an empty roster is enough for classHealth()
+  // and studentComposites() to naturally zero out.
+  const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
+  const composites = useMemo(() => studentComposites(locked ? [] : undefined), [locked]);
 
   const ranked = [...PILLARS].sort((a, b) => ch.pillars[a.key] - ch.pillars[b.key]);
   const weakest = ranked[0];

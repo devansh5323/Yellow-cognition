@@ -7,16 +7,22 @@ export type OnboardingProfile = {
   fullName: string;
   schoolName: string;
   yearsTeaching: number;
-  gradeLevels: string[];
-  subjects: string[];
+  board?: string;
 };
 
 export type RosterMethod = "csv" | "google" | "sample" | "manual" | "invite";
 
-export type OnboardingClass = {
-  name: string;
-  period: string;
+// A teacher can create more than one classroom during onboarding — grade,
+// section, and subjects live per-classroom rather than as flat profile
+// fields, since a teacher teaching Grade 3A Math and Grade 5B Science is
+// two different subject/grade combinations, not one flat set of each.
+export type OnboardingClassroom = {
+  id: string;
+  grade: string;
+  section: string;
+  subjects: string[];
   size: number;
+  period: string;
   rosterMethod: RosterMethod;
   rosterReady: boolean;
 };
@@ -43,11 +49,20 @@ export type OnboardingState = {
   completed: boolean;
   completedAt?: number;
   profile?: OnboardingProfile;
-  primaryClass?: OnboardingClass;
+  classrooms: OnboardingClassroom[];
   goals: OnboardingGoal[];
   tasks: Record<ActivationTaskId, boolean>;
   tourCompleted?: boolean;
   checklistDismissed?: boolean;
+  /** Whether the classroom setup dialog has already auto-opened once on
+   * dashboard landing — set the first time, so it doesn't force itself
+   * open again on every later visit while classrooms is still empty. */
+  classroomPromptShown?: boolean;
+  /** The teacher's chosen focus area for the "three steps to get started"
+   * checklist — set once from a fixed option list, changeable anytime. */
+  focusArea?: OnboardingGoal;
+  /** Whether the teacher has activated Fumi from the getting-started checklist. */
+  fumiActivated?: boolean;
 };
 
 const DEFAULT_TASKS: Record<ActivationTaskId, boolean> = {
@@ -63,6 +78,7 @@ const DEFAULT_TASKS: Record<ActivationTaskId, boolean> = {
 
 const DEFAULT_STATE: OnboardingState = {
   completed: false,
+  classrooms: [],
   goals: [],
   tasks: { ...DEFAULT_TASKS },
 };
@@ -78,6 +94,7 @@ export function getOnboarding(): OnboardingState {
       ...parsed,
       tasks: { ...DEFAULT_TASKS, ...(parsed.tasks ?? {}) },
       goals: parsed.goals ?? [],
+      classrooms: parsed.classrooms ?? [],
     };
   } catch {
     return { ...DEFAULT_STATE };

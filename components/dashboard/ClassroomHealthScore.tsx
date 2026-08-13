@@ -1,16 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   ChevronRight,
   Info,
   Lightbulb,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react";
 import {
@@ -53,9 +56,15 @@ const DISTRIBUTION = [
   { key: "needs-support", label: "Needs Support", tone: RED, count: 3 },
 ] as const;
 
-export function ClassroomHealthScore() {
+const ZERO_DISTRIBUTION = DISTRIBUTION.map((d) => ({ ...d, count: 0 }));
+
+export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
-  const ch = useMemo(() => classHealth(), []);
+  // Locked (FTUE, no real students onboarded yet) shows this exact card with
+  // every number at zero instead of the mock class's simulated history —
+  // passing an empty roster is enough since classHealth() already guards
+  // against dividing by zero.
+  const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
   const [distributionOpen, setDistributionOpen] = useState(false);
 
   const band = scoreBand(ch.score);
@@ -73,7 +82,7 @@ export function ClassroomHealthScore() {
     ([key, score]) => pillarStatus(score, ch.pillarDelta[key]) === "needs-attention",
   ).length;
 
-  const distribution = DISTRIBUTION;
+  const distribution = locked ? ZERO_DISTRIBUTION : DISTRIBUTION;
   const total = distribution.reduce((sum, d) => sum + d.count, 0);
   const healthy = distribution[0].count + distribution[1].count;
 
@@ -89,8 +98,30 @@ export function ClassroomHealthScore() {
       <div className="premium-eyebrow">
         <span>Classroom Health</span>
       </div>
+      <p className="text-[12.5px] text-muted-foreground -mt-1">
+        How your class is functioning across learning, behaviour, and well-being.
+      </p>
 
       <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
+      {locked ? (
+        <div className="flex flex-col items-center text-center py-6 px-4">
+          <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost ready</h3>
+          <p className="text-[13px] text-muted-foreground mt-1.5 max-w-sm leading-snug">
+            Complete your first class check-in to begin building your Class Health Score.
+          </p>
+          <Link href="/check-in" className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5">
+            <span className="sheen" aria-hidden />
+            <span className="inline-flex items-center gap-1.5">
+              Start check-in
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_auto_1fr_auto_1fr] gap-5 lg:gap-6">
         {/* Score column */}
         <div className="space-y-4 min-w-0">
@@ -364,6 +395,8 @@ export function ClassroomHealthScore() {
           )}
         </AnimatePresence>
       </div>
+        </>
+      )}
       </div>
     </motion.section>
   );

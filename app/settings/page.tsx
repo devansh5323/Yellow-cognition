@@ -262,7 +262,7 @@ function RosterCard() {
     const refresh = () => {
       const s = getOnboarding();
       setLocalState(s);
-      setPending(s.primaryClass?.rosterMethod ?? null);
+      setPending(s.classrooms?.[0]?.rosterMethod ?? null);
     };
     refresh();
     window.addEventListener("ah-onboarding-change", refresh);
@@ -282,9 +282,12 @@ function RosterCard() {
     );
   }
 
-  const cls = state.primaryClass;
+  // The roster method applies to every classroom created during onboarding
+  // (there's no per-classroom roster step) — the first classroom's method
+  // represents "the" current roster setting here.
+  const cls = state.classrooms?.[0];
   const current = cls?.rosterMethod ?? null;
-  const className = cls?.name?.trim() || "Untitled class";
+  const className = cls ? `Grade ${cls.grade} · Section ${cls.section}` : "Untitled classroom";
   const size = cls?.size ?? 0;
   // "Real" roster means a method that brings in actual students. Sample is the only placeholder.
   const usingPlaceholder = !current || current === "sample";
@@ -294,13 +297,7 @@ function RosterCard() {
   const save = () => {
     if (!pending || !dirty) return;
     setOnboarding({
-      primaryClass: {
-        name: cls?.name ?? "Class A",
-        period: cls?.period ?? "Morning · 8:30–9:20",
-        size: cls?.size ?? 24,
-        rosterMethod: pending,
-        rosterReady: true,
-      },
+      classrooms: state.classrooms.map((c) => ({ ...c, rosterMethod: pending, rosterReady: true })),
     });
     toast.success(`Roster set to ${rosterMethodLabel(pending)}`);
   };

@@ -48,12 +48,14 @@ const LINES: { key: LineKey; label: string; tone: string; Icon: LucideIcon }[] =
   { key: "task", label: "Task Engagement", tone: "hsl(28 88% 54%)", Icon: ClipboardList },
 ];
 
-export function ProgressOverTime() {
+export function ProgressOverTime({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
   const [active, setActive] = useState<LineKey>("overall");
-  const trend = useMemo(() => classHealthTrend(), []);
-  const insight = useMemo(() => yellowInsight(), []);
-  const ch = useMemo(() => classHealth(), []);
+  // Locked (FTUE) passes an empty roster so the trend line and every KPI
+  // are zero instead of the mock class's simulated history.
+  const trend = useMemo(() => classHealthTrend(locked ? [] : undefined), [locked]);
+  const insight = useMemo(() => yellowInsight(locked ? [] : undefined), [locked]);
+  const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
   const peak = useMemo(
     () => trend.reduce((p, x) => (x.overall > p.overall ? x : p), trend[0]),
     [trend],

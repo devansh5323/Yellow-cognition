@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Users,
@@ -12,8 +12,6 @@ import {
   Settings,
   Search,
   Bell,
-  Menu,
-  X,
   LogOut,
   ClipboardCheck,
   Timer,
@@ -26,20 +24,15 @@ import {
   BellOff,
   Check,
   Filter,
+  Plus,
 } from "lucide-react";
 import { getTheme, applyTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getSession, signOut, type TeacherSession } from "@/lib/auth";
+import { getOnboarding, type OnboardingClassroom } from "@/lib/onboarding";
 import { BrandLogo } from "@/components/dashboard/BrandLogo";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { PageTransition } from "@/components/dashboard/PageTransition";
@@ -152,10 +145,11 @@ export function AppShell({
    */
   topbarFilters?: React.ReactNode;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [session, setSession] = useState<TeacherSession | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>(() => buildNotifications());
   const [allOpen, setAllOpen] = useState(false);
+  const [classrooms, setClassrooms] = useState<OnboardingClassroom[]>([]);
+  const [activeClassroomId, setActiveClassroomId] = useState<string | null>(null);
   const unreadCount = notifications.filter((n) => n.unread).length;
   const pathname = usePathname();
   const router = useRouter();
@@ -180,6 +174,19 @@ export function AppShell({
     const onChange = () => applyTheme(getTheme());
     window.addEventListener("ah-theme-change", onChange);
     return () => window.removeEventListener("ah-theme-change", onChange);
+  }, []);
+
+  // Real classrooms the teacher created during onboarding (or later) —
+  // replaces the old hardcoded 4-option dropdown.
+  useEffect(() => {
+    const refresh = () => {
+      const list = getOnboarding().classrooms;
+      setClassrooms(list);
+      setActiveClassroomId((prev) => (prev && list.some((c) => c.id === prev) ? prev : (list[0]?.id ?? null)));
+    };
+    refresh();
+    window.addEventListener("ah-onboarding-change", refresh);
+    return () => window.removeEventListener("ah-onboarding-change", refresh);
   }, []);
 
   const handleSignOut = () => {
@@ -218,10 +225,7 @@ export function AppShell({
 
       {/* ───────────── Sidebar ───────────── */}
       <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform duration-300",
-          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        )}
+        className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform duration-300 -translate-x-full md:translate-x-0"
         aria-label="Primary navigation"
       >
         <div className="relative flex-1 border-r border-sidebar-border premium-glass flex flex-col overflow-hidden">
@@ -259,7 +263,6 @@ export function AppShell({
                 <Link
                   key={item.to}
                   href={item.to}
-                  onClick={() => setMobileOpen(false)}
                   className={cn(
                     "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition-colors",
                     active ? "text-primary" : "text-sidebar-foreground/90 hover:text-foreground",
@@ -333,96 +336,46 @@ export function AppShell({
         </div>
       </aside>
 
-      {/* Mobile backdrop */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.button
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-            className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm md:hidden"
-          />
-        )}
-      </AnimatePresence>
-
       {/* ───────────── Main column ───────────── */}
       <div className="relative z-10 flex-1 flex flex-col min-w-0 md:ml-64">
         {/* Topbar */}
         <header className="sticky top-0 z-30 h-[68px] premium-glass border-b border-border/70 flex items-center gap-3 px-4 md:px-6">
-          <button
-            className="md:hidden premium-icon-btn"
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label="Toggle menu"
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {mobileOpen ? (
-                <motion.span
-                  key="x"
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  exit={{ opacity: 0, rotate: 90 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <X className="h-5 w-5" />
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="m"
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  exit={{ opacity: 0, rotate: 90 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <Menu className="h-5 w-5" />
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
 
           {topbarFilters ? (
             <div className="hidden sm:flex items-center gap-2 flex-nowrap min-w-0">
               {topbarFilters}
             </div>
           ) : (
-            <>
-              <div className="hidden sm:block">
-                <Select defaultValue="grade-3a">
-                  <SelectTrigger
-                    className={cn(
-                      "h-10 w-[200px] rounded-xl bg-card/70 border-border/80 backdrop-blur",
-                      "hover:border-primary/40 transition-colors font-semibold text-[13px]",
-                    )}
+            <div className="hidden sm:flex items-center gap-1.5 flex-nowrap flex-1 overflow-x-auto">
+              {classrooms.map((c) => {
+                const active = c.id === activeClassroomId;
+                const label = c.section ? `Grade ${c.grade} — Section ${c.section}` : `Grade ${c.grade}`;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setActiveClassroomId(c.id)}
+                    data-active={active}
+                    className="premium-pill !h-10 !px-3.5 !text-[13px] shrink-0"
+                    aria-pressed={active}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="grade-3a">Grade 3 — Section A</SelectItem>
-                    <SelectItem value="grade-3b">Grade 3 — Section B</SelectItem>
-                    <SelectItem value="grade-4a">Grade 4 — Section A</SelectItem>
-                    <SelectItem value="grade-4b">Grade 4 — Section B</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="premium-search flex-1 max-w-md px-3 ml-1">
-                <Search className="h-4 w-4 shrink-0 mr-2" />
-                <input
-                  id="global-search"
-                  placeholder="Search students, sessions…"
-                  onFocus={(e) => e.currentTarget.blur()}
-                  onClick={() =>
-                    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
-                  }
-                />
-                <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 rounded-md border border-border/70 bg-muted/60 px-1.5 text-[10px] font-mono text-muted-foreground">
-                  ⌘K
-                </kbd>
-              </div>
-            </>
+                    {label}
+                  </button>
+                );
+              })}
+              {/* Always present, even once classrooms exist — a teacher can
+                  teach more than one, so this shouldn't disappear after
+                  the first is added. */}
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("ah-open-classroom-setup"))}
+                aria-label="Add classroom"
+                className="premium-pill !h-10 !px-3.5 !text-[13px] shrink-0 border-dashed"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {classrooms.length === 0 && "Add classroom"}
+              </button>
+            </div>
           )}
 
           <div className="ml-auto flex items-center gap-1.5">

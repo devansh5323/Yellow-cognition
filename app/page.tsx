@@ -62,47 +62,41 @@ const ROLES: {
   key: RoleKey;
   title: string;
   description: string;
-  bestFor: string;
   Icon: LucideIcon;
   tone: string;
 }[] = [
   {
     key: "teacher",
     title: "Teacher",
-    description: "Access classroom insights and student progress.",
-    bestFor: "Best for classroom educators",
+    description: "Classroom insights & student progress.",
     Icon: GraduationCap,
     tone: "hsl(142 55% 45%)",
   },
   {
     key: "principal",
     title: "School Principal",
-    description: "Monitor school health and teacher effectiveness.",
-    bestFor: "Best for school leaders",
+    description: "School health & teacher effectiveness.",
     Icon: Building2,
     tone: "hsl(212 90% 58%)",
   },
   {
     key: "educator",
     title: "Special Educator",
-    description: "Support students with personalized strategies.",
-    bestFor: "Best for special education experts",
+    description: "Personalized student support strategies.",
     Icon: Users,
     tone: "hsl(262 60% 62%)",
   },
   {
     key: "district",
     title: "District Dashboard",
-    description: "View district-wide trends and performance.",
-    bestFor: "Best for district administrators",
+    description: "District-wide trends & performance.",
     Icon: Landmark,
     tone: "hsl(28 88% 54%)",
   },
   {
     key: "sel",
     title: "SEL Coordinator",
-    description: "Track social-emotional wellbeing and support programs.",
-    bestFor: "Best for SEL coordinators",
+    description: "Social-emotional wellbeing & support.",
     Icon: HeartHandshake,
     tone: "hsl(330 65% 62%)",
   },
@@ -378,7 +372,7 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
-            className="relative w-full max-w-[440px] rounded-[22px] auth-card p-8 sm:p-9"
+            className="relative w-full max-w-[540px] rounded-[22px] auth-card p-8 sm:p-9"
           >
             <span className="auth-card-ring rounded-[22px]" aria-hidden />
 
@@ -428,43 +422,45 @@ export default function LoginPage() {
                         2-col grid, so it spans full width in a horizontal
                         layout instead of sitting orphaned with dead space
                         beside it. */}
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      {ROLES.map((r, i) => {
+                    <div className="mt-5 flex flex-col gap-2" role="radiogroup" aria-label="Select your role">
+                      {ROLES.map((r) => {
                         const active = selectedRole === r.key;
-                        const wide = i === ROLES.length - 1 && ROLES.length % 2 === 1;
                         return (
                           <button
                             key={r.key}
                             type="button"
+                            role="radio"
+                            aria-checked={active}
                             onClick={() => setSelectedRole((prev) => (prev === r.key ? null : r.key))}
                             className={cn(
-                              "relative text-left rounded-2xl border p-3.5 transition-colors",
-                              wide && "col-span-2 flex items-start gap-3.5",
-                              active ? "border-primary bg-primary/[0.07]" : "border-border/70 hover:border-border",
+                              "group relative flex items-center gap-3 text-left rounded-2xl border p-3 pr-8 transition-all cursor-pointer",
+                              active
+                                ? "border-primary bg-primary/[0.07] shadow-[0_4px_14px_-8px_hsl(230_50%_18%/0.2)]"
+                                : "border-border/70 hover:border-primary/50 hover:bg-muted/20 hover:shadow-[0_2px_10px_-6px_hsl(230_50%_18%/0.15)]",
                             )}
                           >
-                            {active && (
-                              <span className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                                <Check className="h-3 w-3" strokeWidth={3} />
-                              </span>
-                            )}
                             <span
-                              className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0"
+                              className={cn(
+                                "absolute top-1/2 -translate-y-1/2 right-3 h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+                                active
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "border-border bg-background group-hover:border-primary/50",
+                              )}
+                              aria-hidden
+                            >
+                              {active && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
+                            </span>
+                            <span
+                              className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
                               style={{ background: `color-mix(in srgb, ${r.tone} 18%, transparent)`, color: r.tone }}
                             >
-                              <r.Icon className="h-4.5 w-4.5" />
+                              <r.Icon className="h-[18px] w-[18px]" />
                             </span>
-                            <div className={wide ? "min-w-0 flex-1" : undefined}>
-                              <div className={cn("font-heading font-bold text-[13.5px] leading-tight", !wide && "mt-2.5")}>
-                                {r.title}
-                              </div>
-                              <p className="mt-1 text-[11.5px] text-muted-foreground leading-snug">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-heading font-bold text-[13px] leading-tight">{r.title}</div>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug truncate">
                                 {r.description}
                               </p>
-                              <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                                <Users className="h-3 w-3 shrink-0" />
-                                {r.bestFor}
-                              </div>
                             </div>
                           </button>
                         );

@@ -21,12 +21,14 @@ function splitTrailingPercent(headline: string): { prefix: string; highlight: st
   return { prefix: match[1], highlight: match[2] };
 }
 
-export function GrowthAlertRow() {
+export function GrowthAlertRow({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
-  const growth = useMemo(() => visibleGrowth(), []);
-  const alert = useMemo(() => priorityAlert(), []);
-  const watch = useMemo(() => newWatchArea(), []);
-  const strength = useMemo(() => maintainedStrength(), []);
+  // Locked (FTUE) passes an empty roster so every callout's numbers are
+  // zero instead of the mock class's simulated history.
+  const growth = useMemo(() => visibleGrowth(locked ? [] : undefined), [locked]);
+  const alert = useMemo(() => priorityAlert(locked ? [] : undefined), [locked]);
+  const watch = useMemo(() => newWatchArea(locked ? [] : undefined), [locked]);
+  const strength = useMemo(() => maintainedStrength(locked ? [] : undefined), [locked]);
 
   return (
     <motion.section
@@ -63,7 +65,7 @@ export function GrowthAlertRow() {
             "Keep at the routines you have in place — growth shows up over the next check-in."
           }
           action="See contributors"
-          chart={<Sparkline data={wavePoints(80, 1)} tone={POSITIVE} area />}
+          chart={<Sparkline data={wavePoints(locked ? 0 : 80, 1)} tone={POSITIVE} area />}
         />
         <Banner
           tone={NEGATIVE}
@@ -73,7 +75,7 @@ export function GrowthAlertRow() {
           headline={alert?.headline ?? "Nothing critical this week"}
           detail={alert?.detail ?? "You're in a good window to push on a stretch goal."}
           action="View affected students"
-          chart={<BarSparkline data={wavePoints(70, 2)} tone={NEGATIVE} />}
+          chart={<BarSparkline data={wavePoints(locked ? 0 : 70, 2)} tone={NEGATIVE} />}
         />
         <Banner
           tone={WATCH}
@@ -82,7 +84,7 @@ export function GrowthAlertRow() {
           headline={watch?.headline ?? "No new watch areas this week"}
           detail={watch?.detail ?? "Nothing newly concerning beyond your priority alert."}
           action="View transition strategies"
-          chart={<Sparkline data={wavePoints(55, 3)} tone={WATCH} area />}
+          chart={<Sparkline data={wavePoints(locked ? 0 : 55, 3)} tone={WATCH} area />}
         />
         <Banner
           tone={STRENGTH}
@@ -91,7 +93,7 @@ export function GrowthAlertRow() {
           headline={strength?.headline ?? "Class held steady this week"}
           detail={strength?.detail ?? "No single area stood out, but nothing slipped either."}
           action="Log positive acknowledgments"
-          chart={<Sparkline data={wavePoints(85, 4)} tone={STRENGTH} area />}
+          chart={<Sparkline data={wavePoints(locked ? 0 : 85, 4)} tone={STRENGTH} area />}
         />
       </div>
       </div>

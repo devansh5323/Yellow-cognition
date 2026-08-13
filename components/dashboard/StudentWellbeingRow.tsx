@@ -122,8 +122,12 @@ const CARDS: WellbeingCard[] = [
   },
 ];
 
-export function StudentWellbeingRow() {
+export function StudentWellbeingRow({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
+  // Locked (FTUE) zeroes every score/count/delta instead of the fixed demo
+  // numbers — these cards aren't derived from a lib function, so the zeroed
+  // shape is built directly from CARDS here.
+  const cards = locked ? CARDS.map((c) => ({ ...c, score: 0, delta: 0, studentsCount: 0 })) : CARDS;
 
   return (
     <motion.section
@@ -150,7 +154,7 @@ export function StudentWellbeingRow() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {CARDS.map((card, idx) => (
+          {cards.map((card, idx) => (
             <WellbeingCardItem key={card.key} card={card} seed={idx} />
           ))}
         </div>

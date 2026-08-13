@@ -57,6 +57,7 @@ import {
   getCheckInById,
   deleteCheckIn,
 } from "@/lib/checkIn";
+import { getOnboarding, markTaskDone } from "@/lib/onboarding";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -243,7 +244,18 @@ function CheckInPage() {
       repetitions,
       students: roster.map((s) => ratings[s.id] ?? { studentId: s.id, ratings: {} }),
     };
+    // Captured before saveCheckIn/markTaskDone so we know whether THIS
+    // submission is the one completing the setup journey's check-in stage —
+    // listCheckInsForTeacher() can't be used for that since this app ships
+    // with seeded demo check-ins that are already present either way.
+    const wasFirstCheckinDone = !!getOnboarding().tasks["first-checkin"];
     saveCheckIn(payload);
+    if (!editingId && !wasFirstCheckinDone) {
+      markTaskDone("first-checkin");
+      toast.success("Check-in saved! Let's log a behaviour observation next.");
+      router.push("/dashboard?focus=teacher-tools");
+      return;
+    }
     toast.success(editingId ? "Check-in updated." : "Check-in saved. Insights updated.");
     router.push("/friction");
   };

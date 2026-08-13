@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -58,7 +58,16 @@ const DISTRIBUTION = [
 
 const ZERO_DISTRIBUTION = DISTRIBUTION.map((d) => ({ ...d, count: 0 }));
 
-export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
+export function ClassroomHealthScore({
+  locked = false,
+  highlighted = false,
+}: {
+  locked?: boolean;
+  /** Setup-journey glow — this is the segment the teacher should act on
+   * next (their first check-in). Same tone-colored border flicker used
+   * elsewhere, via the --attn custom property. */
+  highlighted?: boolean;
+}) {
   const reduce = useReducedMotion();
   // Locked (FTUE, no real students onboarded yet) shows this exact card with
   // every number at zero instead of the mock class's simulated history —
@@ -66,6 +75,22 @@ export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
   // against dividing by zero.
   const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
   const [distributionOpen, setDistributionOpen] = useState(false);
+
+  // The score is the whole point of this segment reappearing after the
+  // setup journey — this is the "payoff" moment, so a genuine unlock
+  // (locked: true → false) gets a one-time celebratory reveal (count-up +
+  // glow) instead of just materializing as static text.
+  const [celebrate, setCelebrate] = useState(false);
+  const prevLockedRef = useRef(locked);
+  useEffect(() => {
+    const wasLocked = prevLockedRef.current;
+    prevLockedRef.current = locked;
+    if (wasLocked && !locked) {
+      setCelebrate(true);
+      const t = window.setTimeout(() => setCelebrate(false), 1600);
+      return () => window.clearTimeout(t);
+    }
+  }, [locked]);
 
   const band = scoreBand(ch.score);
   const bandInfo = SCORE_BANDS.find((b) => b.band === band)!;
@@ -102,7 +127,13 @@ export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
         How your class is functioning across learning, behaviour, and well-being.
       </p>
 
-      <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
+      <div
+        className={cn(
+          "rounded-2xl border bg-card p-5 md:p-6",
+          highlighted ? "border-flicker" : "border-border",
+        )}
+        style={highlighted ? ({ "--attn": BLUE } as React.CSSProperties) : undefined}
+      >
       {locked ? (
         <div className="flex flex-col items-center text-center py-6 px-4">
           <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
@@ -125,16 +156,8 @@ export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_auto_1fr_auto_1fr] gap-5 lg:gap-6">
         {/* Score column */}
         <div className="space-y-4 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-baseline gap-1.5">
-              <span
-                className="font-heading font-extrabold text-[56px] leading-none tabular-nums"
-                style={{ color: tone }}
-              >
-                {ch.score}
-              </span>
-              <span className="text-muted-foreground text-[19px] font-bold">/100</span>
-            </div>
+          <div className="flex items-center gap-4 flex-wrap">
+            <ScoreRing score={ch.score} tone={tone} celebrate={celebrate} />
             <span
               className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.10em] px-2.5 py-1.5 rounded-full"
               style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
@@ -399,5 +422,84 @@ export function ClassroomHealthScore({ locked = false }: { locked?: boolean }) {
       )}
       </div>
     </motion.section>
+  );
+}
+
+/** The hero of this segment — a big radial score gauge with a count-up
+ * reveal, so the number is unmistakably the main focus of the dashboard
+ * once it unlocks, not just another stat among many. */
+function ScoreRing({
+  score,
+  tone,
+  celebrate,
+}: {
+  score: number;
+  tone: string;
+  celebrate: boolean;
+}) {
+  const SIZE = 132;
+  const STROKE = 9;
+  const R = (SIZE - STROKE) / 2;
+  const C = 2 * Math.PI * R;
+
+  // Only animates while celebrating — otherwise the ring just reflects
+  // `score` directly, no state/effect needed for the steady-state case.
+  const [animatedScore, setAnimatedScore] = useState(score);
+  useEffect(() => {
+    if (!celebrate) return;
+    let raf: number;
+    const duration = 1200;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setAnimatedScore(Math.round(score * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [score, celebrate]);
+
+  const displayScore = celebrate ? animatedScore : score;
+  const offset = C - (displayScore / 100) * C;
+
+  return (
+    <div
+      className={cn("relative shrink-0", celebrate && "ring-pulse")}
+      style={{ width: SIZE, height: SIZE }}
+      role="img"
+      aria-label={`${score} out of 100`}
+    >
+      <svg width={SIZE} height={SIZE} className="-rotate-90">
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          stroke="hsl(240 15% 90%)"
+          strokeWidth={STROKE}
+          fill="none"
+          className="dark:stroke-[hsl(230_20%_25%)]"
+        />
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          stroke={tone}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          fill="none"
+          style={{ strokeDasharray: C, strokeDashoffset: offset, transition: "stroke-dashoffset 1s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className="font-heading font-extrabold text-[40px] leading-none tabular-nums"
+          style={{ color: tone }}
+        >
+          {displayScore}
+        </span>
+        <span className="text-muted-foreground text-[12px] font-bold mt-0.5">/100</span>
+      </div>
+    </div>
   );
 }

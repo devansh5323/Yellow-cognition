@@ -4,18 +4,22 @@ import { Lock } from "lucide-react";
 
 /** Grays out a dashboard segment and stops interaction with it — used for
  * the FTUE, where every segment except Data Readiness starts locked.
- * Unconditional for now (always locked); the unlock condition comes in a
- * later pass, so this doesn't take a `locked` prop yet — everything that
- * wraps in this is locked, full stop. */
+ * `locked` defaults to true so existing call sites (no unlock condition
+ * defined yet) keep behaving exactly as before; pass `locked={false}` once
+ * a segment has a real unlock trigger to render children plainly. */
 export function LockedSection({
   label = "Locked",
   hint,
+  locked = true,
   children,
 }: {
   label?: string;
   hint?: string;
+  locked?: boolean;
   children: React.ReactNode;
 }) {
+  if (!locked) return <>{children}</>;
+
   return (
     <div className="relative">
       <div className="pointer-events-none select-none opacity-40 grayscale">{children}</div>

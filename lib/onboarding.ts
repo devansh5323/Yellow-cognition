@@ -27,13 +27,17 @@ export type OnboardingClassroom = {
   rosterReady: boolean;
 };
 
+// Matches the 7 driver-card keys in components/dashboard/DriverCards.tsx
+// (4 Cognitive Performance + 3 Student Wellbeing) — the "Select focus area"
+// FTUE step lets a teacher pick which driver matters most for their class.
 export type OnboardingGoal =
   | "focus"
-  | "at-risk"
-  | "parents"
-  | "growth"
+  | "academic"
+  | "task"
   | "behavior"
-  | "wellbeing";
+  | "anxiety"
+  | "peer-safety"
+  | "frustration";
 
 export type ActivationTaskId =
   | "first-checkin"

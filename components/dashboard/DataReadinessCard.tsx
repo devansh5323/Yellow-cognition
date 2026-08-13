@@ -8,17 +8,17 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Compass,
   GraduationCap,
   Lock,
   Rocket,
+  Send,
   Sparkles,
   Target,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReturningActionHub } from "@/components/dashboard/ReturningActionHub";
-import { getStats, type InviteStats } from "@/lib/roster";
+import { getStats, getRoster, type InviteStats, type RosterStudent } from "@/lib/roster";
 import { listCheckInsForTeacher } from "@/lib/checkIn";
 import { getOnboarding, setOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
@@ -49,13 +49,17 @@ type StartStep = {
   tone: string;
 };
 
+// The 7 driver cards from components/dashboard/DriverCards.tsx (4 Cognitive
+// Performance + 3 Student Wellbeing) — same ids, so a picked focus area maps
+// straight onto one of those driver keys.
 const FOCUS_OPTIONS: { id: OnboardingGoal; label: string }[] = [
-  { id: "focus", label: "Attention & focus" },
-  { id: "at-risk", label: "At-risk students" },
-  { id: "parents", label: "Parent engagement" },
-  { id: "growth", label: "Growth tracking" },
-  { id: "behavior", label: "Behavior support" },
-  { id: "wellbeing", label: "Student wellbeing" },
+  { id: "focus", label: "Attention and focus" },
+  { id: "academic", label: "Learning readiness" },
+  { id: "task", label: "Task engagement" },
+  { id: "behavior", label: "Behavior and discipline" },
+  { id: "anxiety", label: "Anxiety and Coping Index" },
+  { id: "peer-safety", label: "Peer Safety and Belonging" },
+  { id: "frustration", label: "Anger and Emotional Regulation" },
 ];
 
 function timeOfDayGreeting(): string {
@@ -131,11 +135,16 @@ function buildStartSteps(): StartStep[] {
 export function DataReadinessCard() {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<InviteStats | null>(null);
+  const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [focusPromptOpen, setFocusPromptOpen] = useState(false);
+  const [fumiPromptOpen, setFumiPromptOpen] = useState(false);
 
   useEffect(() => {
-    const refresh = () => setStats(getStats());
+    const refresh = () => {
+      setStats(getStats());
+      setRoster(getRoster());
+    };
     refresh();
     window.addEventListener("ah-roster-change", refresh);
     window.addEventListener("ah-checkin-change", refresh);
@@ -169,12 +178,17 @@ export function DataReadinessCard() {
   // after it stays blurred/locked until its turn comes.
   const activeIndex = steps.findIndex((s) => !s.done);
 
-  // Once all three getting-started steps are done, the card switches from
-  // the checklist to the returning-user hub.
-  const isReturning = doneCount === totalSteps;
-
   const lastCheckin = listCheckInsForTeacher(TEACHER_NAME)[0];
   const firstName = TEACHER_NAME.split(" ")[0];
+
+  // Finishing the 3 steps only unlocks the next segment's CTA (Class Health
+  // Score's "Start check-in") — it does NOT swap this card over to the
+  // returning-user hub. Gating on a real check-in doesn't work either: this
+  // app ships with seeded demo check-ins (SEED_CHECKINS in lib/checkIn.ts),
+  // so lastCheckin is already truthy before the teacher does anything. The
+  // returning-hub trigger is deferred — for now this always shows the 3
+  // steps (all checked off once done), never auto-switching.
+  const isReturning = false;
 
   const handleStepAction = (id: StartStepId) => {
     if (id === "classroom") {
@@ -188,9 +202,23 @@ export function DataReadinessCard() {
     } else if (id === "focus") {
       setFocusPromptOpen(true);
     } else if (id === "fumi") {
-      setOnboarding({ fumiActivated: true });
-      toast.success("Fumi activated! Your classroom companion is now on.");
+      setFumiPromptOpen(true);
     }
+  };
+
+  const fumiActivated = !!getOnboarding().fumiActivated;
+
+  // Sends the Fumi companion link to every parent already linked in the
+  // roster, in one shot — this dialog stays open afterward (not a one-step
+  // close-and-toast like the other two steps) so the teacher can see who
+  // it went to.
+  const sendFumiInvite = () => {
+    setOnboarding({ fumiActivated: true });
+    toast.success(
+      roster.length > 0
+        ? `Fumi invite sent to ${roster.length} parent${roster.length === 1 ? "" : "s"}.`
+        : "Fumi activated! Your classroom companion is now on.",
+    );
   };
 
   return (
@@ -331,15 +359,6 @@ export function DataReadinessCard() {
                         {doneCount} of {totalSteps} complete
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent("ah-start-tour"))}
-                      className="inline-flex items-center gap-1.5 text-[12px] font-bold transition-opacity hover:opacity-80"
-                      style={{ color: AMBER }}
-                    >
-                      <Compass className="h-3.5 w-3.5" />
-                      Take a quick tour
-                    </button>
                   </div>
 
                   <div className="mt-4 flex flex-col md:flex-row items-stretch gap-2.5">
@@ -391,6 +410,93 @@ export function DataReadinessCard() {
                 {opt.label}
               </button>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fumiPromptOpen} onOpenChange={setFumiPromptOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" />
+              Activate Fumi
+            </DialogTitle>
+            <DialogDescription>
+              Send every parent linked to your roster a link to Fumi, your class&apos;s companion
+              experience.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="premium-eyebrow">
+                <span>Your roster</span>
+              </div>
+              <span className="text-[11px] font-bold text-muted-foreground">
+                {roster.length} {roster.length === 1 ? "student" : "students"}
+              </span>
+            </div>
+
+            {roster.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground">
+                No students linked yet — add your roster first, then come back to invite parents to
+                Fumi.
+              </p>
+            ) : (
+              <ul className="rounded-2xl border border-border/60 overflow-hidden divide-y divide-border/60 max-h-[280px] overflow-y-auto">
+                {roster.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <span className="h-8 w-8 rounded-lg bg-muted/70 text-muted-foreground inline-flex items-center justify-center text-[11px] font-bold shrink-0">
+                      {s.childName
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-bold truncate">{s.childName}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {s.parentName ?? s.parentEmail ?? s.parentPhone ?? "No parent contact"}
+                      </div>
+                    </div>
+                    {fumiActivated && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
+                      >
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                        Sent
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              type="button"
+              onClick={sendFumiInvite}
+              disabled={roster.length === 0}
+              className={cn(
+                "w-full h-11 rounded-xl font-heading font-bold text-[13.5px] flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed",
+                fumiActivated
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary text-primary-foreground hover:brightness-95 disabled:opacity-50",
+              )}
+            >
+              {fumiActivated ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Invite sent — send again
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send invite
+                </>
+              )}
+            </button>
           </div>
         </DialogContent>
       </Dialog>

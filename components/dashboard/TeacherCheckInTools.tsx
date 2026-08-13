@@ -37,10 +37,21 @@ function readStats(): ToolStats {
   };
 }
 
-export function TeacherCheckInTools() {
+export function TeacherCheckInTools({
+  highlightTool,
+}: {
+  /** Setup-journey glow for whichever tool the teacher should use next —
+   * "positive-log" lives in the collapsed "More tools" section, so that
+   * section auto-opens while it's the highlighted one. */
+  highlightTool?: "record-behavior" | "positive-log";
+} = {}) {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<ToolStats | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Derived, not synced via effect: "positive-log" lives in the collapsed
+  // section, so it forces that section open for as long as it's the
+  // highlighted tool, without fighting the user's own manual toggle.
+  const showMore = moreOpen || highlightTool === "positive-log";
 
   useEffect(() => {
     const refresh = () => setStats(readStats());
@@ -128,6 +139,10 @@ export function TeacherCheckInTools() {
 
   const primaryTools = tools.slice(0, 2);
   const moreTools = tools.slice(2);
+  // Tutorial mode: while a specific tool is highlighted, every other tool
+  // greys out and stops responding — only one action is ever available at
+  // a time, so the journey reads as a guided tour rather than a free-for-all.
+  const tutorialMode = !!highlightTool;
 
   return (
     <motion.section
@@ -136,6 +151,7 @@ export function TeacherCheckInTools() {
       transition={{ duration: 0.5, ease: EASE }}
       className="space-y-3"
       aria-label="Teacher check-in tools"
+      data-tour-target="teacher-checkin-tools"
     >
       <div className="premium-eyebrow">
         <span>Teacher Check-in Tools</span>
@@ -153,12 +169,17 @@ export function TeacherCheckInTools() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           {primaryTools.map((tool) => (
-            <ToolCard key={tool.key} tool={tool} />
+            <ToolCard
+              key={tool.key}
+              tool={tool}
+              highlighted={tool.key === highlightTool}
+              greyed={tutorialMode && tool.key !== highlightTool}
+            />
           ))}
         </div>
 
         <AnimatePresence initial={false}>
-          {moreOpen && (
+          {showMore && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -168,7 +189,12 @@ export function TeacherCheckInTools() {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                 {moreTools.map((tool) => (
-                  <ToolCard key={tool.key} tool={tool} />
+                  <ToolCard
+                    key={tool.key}
+                    tool={tool}
+                    highlighted={tool.key === highlightTool}
+                    greyed={tutorialMode && tool.key !== highlightTool}
+                  />
                 ))}
               </div>
             </motion.div>
@@ -178,20 +204,20 @@ export function TeacherCheckInTools() {
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
-          aria-expanded={moreOpen}
+          aria-expanded={showMore}
           className="mt-3 w-full flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left hover:bg-muted/40 transition-colors"
         >
           <span className="flex items-center gap-2 min-w-0">
             <ChevronRight
               className={cn(
                 "h-4 w-4 text-muted-foreground transition-transform shrink-0",
-                moreOpen && "-rotate-90",
+                showMore && "-rotate-90",
               )}
             />
-            <span className="text-[12.5px] font-bold">{moreOpen ? "Hide tools" : "More tools"}</span>
+            <span className="text-[12.5px] font-bold">{showMore ? "Hide tools" : "More tools"}</span>
           </span>
           <span className="text-[11px] text-muted-foreground shrink-0 truncate">
-            {moreOpen ? "Show fewer" : moreTools.map((t) => t.title).join(" · ")}
+            {showMore ? "Show fewer" : moreTools.map((t) => t.title).join(" · ")}
           </span>
         </button>
       </div>
@@ -215,13 +241,34 @@ type Tool = {
   onOpenTool?: () => void;
 };
 
-function ToolCard({ tool }: { tool: Tool }) {
+function ToolCard({
+  tool,
+  highlighted = false,
+  greyed = false,
+}: {
+  tool: Tool;
+  highlighted?: boolean;
+  /** Tutorial mode: some other tool is the highlighted one right now, so
+   * this one stops responding and fades out — only one action available
+   * at a time. */
+  greyed?: boolean;
+}) {
   const Icon = tool.Icon;
   const StatIcon = tool.statIcon;
   const CtaIcon = tool.ctaIcon;
+  // Same tone-colored border flicker used for the setup journey's "do this
+  // next" cards — no separate alert color, via the --attn custom property.
+  const attnStyle = highlighted ? ({ "--attn": tool.tone } as React.CSSProperties) : undefined;
 
   return (
-    <article className="rounded-2xl border border-border bg-background p-4 flex flex-col gap-3">
+    <article
+      className={cn(
+        "rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-[filter,opacity] duration-300",
+        highlighted ? "border-flicker" : "border-border",
+        greyed && "opacity-40 grayscale pointer-events-none select-none",
+      )}
+      style={attnStyle}
+    >
       <div className="flex items-start gap-3">
         <span
           className="relative h-12 w-12 rounded-xl inline-flex items-center justify-center shrink-0"

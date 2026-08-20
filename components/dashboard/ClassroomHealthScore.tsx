@@ -78,8 +78,6 @@ const DISTRIBUTION = [
   { key: "needs-support", label: "Needs Support", tone: RED, count: 3 },
 ] as const;
 
-const ZERO_DISTRIBUTION = DISTRIBUTION.map((d) => ({ ...d, count: 0 }));
-
 export function ClassroomHealthScore({
   locked = false,
   highlighted = false,
@@ -91,11 +89,11 @@ export function ClassroomHealthScore({
   highlighted?: boolean;
 }) {
   const reduce = useReducedMotion();
-  // Locked (FTUE, no real students onboarded yet) shows this exact card with
-  // every number at zero instead of the mock class's simulated history —
-  // passing an empty roster is enough since classHealth() already guards
-  // against dividing by zero.
-  const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
+  // Always the real (mock) class data, even while locked/pending — the gate
+  // overlay covers this with its own message, so the blurred preview behind
+  // it should look like genuine, alive data instead of a stark all-zero
+  // placeholder.
+  const ch = useMemo(() => classHealth(), []);
 
   // The Class Health Score itself stays gated behind Fumi activation — even
   // once the rest of the FTUE journey (check-in, behaviour log, positive
@@ -152,7 +150,7 @@ export function ClassroomHealthScore({
     ([key, score]) => pillarStatus(score, ch.pillarDelta[key]) === "needs-attention",
   ).length;
 
-  const distribution = locked ? ZERO_DISTRIBUTION : DISTRIBUTION;
+  const distribution = DISTRIBUTION;
   const total = distribution.reduce((sum, d) => sum + d.count, 0);
   const healthy = distribution[0].count + distribution[1].count;
 
@@ -174,102 +172,16 @@ export function ClassroomHealthScore({
 
       <div
         className={cn(
-          "rounded-2xl border bg-card p-5 md:p-6",
+          "relative overflow-hidden rounded-2xl border bg-card p-5 md:p-6",
           highlighted ? "border-flicker" : "border-border",
         )}
         style={highlighted ? ({ "--attn": BLUE } as React.CSSProperties) : undefined}
       >
-      {locked ? (
-        <div className="flex flex-col items-center text-center py-6 px-4">
-          <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost ready</h3>
-          <p className="text-[13px] text-muted-foreground mt-1.5 max-w-sm leading-snug">
-            Complete your first class check-in to begin building your Class Health Score.
-          </p>
-          <Link href="/check-in" className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5">
-            <span className="sheen" aria-hidden />
-            <span className="inline-flex items-center gap-1.5">
-              Start check-in
-              <ArrowRight className="h-4 w-4" />
-            </span>
-          </Link>
-        </div>
-      ) : !allFumiConnected ? (
-        <>
-          <div className="flex flex-col items-center text-center py-6 px-4">
-            <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost there</h3>
-            <p className="text-[13px] text-muted-foreground mt-1.5 max-w-sm leading-snug">
-              Your first check-in is complete! We need a few more parents to activate Fumi to unlock your
-              Class Health Score.
-            </p>
-            <button
-              type="button"
-              onClick={() => setPendingOpen(true)}
-              className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5"
-            >
-              <span className="sheen" aria-hidden />
-              <span className="inline-flex items-center gap-1.5">
-                View pending responses
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            </button>
-          </div>
-
-          <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Pending Fumi responses</DialogTitle>
-                <DialogDescription>
-                  {pendingStudents.length} of {roster.length} parents haven&apos;t activated Fumi yet.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="max-h-[45vh] overflow-y-auto -mx-1 px-1 space-y-1.5">
-                {pendingStudents.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold truncate">{s.childName}</p>
-                      <p className="text-[11.5px] text-muted-foreground truncate">
-                        {s.parentName ?? s.parentEmail ?? s.parentPhone ?? "No contact on file"}
-                      </p>
-                    </div>
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-0.5 rounded-full shrink-0"
-                      style={
-                        s.status === "invited"
-                          ? { background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }
-                          : { background: `color-mix(in srgb, ${RED} 14%, transparent)`, color: RED }
-                      }
-                    >
-                      {s.status === "invited" ? "Invited" : "Not invited"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSendReminders}
-                className="cta-premium !h-11 !w-full !text-[13px]"
-              >
-                <span className="sheen" aria-hidden />
-                <span className="inline-flex items-center gap-1.5">
-                  <Send className="h-4 w-4" />
-                  Send reminders
-                </span>
-              </button>
-            </DialogContent>
-          </Dialog>
-        </>
-      ) : (
+      {/* The real hero + breakdown always renders — blurred behind the gate
+          overlay below instead of being replaced by a bare placeholder, so
+          this card still looks alive (like the rest of the dashboard's
+          locked segments) rather than empty. */}
+      <div className={cn(!showScore && "pointer-events-none select-none blur-[1.5px] opacity-70 saturate-90")}>
         <>
       <div
         className="relative overflow-hidden rounded-[20px] p-5 md:p-7"
@@ -536,7 +448,100 @@ export function ClassroomHealthScore({
         </div>
       </div>
         </>
+      </div>
+
+      {!showScore && (
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="relative flex flex-col items-center text-center max-w-sm rounded-2xl border border-border/70 bg-card/95 backdrop-blur px-6 py-6 shadow-lg">
+            <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            {locked ? (
+              <>
+                <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost ready</h3>
+                <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
+                  Complete your first class check-in to begin building your Class Health Score.
+                </p>
+                <Link href="/check-in" className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5">
+                  <span className="sheen" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    Start check-in
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost there</h3>
+                <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
+                  Your first check-in is complete! We need a few more parents to activate Fumi to unlock
+                  your Class Health Score.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPendingOpen(true)}
+                  className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5"
+                >
+                  <span className="sheen" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    View pending responses
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
+
+      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pending Fumi responses</DialogTitle>
+            <DialogDescription>
+              {pendingStudents.length} of {roster.length} parents haven&apos;t activated Fumi yet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[45vh] overflow-y-auto -mx-1 px-1 space-y-1.5">
+            {pendingStudents.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold truncate">{s.childName}</p>
+                  <p className="text-[11.5px] text-muted-foreground truncate">
+                    {s.parentName ?? s.parentEmail ?? s.parentPhone ?? "No contact on file"}
+                  </p>
+                </div>
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-0.5 rounded-full shrink-0"
+                  style={
+                    s.status === "invited"
+                      ? { background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }
+                      : { background: `color-mix(in srgb, ${RED} 14%, transparent)`, color: RED }
+                  }
+                >
+                  {s.status === "invited" ? "Invited" : "Not invited"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSendReminders}
+            className="cta-premium !h-11 !w-full !text-[13px]"
+          >
+            <span className="sheen" aria-hidden />
+            <span className="inline-flex items-center gap-1.5">
+              <Send className="h-4 w-4" />
+              Send reminders
+            </span>
+          </button>
+        </DialogContent>
+      </Dialog>
       </div>
     </motion.section>
   );

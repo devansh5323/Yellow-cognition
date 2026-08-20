@@ -49,6 +49,23 @@ function scrollToTarget(selector: string, delay = 300) {
   }, delay);
 }
 
+// Every locked segment's "Take me there" jumps to whatever the teacher
+// still needs to finish next — the same underlying gate, regardless of
+// which segment they clicked from, since they all unlock off this one
+// stage machine.
+function nextActionTarget(stage: FtueStage): { type: "scroll"; selector: string } | { type: "navigate"; href: string } {
+  switch (stage) {
+    case "checkin":
+      return { type: "navigate", href: "/check-in" };
+    case "behavior":
+    case "positive":
+      return { type: "scroll", selector: "[data-tour-target='teacher-checkin-tools']" };
+    case "cards":
+    default:
+      return { type: "scroll", selector: "[data-tour-target='data-readiness']" };
+  }
+}
+
 // Canonical L1 Teacher Dashboard architecture (2026-08-13 spec) — exactly
 // these 9 segments, in this order. FTUE: Data Readiness & Action Hub (with
 // its own "Three simple steps"), Class health score, Driver cards. RTUE:
@@ -100,6 +117,15 @@ function DashboardPage() {
     return () => window.removeEventListener("ah-onboarding-change", refresh);
   }, []);
 
+  const handleTakeMeThere = () => {
+    const target = nextActionTarget(stage);
+    if (target.type === "navigate") {
+      router.push(target.href);
+    } else {
+      scrollToTarget(target.selector, 0);
+    }
+  };
+
   return (
     <div className="relative">
       <div
@@ -116,28 +142,51 @@ function DashboardPage() {
         <ClassroomSetupPrompt />
         <AssignedSelProgramBanner />
         <DataReadinessCard />
-        <LockedSection label="Locked" hint="Unlocks once you complete setup" locked={stage === "cards"}>
-          <ClassroomHealthScore locked={stage !== "done"} highlighted={stage === "checkin"} />
-        </LockedSection>
-        <LockedSection label="Locked" hint="Unlocks once you complete setup" locked={stage !== "done"}>
+        {/* No outer LockedSection here — ClassroomHealthScore already renders
+            its own locked-state UI ("Almost ready" / "Start check-in"), which
+            the generic blur-fog treatment would otherwise obscure and make
+            unclickable on top of. */}
+        <ClassroomHealthScore locked={stage !== "done"} highlighted={stage === "checkin"} />
+        <LockedSection
+          label="Driver cards locked"
+          hint="See what's driving your Class Health Score once setup is done."
+          locked={stage !== "done"}
+          onAction={handleTakeMeThere}
+        >
           <DriverCards locked={stage !== "done"} />
         </LockedSection>
-        <LockedSection label="Locked" hint="Unlocks once you complete setup" locked={stage !== "done"}>
+        <LockedSection
+          label="Recommendations locked"
+          hint="Yellow's tiered support suggestions unlock once setup is done."
+          locked={stage !== "done"}
+          onAction={handleTakeMeThere}
+        >
           <WeeklyFocus locked={stage !== "done"} />
         </LockedSection>
         <LockedSection
-          label="Locked"
-          hint="Unlocks once you complete setup"
+          label="Check-in tools locked"
+          hint="Record behaviour and positive logs once your first check-in is done."
           locked={stage === "cards" || stage === "checkin"}
+          onAction={handleTakeMeThere}
         >
           <TeacherCheckInTools
             highlightTool={stage === "behavior" ? "record-behavior" : stage === "positive" ? "positive-log" : undefined}
           />
         </LockedSection>
-        <LockedSection label="Locked" hint="Unlocks once you complete setup" locked={stage !== "done"}>
+        <LockedSection
+          label="Pattern insights locked"
+          hint="Spot recurring behaviour patterns once setup is done."
+          locked={stage !== "done"}
+          onAction={handleTakeMeThere}
+        >
           <BehaviorPatternInsightsSection locked={stage !== "done"} />
         </LockedSection>
-        <LockedSection label="Locked" hint="Unlocks once you complete setup" locked={stage !== "done"}>
+        <LockedSection
+          label="Student drilldown locked"
+          hint="Jump into individual student profiles once setup is done."
+          locked={stage !== "done"}
+          onAction={handleTakeMeThere}
+        >
           <StudentDrilldownRow locked={stage !== "done"} />
         </LockedSection>
       </motion.div>

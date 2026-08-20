@@ -9,10 +9,8 @@ import {
   CheckCircle2,
   ChevronDown,
   GraduationCap,
-  Lock,
   Rocket,
   Send,
-  Sparkles,
   Target,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -190,6 +188,9 @@ export function DataReadinessCard() {
   // that glows (it's what the teacher should do next), and everything
   // after it stays blurred/locked until its turn comes.
   const activeIndex = steps.findIndex((s) => !s.done);
+  // Full sentence shown when a teacher taps a step before its turn — named
+  // after the step currently blocking everything after it.
+  const blockingMessage = activeIndex !== -1 ? `${steps[activeIndex].title} first.` : "";
 
   // The classroom step has two not-done sub-states — no classroom yet
   // (header's "+ Add classroom" pill glows instead, this card stays grey)
@@ -248,8 +249,9 @@ export function DataReadinessCard() {
         initial={reduce ? undefined : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: EASE }}
-        className="rounded-2xl border border-border bg-card p-6 md:p-8"
+        className="space-y-1"
         aria-label="Data readiness"
+        data-tour-target="data-readiness"
       >
         {/* Header — clickable to expand/collapse the body */}
         <button
@@ -260,12 +262,18 @@ export function DataReadinessCard() {
           className="group w-full text-left flex items-center justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <div className="min-w-0">
-            <div className="premium-eyebrow">
-              <span>{isReturning ? `${timeOfDayGreeting()}, ${firstName} 👋` : "Data readiness"}</span>
-            </div>
-            {isReturning && (
-              <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
-                Data Readiness & Action Hub
+            {isReturning ? (
+              <>
+                <div className="premium-eyebrow">
+                  <span>{`${timeOfDayGreeting()}, ${firstName} 👋`}</span>
+                </div>
+                <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
+                  Data Readiness & Action Hub
+                </h2>
+              </>
+            ) : (
+              <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
+                Three steps to get started
               </h2>
             )}
             <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
@@ -323,7 +331,7 @@ export function DataReadinessCard() {
                     className="text-[10.5px] font-bold px-2 py-1 rounded-full"
                     style={{ background: `color-mix(in srgb, ${heroTone} 14%, transparent)`, color: heroTone }}
                   >
-                    {heroPct === 0 ? "Getting started" : heroPct === 100 ? "All set" : "In progress"}
+                    {stepsAllDone ? "Students connected" : "Class setup completed"}
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 w-32 rounded-full bg-muted/40 overflow-hidden ml-auto">
@@ -374,21 +382,8 @@ export function DataReadinessCard() {
               {isReturning ? (
                 <ReturningActionHub stats={stats} />
               ) : (
-                <div className="mt-5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <h3 className="font-heading font-extrabold text-[14.5px]">Three steps to get started</h3>
-                      <span
-                        className="text-[10.5px] font-bold tabular-nums px-2 py-0.5 rounded-full"
-                        style={{ background: `color-mix(in srgb, ${BLUE} 10%, transparent)`, color: BLUE }}
-                      >
-                        {doneCount} of {totalSteps} complete
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-col md:flex-row items-stretch gap-2.5">
+                <div className="mt-4">
+                  <div className="flex flex-col md:flex-row items-stretch gap-2.5">
                     {steps.map((step, i) => (
                       <Fragment key={step.id}>
                         <StartStepCard
@@ -411,6 +406,11 @@ export function DataReadinessCard() {
                             step.id === "classroom"
                               ? !hasClassroom
                               : activeIndex !== -1 && i > activeIndex
+                          }
+                          blockingMessage={
+                            step.id === "classroom"
+                              ? "Add a classroom using the '+ Add classroom' button above."
+                              : blockingMessage
                           }
                         />
                         {i < steps.length - 1 && (
@@ -552,6 +552,7 @@ function StartStepCard({
   onAction,
   active = false,
   upcoming = false,
+  blockingMessage = "",
 }: {
   step: StartStep;
   index: number;
@@ -560,12 +561,19 @@ function StartStepCard({
   /** This is the next thing the teacher should do — glows via the same
    * tone-colored border flicker used before, no separate alert color. */
   active?: boolean;
-  /** Hasn't been reached yet (an earlier step still isn't done) — stays
-   * blurred and non-interactive until its turn comes. */
+  /** Hasn't been reached yet (an earlier step still isn't done) — card stays
+   * fully visible (never blurred/dimmed), only its CTA is disabled until its
+   * turn comes. */
   upcoming?: boolean;
+  /** What to tell the teacher when they tap this step's CTA before its turn. */
+  blockingMessage?: string;
 }) {
   const Icon = step.Icon;
-  const disabled = (step.done && step.lockedWhenDone) || upcoming;
+  // Only a completed one-time action (lockedWhenDone) is a *true* disabled
+  // button — an upcoming step stays clickable so tapping it can explain why
+  // it's not available yet, instead of silently doing nothing.
+  const doneLocked = step.done && step.lockedWhenDone;
+  const disabled = doneLocked || upcoming;
   // Uses the step's own tone for the glow — no separate "alert" color — via
   // the --attn custom property so it doesn't bleed into descendant text.
   const attnStyle = active ? ({ "--attn": step.tone } as React.CSSProperties) : undefined;
@@ -574,12 +582,11 @@ function StartStepCard({
   return (
     <motion.article
       initial={reduce ? undefined : { opacity: 0, y: 4 }}
-      animate={{ opacity: upcoming ? 0.55 : 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 * index, duration: 0.3, ease: EASE }}
       className={cn(
-        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-[filter] duration-300",
+        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-colors duration-300",
         active ? "border-flicker" : "border-border",
-        upcoming && "blur-[2.5px] pointer-events-none select-none",
       )}
       style={{
         ...attnStyle,
@@ -629,8 +636,14 @@ function StartStepCard({
 
       <button
         type="button"
-        onClick={() => onAction(step.id)}
-        disabled={disabled}
+        onClick={() => {
+          if (upcoming) {
+            toast.info(blockingMessage);
+            return;
+          }
+          onAction(step.id);
+        }}
+        disabled={doneLocked}
         className={cn(
           "mt-auto flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold transition-colors",
           disabled && "cursor-default",
@@ -644,10 +657,8 @@ function StartStepCard({
               : { background: `color-mix(in srgb, ${step.tone} 12%, transparent)`, color: step.tone }
         }
       >
-        {upcoming ? "Locked" : step.cta}
-        {upcoming ? (
-          <Lock className="h-3.5 w-3.5" />
-        ) : disabled ? (
+        {step.cta}
+        {step.done && step.lockedWhenDone ? (
           <Check className="h-3.5 w-3.5" />
         ) : (
           <ArrowRight className="h-3.5 w-3.5" />

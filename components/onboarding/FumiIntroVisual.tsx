@@ -1,79 +1,63 @@
 "use client";
 
+import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
-import { BarChart3, Gamepad2, Sparkles } from "lucide-react";
+import { ExternalLink, Globe } from "lucide-react";
 import { FumiMascot } from "@/components/onboarding/FumiMascot";
+import { FumiGrowthOverviewMock } from "@/components/onboarding/FumiGrowthOverviewMock";
 import type { FumiIntroVisual } from "@/components/onboarding/fumiIntroContent";
 
-const FUR_LIGHT = "#BBD1DB";
-const FUR_DEEP = "#6E8FA0";
+const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-/** Illustrative (not literal) mock of the Fumi app — a small report tile
- * and a game tile, since no real product screenshots exist to drop in
- * here yet. Keeps the same storybook-calm palette as FumiMascot. */
-function AppPreviewMock() {
+// The real Fumi marketing site — opened in a new tab so it never derails
+// the teacher's own onboarding flow.
+const FUMI_WEBSITE_URL = "https://fumi-website-zeta.vercel.app/";
+
+/** The "Meet Fumi" screen's centerpiece — the real brand lockup, a preview
+ * of what a parent sees in the real Fumi app (illustrative, not a literal
+ * product screenshot — see FumiGrowthOverviewMock's own note), and a real
+ * link out to the Fumi marketing site. */
+function FumiCentricVisual() {
   const reduce = useReducedMotion();
   return (
-    <div className="relative mx-auto h-40 w-full max-w-[280px] sm:h-44">
+    <div className="w-full flex flex-col items-center gap-5">
       <motion.div
-        initial={reduce ? undefined : { opacity: 0, y: 10 }}
+        initial={reduce ? undefined : { opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="absolute inset-0 rounded-[22px] border border-border/70 bg-card/90 backdrop-blur shadow-[0_18px_40px_-24px_hsl(230_50%_18%/0.35)] p-4 flex flex-col gap-2.5"
+        transition={{ duration: 0.4, ease: EASE }}
+        className="relative h-14 sm:h-[68px] w-auto"
       >
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: FUR_DEEP }} aria-hidden />
-          <span className="h-2 w-2 rounded-full bg-border" aria-hidden />
-          <span className="h-2 w-2 rounded-full bg-border" aria-hidden />
-          <span className="ml-auto text-[9.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Fumi
-          </span>
-        </div>
-
-        <div
-          className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-          style={{ background: `color-mix(in srgb, ${FUR_LIGHT} 45%, transparent)` }}
-        >
-          <span className="h-7 w-7 rounded-lg bg-card inline-flex items-center justify-center shrink-0" style={{ color: FUR_DEEP }}>
-            <BarChart3 className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-foreground/85">Weekly progress report</div>
-            <div className="h-1.5 w-24 rounded-full bg-card mt-1 overflow-hidden">
-              <span className="block h-full w-2/3 rounded-full" style={{ background: FUR_DEEP }} />
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-          style={{ background: `color-mix(in srgb, ${FUR_LIGHT} 45%, transparent)` }}
-        >
-          <span className="h-7 w-7 rounded-lg bg-card inline-flex items-center justify-center shrink-0" style={{ color: FUR_DEEP }}>
-            <Gamepad2 className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-bold text-foreground/85">Today&apos;s focus activity</div>
-            <div className="text-[10px] text-muted-foreground">2 games · 8 mins</div>
-          </div>
-          <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: FUR_DEEP }} />
-        </div>
+        <Image
+          src="/fumi-logo-full.png"
+          alt="Fumi"
+          width={1600}
+          height={577}
+          className="h-full w-auto object-contain"
+          priority
+        />
       </motion.div>
 
-      <motion.div
-        initial={reduce ? undefined : { opacity: 0, scale: 0.85, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.15 }}
-        className="absolute -bottom-5 -right-4 h-20 w-20 drop-shadow-[0_10px_18px_rgba(0,0,0,0.18)]"
+      <FumiGrowthOverviewMock />
+
+      <motion.a
+        href={FUMI_WEBSITE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        initial={reduce ? undefined : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2, ease: EASE }}
+        className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-[14px] font-bold text-foreground/85 hover:bg-muted/40 transition-colors"
       >
-        <FumiMascot className="h-full w-full" />
-      </motion.div>
+        <Globe className="h-4 w-4 text-primary shrink-0" />
+        Visit the Fumi website
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      </motion.a>
     </div>
   );
 }
 
 export function FumiIntroVisualPicker({ visual }: { visual: FumiIntroVisual }) {
-  if (visual === "app-preview") return <AppPreviewMock />;
+  if (visual === "app-preview") return <FumiCentricVisual />;
   if (visual === "mascot") return <FumiMascot className="mx-auto h-36 w-36 sm:h-40 sm:w-40" />;
   return null;
 }

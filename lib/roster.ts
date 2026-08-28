@@ -31,8 +31,10 @@ const KEY = "ah_roster";
 // that matches the dashboard's class roll (30 students: 24 linked, 4 invited,
 // 2 not yet invited).
 const SEEDED_KEY = "ah_roster_seeded_v2";
+const LAST_REMINDER_KEY = "ah_reminders_last_sent";
 
 const DAY = 86_400_000;
+const REMINDER_COOLDOWN = DAY;
 
 const EXTRA_STUDENTS: { childName: string; parentName: string }[] = [
   { childName: "Vihaan Mehta", parentName: "Anjali Mehta" },
@@ -226,7 +228,8 @@ export function sendAllPendingInvites(): number {
 
 // Nudges everyone who hasn't activated Fumi yet — covers both "never
 // invited" (pending-invite) and "invited but no response" (invited),
-// unlike sendAllPendingInvites() which only covers the former.
+// unlike sendAllPendingInvites() which only covers the former. Clicking
+// always starts the cooldown below, even if nobody needed reminding.
 export function sendReminders(): number {
   const list = read();
   const now = Date.now();
@@ -239,7 +242,21 @@ export function sendReminders(): number {
     return s;
   });
   if (count > 0) write(out);
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(LAST_REMINDER_KEY, String(now));
+    emit();
+  }
   return count;
+}
+
+// Null once no reminder has ever been sent, or once the 24h cooldown from
+// the last send has elapsed.
+export function getRemindersCooldownUntil(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(LAST_REMINDER_KEY);
+  if (!raw) return null;
+  const until = Number(raw) + REMINDER_COOLDOWN;
+  return until > Date.now() ? until : null;
 }
 
 export function simulateLogin(id: string): RosterStudent | null {

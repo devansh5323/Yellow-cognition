@@ -370,7 +370,7 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
   const upToDate = checkedIn && notConnected === 0 && inviteSent === 0 && total > 0;
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px] items-start">
       {/* Priority actions */}
       <div>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -554,8 +554,10 @@ export function ReturningActionHub({ stats }: { stats: InviteStats }) {
         </AnimatePresence>
       </div>
 
-      {/* Sidebar */}
-      <div className="space-y-5">
+      {/* Sidebar — stays pinned in view while the main column scrolls, same
+          persistent-rail pattern as /behavior's Students Watchlist and the
+          specialist dashboard's Today & Upcoming rail. */}
+      <div className="space-y-5 xl:sticky xl:top-[84px]">
         <div className="rounded-2xl border border-border bg-background p-5">
           <h3 className="font-heading font-bold text-[13.5px] mb-4">Data health at a glance</h3>
           <ul className="space-y-4">

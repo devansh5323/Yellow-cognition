@@ -255,48 +255,48 @@ export function behaviorWeeklyTrend(current: {
 
 export type DisruptionKey =
   | "off-task"
-  | "impulse"
-  | "transition"
+  | "non-compliance"
   | "peer"
-  | "anxiety"
-  | "emotional";
+  | "impulse"
+  | "emotional"
+  | "participation";
 
 export const DISRUPTION_LABEL: Record<DisruptionKey, string> = {
   "off-task": "Off-Task Behaviour",
-  impulse: "Impulse Control",
-  transition: "Transition Readiness",
+  "non-compliance": "Non-Compliance",
   peer: "Peer Interaction",
-  anxiety: "Anxiety & Coping Readiness",
+  impulse: "Impulse Control",
   emotional: "Emotional Regulation",
+  participation: "Participation Control",
 };
 
 export const DISRUPTION_DESCRIPTION: Record<DisruptionKey, string> = {
   "off-task": "Drifting from the assigned activity — doodling, side conversations, fidgeting.",
-  impulse: "Calling out, leaving seat, struggling to wait their turn.",
-  transition: "Losing focus and momentum in the minutes around activity changes.",
+  "non-compliance": "Not following instructions or classroom expectations, even after prompts.",
   peer: "Disrupting peers, interrupting, or escalating conflicts during work.",
-  anxiety: "Difficulty settling and coping under pressure or unfamiliar demands.",
+  impulse: "Movement and restlessness control — calling out, leaving seat, struggling to wait their turn.",
   emotional: "Big reactions to small frustrations — shutting down or escalating.",
+  participation: "Disengaging from class activities and discussions instead of taking part.",
 };
 
 export const DISRUPTION_HUE: Record<DisruptionKey, string> = {
   "off-task": "hsl(38 92% 55%)",
-  impulse: "hsl(20 85% 58%)",
-  transition: "hsl(196 75% 50%)",
+  "non-compliance": "hsl(0 78% 58%)",
   peer: "hsl(286 60% 60%)",
-  anxiety: "hsl(0 78% 58%)",
+  impulse: "hsl(20 85% 58%)",
   emotional: "hsl(258 55% 60%)",
+  participation: "hsl(196 75% 50%)",
 };
 
 /** Short 2–4 word pattern labels for compact spaces (the watchlist rail) —
  * same real driver categorisation as DISRUPTION_LABEL, just condensed. */
 export const DISRUPTION_SHORT_PATTERN: Record<DisruptionKey, string> = {
   "off-task": "Off-task + repeated reminders",
-  impulse: "Impulsive / calling out",
-  transition: "Transition difficulty",
+  "non-compliance": "Non-compliance / not following instructions",
   peer: "Peer conflict",
-  anxiety: "Anxiety / coping difficulty",
+  impulse: "Impulsive / calling out",
   emotional: "Emotional dysregulation",
+  participation: "Low participation / disengagement",
 };
 
 /** Watchlist tier label — reuses the same real score bands as
@@ -318,30 +318,30 @@ export const DISRUPTION_SIGNS: Record<DisruptionKey, string[]> = {
     "Repeated prompts needed during independent work.",
     "Delayed start is visible in written assignments.",
   ],
-  impulse: [
-    "Calling out before being called on.",
-    "Leaving seat without permission during work blocks.",
-    "Struggles to wait during turn-taking activities.",
-  ],
-  transition: [
-    "Most lost minutes happen in the 2 minutes after activity changes.",
-    "Slow re-engagement after switching tasks or materials.",
-    "Lines and hand-offs between activities run long.",
+  "non-compliance": [
+    "Ignores or resists instructions even after redirection.",
+    "Argues or negotiates rather than following directions.",
+    "Repeated non-completion of assigned tasks despite reminders.",
   ],
   peer: [
     "Conflicts cluster around the same seating groups.",
     "Interruptions rise during partner or group work.",
     "Peer proximity correlates with off-task drift.",
   ],
-  anxiety: [
-    "Hesitates or avoids starting unfamiliar or high-stakes tasks.",
-    "Physical signs of stress before assessments or transitions.",
-    "Difficulty self-soothing after a setback.",
+  impulse: [
+    "Calling out before being called on.",
+    "Leaving seat without permission during work blocks.",
+    "Struggles to wait during turn-taking activities.",
   ],
   emotional: [
     "Shuts down or escalates after small frustrations.",
     "Recovery time after an outburst is longer than peers.",
     "Big reactions to minor changes in routine.",
+  ],
+  participation: [
+    "Opts out of class discussions and group activities.",
+    "Minimal verbal or written contribution during lessons.",
+    "Disengages during whole-class instruction.",
   ],
 };
 
@@ -370,26 +370,26 @@ function driverSignal(key: DisruptionKey, s: Student): boolean {
   switch (key) {
     case "off-task":
       return dom.sus < 60;
-    case "impulse":
-      return dom.hyp > 70;
-    case "transition":
-      return dom.swi < 60;
+    case "non-compliance":
+      return monitor.compliance === "LOW";
     case "peer":
       return subAt(6) < 60;
-    case "anxiety":
-      return monitor.selfReg < 60;
+    case "impulse":
+      return dom.hyp > 70;
     case "emotional":
       return subAt(5) < 58;
+    case "participation":
+      return dom.sel < 58;
   }
 }
 
 const DISRUPTION_ORDER: DisruptionKey[] = [
   "off-task",
-  "impulse",
-  "transition",
+  "non-compliance",
   "peer",
-  "anxiety",
+  "impulse",
   "emotional",
+  "participation",
 ];
 
 /**
@@ -406,11 +406,11 @@ export function classDisruptionBreakdown(students: Student[] = STUDENTS): Disrup
   // week's severity is nudged by a small fixed offset per driver.
   const PREV_OFFSET: Record<DisruptionKey, number> = {
     "off-task": 6,
-    impulse: 5,
-    transition: 3,
+    "non-compliance": 4,
     peer: 2,
-    anxiety: 2,
+    impulse: 5,
     emotional: -3,
+    participation: 2,
   };
 
   return DISRUPTION_ORDER.map((key) => {
@@ -434,6 +434,30 @@ export function classDisruptionBreakdown(students: Student[] = STUDENTS): Disrup
   });
 }
 
+export type DistributionChangePoint = {
+  key: DisruptionKey;
+  label: string;
+  hue: string;
+  /** % share of total disruption load, last week vs this week — reuses
+   * each driver's own severity/prevSeverity rather than a separate history
+   * model, so the two points are exactly what classDisruptionBreakdown
+   * already computed. */
+  prevPct: number;
+  pct: number;
+};
+
+export function behaviorTypeDistributionChange(breakdown: DisruptionStat[]): DistributionChangePoint[] {
+  const totalNow = Math.max(1, breakdown.reduce((a, d) => a + d.severity, 0));
+  const totalPrev = Math.max(1, breakdown.reduce((a, d) => a + d.prevSeverity, 0));
+  return breakdown.map((d) => ({
+    key: d.key,
+    label: d.label,
+    hue: d.hue,
+    prevPct: Math.round((d.prevSeverity / totalPrev) * 100),
+    pct: Math.round((d.severity / totalNow) * 100),
+  }));
+}
+
 /** Returns students who contribute to a given disruption category. */
 export function studentsByDisruption(
   key: DisruptionKey,
@@ -451,36 +475,61 @@ export type DriverSkill = { name: string; score: number };
  * attention-domain scores. */
 const DRIVER_SKILL_FIELDS: Record<DisruptionKey, { name: string; value: (s: Student) => number }[]> = {
   "off-task": [
-    { name: "Sustained attention", value: (s) => studentAttentionDomains(s).sus },
-    { name: "Self-monitoring", value: (s) => studentAttentionDomains(s).swi },
-    { name: "Task initiation", value: (s) => studentMonitorRow(s).selfReg },
+    { name: "Sustained Attention", value: (s) => studentAttentionDomains(s).sus },
+    {
+      name: "Task persistence",
+      value: (s) => {
+        const c = studentMonitorRow(s).compliance;
+        return c === "HIGH" ? 85 : c === "MEDIUM" ? 60 : 35;
+      },
+    },
+    { name: "Verbal Self-Regulation", value: (s) => studentMonitorRow(s).selfReg },
   ],
-  impulse: [
-    { name: "Impulse control", value: (s) => s.subDomains[4]?.score ?? 60 },
-    { name: "Inhibitory control", value: (s) => 100 - studentAttentionDomains(s).hyp },
-    { name: "Self-regulation", value: (s) => studentMonitorRow(s).selfReg },
-  ],
-  transition: [
-    { name: "Cognitive flexibility", value: (s) => studentAttentionDomains(s).swi },
-    { name: "Attention switching", value: (s) => s.subDomains[3]?.score ?? 60 },
-    { name: "Self-monitoring", value: (s) => studentMonitorRow(s).selfReg },
+  "non-compliance": [
+    { name: "Monitoring", value: (s) => studentMonitorRow(s).selfReg },
+    { name: "Self-Regulation", value: (s) => studentAttentionDomains(s).beh },
   ],
   peer: [
-    { name: "Social cognition", value: (s) => s.subDomains[6]?.score ?? 60 },
-    { name: "Impulse control", value: (s) => s.subDomains[4]?.score ?? 60 },
-    { name: "Perspective taking", value: (s) => studentMonitorRow(s).selfReg },
+    { name: "Cooperation", value: (s) => s.subDomains[6]?.score ?? 60 },
+    { name: "Behavioral control", value: (s) => studentAttentionDomains(s).beh },
+    { name: "Auditory inhibition", value: (s) => s.subDomains[7]?.score ?? 60 },
   ],
-  anxiety: [
-    { name: "Emotion identification", value: (s) => s.subDomains[5]?.score ?? 60 },
-    { name: "Calming strategies", value: (s) => studentMonitorRow(s).selfReg },
-    { name: "Self-regulation", value: (s) => studentAttentionDomains(s).beh },
+  impulse: [
+    { name: "Motor Control", value: (s) => 100 - studentAttentionDomains(s).hyp },
+    { name: "Behavioral control", value: (s) => studentAttentionDomains(s).beh },
+    { name: "Sustained Attention", value: (s) => studentAttentionDomains(s).sus },
   ],
   emotional: [
-    { name: "Self-regulation", value: (s) => s.subDomains[5]?.score ?? 60 },
-    { name: "Frustration tolerance", value: (s) => studentAttentionDomains(s).beh },
-    { name: "Coping strategies", value: (s) => studentMonitorRow(s).selfReg },
+    { name: "Self-awareness", value: (s) => s.subDomains[5]?.score ?? 60 },
+    { name: "Frustration Tolerance", value: (s) => studentAttentionDomains(s).beh },
+    { name: "Self-Regulation", value: (s) => studentMonitorRow(s).selfReg },
+  ],
+  participation: [
+    { name: "Behavioral control", value: (s) => studentAttentionDomains(s).beh },
+    { name: "Arousal Modulation", value: (s) => 100 - studentAttentionDomains(s).hyp },
+    { name: "Verbal Self-Regulation", value: (s) => studentMonitorRow(s).selfReg },
   ],
 };
+
+// Presentational qualifiers shown alongside the base driver label in the
+// Problem Area → Skills table only — every other component just uses the
+// plain DISRUPTION_LABEL.
+const PROBLEM_AREA_NOTE: Partial<Record<DisruptionKey, string>> = {
+  impulse: "movement/restlessness",
+  participation: "interrupting / over-talking / under-participation",
+};
+
+/** Static Problem Area → Skills reference (Component 3) — the same skill
+ * names driverImpactingSkills scores per student, just without a score
+ * attached, in the app's real driver order. */
+export function problemAreaToSkills(): { key: DisruptionKey; label: string; note?: string; skills: string[] }[] {
+  return DISRUPTION_ORDER.map((key) => ({
+    key,
+    label: DISRUPTION_LABEL[key],
+    note: PROBLEM_AREA_NOTE[key],
+    skills: DRIVER_SKILL_FIELDS[key].map((f) => f.name),
+  }));
+}
 
 export function driverImpactingSkills(
   key: DisruptionKey,
@@ -508,20 +557,20 @@ export type PatternInsight = {
 
 const WATCH_TEXT: Record<DisruptionKey, string> = {
   "off-task": "Repeated reminders increased this week.",
-  impulse: "Impulse-control incidents increased this week.",
-  transition: "Transitions are creating more friction this week.",
+  "non-compliance": "Non-compliance with instructions increased this week.",
   peer: "Peer conflicts increased this week.",
-  anxiety: "Coping and self-regulation dipped this week.",
+  impulse: "Impulse-control incidents increased this week.",
   emotional: "Emotional regulation dipped this week.",
+  participation: "Class participation dipped this week.",
 };
 
 const STRENGTH_TEXT: Record<DisruptionKey, string> = {
   "off-task": "Focus during independent work held steady this week.",
-  impulse: "Impulse control is holding steady this week.",
-  transition: "Transitions are running smoother this week.",
+  "non-compliance": "Students are following instructions more consistently this week.",
   peer: "Peer interaction stayed positive this week.",
-  anxiety: "Coping strategies are taking hold this week.",
+  impulse: "Impulse control is holding steady this week.",
   emotional: "Emotional recovery is improving this week.",
+  participation: "Class participation is holding steady this week.",
 };
 
 const GOOD_STATUS: BehaviorStatus[] = ["strong", "stable"];
@@ -586,7 +635,7 @@ export function behaviorPatternInsights(
  * Yellow Recommends — classroom management strategies
  * ───────────────────────────────────────────────────────── */
 
-export type StrategyKind = "Whole Class" | "Small Group" | "Individual" | "Routine";
+export type StrategyKind = "Whole Class" | "Small Group" | "Individual" | "Routine" | "Game";
 
 export type BehaviorStrategy = {
   id: string;
@@ -595,6 +644,10 @@ export type BehaviorStrategy = {
   kind: StrategyKind;
   durationMins: number;
   targets: DisruptionKey[];
+  /** Real ANTECEDENT_OPTIONS labels (behaviorForm.ts) this strategy addresses
+   * — lets triggers actually logged on the Record Behaviour form connect to
+   * a matched strategy, not just disruption drivers. */
+  triggers?: string[];
 };
 
 const STRATEGIES: BehaviorStrategy[] = [
@@ -604,7 +657,8 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "Naming the behavior (not just 'good job') reinforces what works.",
     kind: "Whole Class",
     durationMins: 0,
-    targets: ["off-task", "anxiety"],
+    targets: ["off-task", "participation"],
+    triggers: ["Difficult task"],
   },
   {
     id: "silent-signals",
@@ -612,7 +666,8 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "Replaces verbal redirects, lowering interruptions and noise.",
     kind: "Routine",
     durationMins: 0,
-    targets: ["off-task", "transition"],
+    targets: ["off-task", "non-compliance"],
+    triggers: ["Noise levels"],
   },
   {
     id: "calm-corner",
@@ -620,7 +675,8 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "Gives emotionally-flooded students a structured reset path.",
     kind: "Individual",
     durationMins: 5,
-    targets: ["emotional", "anxiety"],
+    targets: ["emotional"],
+    triggers: ["Correction"],
   },
   {
     id: "transition-30",
@@ -628,7 +684,8 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "Most lost minutes happen between activities — a visible timer cuts it.",
     kind: "Routine",
     durationMins: 0,
-    targets: ["transition", "impulse"],
+    targets: ["non-compliance", "impulse"],
+    triggers: ["Transition"],
   },
   {
     id: "small-group-impulse",
@@ -644,7 +701,8 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "Pairs a high-impulse student with a calm peer to defuse peer-interaction flags.",
     kind: "Individual",
     durationMins: 0,
-    targets: ["peer", "transition"],
+    targets: ["peer", "participation"],
+    triggers: ["Peer proximity"],
   },
   {
     id: "calming-checkin",
@@ -652,7 +710,44 @@ const STRATEGIES: BehaviorStrategy[] = [
     rationale: "A brief self-check-in before demanding tasks builds coping capacity over time.",
     kind: "Whole Class",
     durationMins: 2,
-    targets: ["anxiety"],
+    targets: ["emotional"],
+    triggers: ["Change in routine", "Unknown"],
+  },
+  {
+    id: "chunk-instructions",
+    title: "Break instructions into shorter chunks",
+    rationale: "Long instruction blocks strain working memory — shorter chunks with a quick check keep the whole class following.",
+    kind: "Whole Class",
+    durationMins: 0,
+    targets: ["off-task", "non-compliance"],
+    triggers: ["Long instruction blocks"],
+  },
+  {
+    id: "movement-break",
+    title: "Introduce movement breaks",
+    rationale: "A brief movement reset channels restlessness before it turns into off-task drift or disruption.",
+    kind: "Whole Class",
+    durationMins: 2,
+    targets: ["impulse", "off-task"],
+    triggers: ["Long wait"],
+  },
+  {
+    id: "participation-rules",
+    title: "Set clear participation rules (raise hand, turn-taking)",
+    rationale: "Explicit turn-taking rules cut down on talking-out-of-turn and peer-proximity friction.",
+    kind: "Routine",
+    durationMins: 0,
+    targets: ["non-compliance", "participation"],
+    triggers: ["Peer proximity", "Correction"],
+  },
+  {
+    id: "freeze-focus",
+    title: "“Freeze & focus” game",
+    rationale: "A quick freeze-on-cue game resets attention and impulse control after a noisy or high-energy stretch.",
+    kind: "Game",
+    durationMins: 3,
+    targets: ["impulse", "off-task"],
+    triggers: ["Noise levels", "Difficult task"],
   },
 ];
 
@@ -660,6 +755,42 @@ const STRATEGIES: BehaviorStrategy[] = [
  * "Try strategy" / "Generate strategy" actions. */
 export function strategyForDriver(key: DisruptionKey): BehaviorStrategy | null {
   return STRATEGIES.find((s) => s.targets.includes(key)) ?? null;
+}
+
+/** Best-matched strategy for a real logged trigger (ANTECEDENT_OPTIONS
+ * label) — used by Behavior Triggers & Actions and Classroom Management
+ * Strategies to connect what teachers actually logged to a real strategy. */
+export function strategyForTrigger(trigger: string): BehaviorStrategy | null {
+  return STRATEGIES.find((s) => s.triggers?.includes(trigger)) ?? null;
+}
+
+// Shown before any real trigger match when no behaviour logs record a
+// trigger yet this week — the general-purpose classroom-management set,
+// not tied to any one driver or trigger.
+const DEFAULT_STRATEGY_IDS = ["chunk-instructions", "movement-break", "participation-rules", "freeze-focus"];
+
+/** Ranks strategies by how well they match this week's real logged
+ * triggers (falls back to the general default set, then the full catalog,
+ * same dedup-fill convention as pickBehaviorStrategies below). */
+export function pickStrategiesForTriggers(antecedentsThisWeek: string[], count = 4): BehaviorStrategy[] {
+  const counts = new Map<string, number>();
+  for (const trigger of antecedentsThisWeek) counts.set(trigger, (counts.get(trigger) ?? 0) + 1);
+  const rankedTriggers = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([trigger]) => trigger);
+  const focusTriggers = new Set(rankedTriggers.slice(0, 3));
+  const matched = STRATEGIES.filter((s) => s.triggers?.some((t) => focusTriggers.has(t)));
+  const byId = new Map(STRATEGIES.map((s) => [s.id, s]));
+  const defaults = DEFAULT_STRATEGY_IDS.map((id) => byId.get(id)).filter((s): s is BehaviorStrategy => !!s);
+  const seen = new Set<string>();
+  const out: BehaviorStrategy[] = [];
+  for (const s of [...matched, ...defaults, ...STRATEGIES]) {
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    out.push(s);
+    if (out.length >= count) break;
+  }
+  return out;
 }
 
 export function pickBehaviorStrategies(breakdown: DisruptionStat[], count = 5): BehaviorStrategy[] {
@@ -697,14 +828,15 @@ export type BehaviorSupport = {
 function inferPrimary(s: Student): DisruptionKey {
   const dom = studentAttentionDomains(s);
   const subAt = (i: number) => s.subDomains[i]?.score ?? 60;
-  const selfReg = studentMonitorRow(s).selfReg;
+  const compliance = studentMonitorRow(s).compliance;
+  const complianceScore = compliance === "HIGH" ? 85 : compliance === "MEDIUM" ? 60 : 30;
   const candidates: { key: DisruptionKey; signal: number }[] = [
     { key: "impulse", signal: dom.hyp - 60 },
-    { key: "transition", signal: 60 - dom.swi },
+    { key: "non-compliance", signal: 60 - complianceScore },
     { key: "off-task", signal: 60 - dom.sus },
     { key: "emotional", signal: 60 - subAt(5) },
     { key: "peer", signal: 60 - subAt(6) },
-    { key: "anxiety", signal: 60 - selfReg },
+    { key: "participation", signal: 60 - dom.sel },
   ];
   candidates.sort((a, b) => b.signal - a.signal);
   return candidates[0].key;
@@ -713,15 +845,15 @@ function inferPrimary(s: Student): DisruptionKey {
 const INSIGHT_BY_KEY: Record<DisruptionKey, (s: Student) => string> = {
   "off-task": (s) =>
     `${s.name.split(" ")[0]} drifts after ~10 min — a single-channel worksheet helps.`,
-  transition: (s) =>
-    `${s.name.split(" ")[0]} loses momentum after activity changes — a visual countdown helps.`,
+  "non-compliance": (s) =>
+    `${s.name.split(" ")[0]} pushes back on instructions — consistent, calm follow-through helps.`,
   peer: (s) => `${s.name.split(" ")[0]} escalates near the back row — try a buddy-pair this week.`,
   impulse: (s) =>
     `${s.name.split(" ")[0]} calls out before being called on — a hand-raise rubric reduces it.`,
   emotional: (s) =>
     `${s.name.split(" ")[0]} shuts down on tough tasks — a 2-min anchor routine helps re-enter.`,
-  anxiety: (s) =>
-    `${s.name.split(" ")[0]} hesitates on unfamiliar tasks — a calming check-in builds confidence.`,
+  participation: (s) =>
+    `${s.name.split(" ")[0]} disengages during class discussions — structured turn-taking helps.`,
 };
 
 export function studentsNeedingBehaviorSupport(
@@ -769,67 +901,95 @@ export type BehaviorCheckInQuestion = {
 export const BEHAVIOR_CHECKIN_QUESTIONS: BehaviorCheckInQuestion[] = [
   {
     id: "mgmt-time",
-    prompt: "How many minutes per class did you spend managing behaviour?",
+    prompt: "How much time is spent managing behavior?",
+    helper: "Includes time spent redirecting, settling students, and addressing disruptions.",
     options: [
-      { id: "lt2", label: "Under 2 min", weight: 2 },
-      { id: "2to5", label: "2–5 min", weight: 1 },
-      { id: "6to10", label: "6–10 min", weight: 0 },
-      { id: "10to15", label: "10–15 min", weight: -1 },
-      { id: "gt15", label: "Over 15 min", weight: -2 },
+      { id: "lt2", label: "< 2 mins", weight: 2 },
+      { id: "2to5", label: "2–5 mins", weight: 1 },
+      { id: "6to10", label: "6–10 mins", weight: 0 },
+      { id: "10to15", label: "10–15 mins", weight: -1 },
+      { id: "gt15", label: "15+ mins", weight: -2 },
     ],
   },
   {
     id: "transitions",
-    prompt: "How many minutes did transitions cost you?",
+    prompt: "How much time is lost during transitions between activities?",
+    helper: "Time from ending one activity to the class being fully ready for the next.",
     options: [
-      { id: "lt2", label: "Under 2 min", weight: 2 },
-      { id: "2to5", label: "2–5 min", weight: 1 },
-      { id: "6to10", label: "6–10 min", weight: -1 },
-      { id: "gt10", label: "Over 10 min", weight: -2 },
+      { id: "lt2", label: "< 2 mins", weight: 2 },
+      { id: "2to5", label: "2–5 mins", weight: 1 },
+      { id: "6to10", label: "6–10 mins", weight: 0 },
+      { id: "10to15", label: "10–15 mins", weight: -1 },
+      { id: "gt15", label: "15+ mins", weight: -2 },
     ],
   },
   {
     id: "disruptions",
-    prompt: "How frequent were classroom disruptions?",
+    prompt: "How often do disruptions occur in a typical class?",
+    helper: "Includes any behavior that interrupts teaching or learning.",
     options: [
-      { id: "lt3", label: "Fewer than 3", weight: 2 },
-      { id: "3to5", label: "3–5", weight: 1 },
-      { id: "5to10", label: "5–10", weight: -1 },
-      { id: "gt10", label: "More than 10", weight: -2 },
+      { id: "rare", label: "Rare (0–2 times)", weight: 2 },
+      { id: "occasional", label: "Occasional (3–5 times)", weight: 1 },
+      { id: "frequent", label: "Frequent (5–10 times)", weight: -1 },
+      { id: "very-frequent", label: "Very frequent (>10 times)", weight: -2 },
     ],
   },
   {
     id: "repetitions",
-    prompt: "How often did you have to repeat the same instruction?",
+    prompt: "How often do you need to repeat instructions?",
+    helper: "Think about the need to repeat directions for most of the class.",
     options: [
       { id: "rare", label: "Rarely", weight: 2 },
       { id: "some", label: "Sometimes", weight: 1 },
       { id: "often", label: "Often", weight: -1 },
-      { id: "always", label: "Almost every time", weight: -2 },
+      { id: "very-often", label: "Very often", weight: -2 },
     ],
   },
   {
     id: "challenge",
-    prompt: "What was the biggest classroom-management challenge this month?",
+    prompt: "What is the most common challenge in your class?",
+    helper: "Choose the one that happens most often.",
     options: [
-      { id: "off-task", label: "Off-task drift", weight: -1 },
-      { id: "impulse", label: "Calling out / impulse", weight: -1 },
-      { id: "transition", label: "Transition friction", weight: -1 },
-      { id: "peer", label: "Peer conflict", weight: -1 },
-      { id: "emotional", label: "Emotional dysregulation", weight: -1 },
-      { id: "none", label: "No major challenge", weight: 2 },
+      { id: "talking", label: "Talking out of turn", weight: -1 },
+      { id: "restlessness", label: "Restlessness / movement", weight: -1 },
+      { id: "not-following", label: "Not following instructions", weight: -1 },
+      { id: "losing-focus", label: "Losing focus mid-task", weight: -1 },
+      { id: "transitions", label: "Difficulty during transitions", weight: -1 },
     ],
+  },
+];
+
+/* ─────────────────────────────────────────────────────────
+ * Quick Pulse — optional daily companion to the monthly check-in above.
+ * Separate and much lighter: one tap, one question, no scoring model —
+ * just a rolling "how manageable was today" sentiment read.
+ * ───────────────────────────────────────────────────────── */
+
+export type QuickPulseRating = "smooth" | "manageable" | "difficult";
+
+export const QUICK_PULSE_OPTIONS: {
+  id: QuickPulseRating;
+  label: string;
+  description: string;
+  tone: string;
+}[] = [
+  {
+    id: "smooth",
+    label: "Very smooth",
+    description: "Class ran very smoothly with minimal issues",
+    tone: "hsl(142 55% 42%)",
   },
   {
     id: "manageable",
-    prompt: "Quick pulse — how manageable was the class today?",
-    helper: "Single tap. We use this as a 30-day rolling sentiment line.",
-    options: [
-      { id: "great", label: "Great — calm and focused", weight: 2 },
-      { id: "ok", label: "Manageable with some redirects", weight: 1 },
-      { id: "tough", label: "Tough — many redirects", weight: -1 },
-      { id: "exhausting", label: "Exhausting", weight: -2 },
-    ],
+    label: "Manageable",
+    description: "Some challenges, but handled well",
+    tone: "hsl(38 92% 48%)",
+  },
+  {
+    id: "difficult",
+    label: "Difficult",
+    description: "Many disruptions, hard to manage",
+    tone: "hsl(0 78% 56%)",
   },
 ];
 
@@ -1013,81 +1173,6 @@ export function behaviorPriorityActions(
 }
 
 /* ─────────────────────────────────────────────────────────
- * Yellow Recommends — Tier-Wise Insights. A reference menu of one
- * recommendation per PBIS tier (distinct from Priority Actions, which is
- * an urgent to-do queue — this is "what's generally available at each
- * support level"). Each pick reuses real signals already computed above.
- * ───────────────────────────────────────────────────────── */
-
-export type RecommendationTier = "wholeClass" | "smallGroup" | "individual";
-
-export const TIER_RECOMMENDATION_LABEL: Record<RecommendationTier, string> = {
-  wholeClass: "Tier 1 — Whole Class",
-  smallGroup: "Tier 2 — Small Group",
-  individual: "Tier 3 — Individual Support",
-};
-
-export type TierRecommendation = {
-  tier: RecommendationTier;
-  title: string;
-  detail: string;
-  driverKey?: DisruptionKey;
-  studentId?: string;
-  studentName?: string;
-};
-
-export function behaviorTierRecommendations(
-  breakdown: DisruptionStat[],
-  supportRoster: BehaviorSupport[],
-): TierRecommendation[] {
-  const recs: TierRecommendation[] = [];
-
-  // Tier 1 — Whole Class: the worst-trending driver (or, failing that, the
-  // single lowest-scoring one) paired with its matched strategy.
-  const wholeClassDriver =
-    [...breakdown].filter((d) => d.weeklyChange < 0).sort((a, b) => a.weeklyChange - b.weeklyChange)[0] ??
-    [...breakdown].sort((a, b) => a.score - b.score)[0];
-  if (wholeClassDriver) {
-    const strategy = strategyForDriver(wholeClassDriver.key);
-    recs.push({
-      tier: "wholeClass",
-      title: strategy ? strategy.title : `Re-teach ${wholeClassDriver.label.toLowerCase()} expectations`,
-      detail: strategy ? strategy.rationale : wholeClassDriver.description,
-      driverKey: wholeClassDriver.key,
-    });
-  }
-
-  // Tier 2 — Small Group: whichever driver the most students are still
-  // struggling with.
-  const smallGroupDriver = [...breakdown]
-    .filter((d) => d.status === "reinforcement" || d.status === "support")
-    .sort((a, b) => b.studentCount - a.studentCount)[0];
-  if (smallGroupDriver) {
-    recs.push({
-      tier: "smallGroup",
-      title: `Create a small ${smallGroupDriver.label.toLowerCase()} routine for ${smallGroupDriver.studentCount} students.`,
-      detail: smallGroupDriver.description,
-      driverKey: smallGroupDriver.key,
-    });
-  }
-
-  // Tier 3 — Individual: the single most severe case on the roster.
-  const worstStudent = supportRoster[0];
-  if (worstStudent) {
-    const firstName = worstStudent.student.name.split(" ")[0];
-    recs.push({
-      tier: "individual",
-      title: `Share ${firstName}'s observation summary with the special educator.`,
-      detail: worstStudent.insight,
-      studentId: worstStudent.student.id,
-      studentName: worstStudent.student.name,
-    });
-  }
-
-  return recs;
-}
-
-/* ─────────────────────────────────────────────────────────
  * Activity / Context Pattern — "where is the behaviour happening?"
  * This app doesn't persist per-incident location/activity data (the
  * logging form captures it, but only a bare timestamp is saved today —
@@ -1129,15 +1214,16 @@ export function behaviorActivityContextPatterns(
     });
   }
 
-  const transition = byKey("transition");
-  if (transition && transition.studentCount > 0) {
+  const nonCompliance = byKey("non-compliance");
+  if (nonCompliance && nonCompliance.studentCount > 0) {
     rows.push({
-      id: "transitions",
-      context: "Transitions",
-      mainFriction: "Delayed movement between activities",
-      count: transition.studentCount,
-      recommendedAction: strategyForDriver("transition")?.title ?? "Use a 2-minute transition warning",
-      driverKey: "transition",
+      id: "whole-class-instruction",
+      context: "Whole-class instructions",
+      mainFriction: "Not following directions after prompts",
+      count: nonCompliance.studentCount,
+      recommendedAction:
+        strategyForDriver("non-compliance")?.title ?? "Use a consistent instruction-and-check routine",
+      driverKey: "non-compliance",
     });
   }
 
@@ -1227,4 +1313,43 @@ export function behaviorTimeOfDayPattern(
     peak,
     topDriverLabel: topDriver && topDriver.studentCount > 0 ? topDriver.label.toLowerCase() : null,
   };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Behaviour Triggers & Actions — "why is this happening?" Sourced from the
+ * real "what happened right before" antecedent teachers pick on the Record
+ * Behaviour form (see ANTECEDENT_OPTIONS in behaviorForm.ts), now actually
+ * persisted per log (see getBehaviorLogAntecedentsThisWeek in
+ * checkInTools.ts) instead of being discarded after the note is composed —
+ * genuine teacher-log data, not a fabricated distribution.
+ * ───────────────────────────────────────────────────────── */
+
+export type BehaviorTriggerRow = {
+  id: string;
+  trigger: string;
+  count: number;
+  recommendedAction: string;
+};
+
+/** Ranks the real triggers teachers have actually logged this week — empty
+ * until at least one behaviour log records an antecedent, same "no logs yet"
+ * convention as behaviorTimeOfDayPattern. Recommended action comes from the
+ * same STRATEGIES catalog strategyForDriver already draws on, keyed by
+ * trigger instead of driver, so there's one source of truth for "what to do
+ * about it" everywhere on this page. */
+export function behaviorTriggerPatterns(antecedentsThisWeek: string[], limit = 5): BehaviorTriggerRow[] {
+  const counts = new Map<string, number>();
+  for (const trigger of antecedentsThisWeek) {
+    counts.set(trigger, (counts.get(trigger) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([trigger, count]) => ({
+      id: trigger.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      trigger,
+      count,
+      recommendedAction:
+        strategyForTrigger(trigger)?.title ?? "Log more detail next time to refine this suggestion.",
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
@@ -79,10 +80,28 @@ function driverDrilldown(key: string): {
 
 export function DriverCards({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
+  const router = useRouter();
   // Locked (FTUE) passes an empty roster so every pillar score is zero
   // instead of the mock class's simulated history.
   const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
   const [drillKey, setDrillKey] = useState<string | null>(null);
+
+  // "Behavior and discipline" and "Attention and focus" each have a full
+  // dedicated analytics page — send them there instead of the generic
+  // student-list drilldown the other drivers use (they have no page of
+  // their own to go to).
+  const DEDICATED_PAGE: Partial<Record<string, string>> = {
+    behavior: "/behavior",
+    focus: "/focus",
+  };
+  const handleSelect = (key: string) => {
+    const href = DEDICATED_PAGE[key];
+    if (href) {
+      router.push(href);
+      return;
+    }
+    setDrillKey(key);
+  };
 
   const cognitive: DriverItem[] = [
     {
@@ -160,14 +179,13 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
       className="space-y-3"
-      aria-label="Driver cards"
+      aria-label="Areas impacting your Classroom Health"
     >
       <div className="premium-eyebrow">
-        <span>Driver cards</span>
+        <span>Areas impacting your Classroom Health</span>
       </div>
       <p className="text-[12.5px] text-muted-foreground -mt-1">
-        The specific signals behind your Class Health Score, grouped by cognitive performance and
-        well-being.
+        Growth across these areas improve Class Health and Class Efficiency.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -177,7 +195,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
           tone={BLUE}
           items={cognitive}
           reduce={!!reduce}
-          onSelect={locked ? undefined : setDrillKey}
+          onSelect={locked ? undefined : handleSelect}
         />
         <DriverGroup
           title="Student Wellbeing"
@@ -185,7 +203,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
           tone={INDIGO}
           items={wellbeing}
           reduce={!!reduce}
-          onSelect={locked ? undefined : setDrillKey}
+          onSelect={locked ? undefined : handleSelect}
         />
       </div>
 
@@ -227,8 +245,13 @@ function DriverGroup({
   const band = healthBand(avg);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 md:p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 md:p-6 flex flex-col gap-4">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden
+        style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${tone} 7%, transparent), transparent 60%)` }}
+      />
+      <div className="relative flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
             className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0"
@@ -255,7 +278,7 @@ function DriverGroup({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {items.map((item, i) => {
           const itemBand = healthBand(item.score);
           const isLastOdd = items.length % 2 === 1 && i === items.length - 1;
@@ -269,24 +292,31 @@ function DriverGroup({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.3, ease: EASE }}
               className={cn(
-                "group w-full text-left rounded-xl border border-border/60 bg-background/50 p-3 transition-colors",
-                onSelect && "hover:border-foreground/15 hover:bg-background/80 cursor-pointer",
+                "group relative w-full text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-3.5 pr-3 py-3 transition-all",
+                onSelect && "hover:border-foreground/15 hover:bg-background/90 hover:shadow-sm cursor-pointer",
                 isLastOdd && "sm:col-span-2",
               )}
             >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0"
-                  style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
-                >
-                  <item.Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0 flex-1 font-heading font-bold text-[12.5px] leading-tight truncate">
-                  {item.title}
+              <span
+                className="absolute inset-y-0 left-0 w-[3px]"
+                aria-hidden
+                style={{ background: item.tone }}
+              />
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="h-7 w-7 rounded-lg inline-flex items-center justify-center shrink-0"
+                    style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
+                  >
+                    <item.Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  </span>
+                  <div className="min-w-0 font-heading font-bold text-[12.5px] leading-tight truncate">
+                    {item.title}
+                  </div>
                 </div>
                 <div className="flex items-baseline gap-0.5 shrink-0">
                   <span
-                    className="font-heading font-extrabold text-[15px] tabular-nums leading-none"
+                    className="font-heading font-extrabold text-[16px] tabular-nums leading-none"
                     style={{ color: item.tone }}
                   >
                     {item.score}
@@ -297,23 +327,12 @@ function DriverGroup({
 
               <p className="text-[10.5px] text-muted-foreground mt-1.5 leading-snug">{item.description}</p>
 
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 flex-1 rounded-full bg-muted/50 overflow-hidden">
-                  <motion.span
-                    initial={reduce ? undefined : { scaleX: 0 }}
-                    animate={{ scaleX: item.score / 100 }}
-                    transition={{ duration: 0.5, ease: EASE, delay: 0.05 * i }}
-                    className="block h-full w-full origin-left rounded-full"
-                    style={{ background: item.tone }}
-                  />
-                </div>
-                <span
-                  className="text-[9px] font-bold uppercase tracking-[0.06em] shrink-0"
-                  style={{ color: itemBand.tone }}
-                >
-                  {itemBand.label}
-                </span>
-              </div>
+              <span
+                className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full w-fit"
+                style={{ background: `color-mix(in srgb, ${itemBand.tone} 12%, transparent)`, color: itemBand.tone }}
+              >
+                {itemBand.label}
+              </span>
             </motion.button>
           );
         })}

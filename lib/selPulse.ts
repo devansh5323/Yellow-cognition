@@ -11,6 +11,7 @@
 // fabricated sentence.
 
 import { STUDENTS, type Grade } from "@/data/mockData";
+import { markSelTaskDone, type SelMonitorFocus } from "@/lib/selOnboarding";
 
 export const SEL_COMPETENCIES = [
   "Emotional regulation",
@@ -48,7 +49,11 @@ export function questionCountFor(format: PulseFormat): number {
   return PULSE_FORMATS.find((f) => f.key === format)?.questionCount ?? 4;
 }
 
-export type PulseStatus = "draft" | "active";
+// "scheduled" is the simplified Create-SEL-Pulse flow's "Schedule" choice —
+// a real future send date, not yet contributing to any real-time score
+// until it's actually due (this app has no backend to auto-flip it to
+// "active" at that time, so it just stays honestly "scheduled").
+export type PulseStatus = "draft" | "scheduled" | "active";
 
 export type Pulse = {
   id: string;
@@ -60,7 +65,45 @@ export type Pulse = {
   competencies: SelCompetency[];
   status: PulseStatus;
   createdAt: string;
+  scheduledFor?: string;
 };
+
+/** The simplified Create-SEL-Pulse flow's curated "what to measure" list —
+ * a narrower, friendlier subset of the full SEL_COMPETENCIES taxonomy,
+ * mirroring the same "recommended areas" grouping lib/selClimate.ts uses
+ * for School Climate (kept as an independent list here rather than a
+ * shared import, since the two modules serve different purposes and
+ * selClimate already imports from this file). */
+export const RECOMMENDED_PULSE_AREAS: SelCompetency[] = [
+  "Emotional regulation",
+  "Peer relationships",
+  "Sense of belonging",
+  "Coping with Challenges",
+  "Student-Teacher Relationships",
+];
+
+// Bridges Action 1's "what to monitor" picker (lib/selOnboarding.ts) to
+// this module's real competency taxonomy — the two lists don't line up
+// 1:1 ("Anxiety & Coping" and "Peer Safety & Belonging" have no exact
+// match), so this maps each to its closest real competency rather than
+// leaving those selections unusable for pulse suggestions.
+const MONITOR_FOCUS_TO_COMPETENCY: Record<SelMonitorFocus, SelCompetency> = {
+  "Emotional regulation": "Emotional regulation",
+  "Anxiety & Coping": "Coping with Challenges",
+  "Peer Safety & Belonging": "Sense of belonging",
+  "Peer relationships": "Peer relationships",
+  "Student-Teacher Relationships": "Student-Teacher Relationships",
+};
+
+/** What to pre-select in the Create-SEL-Pulse dialog's "what to measure"
+ * step — the coordinator's own Action 1 picks, translated to real
+ * competencies, or the default recommended set if they haven't picked
+ * anything (or picked something with no real-competency equivalent). */
+export function suggestedPulseCompetencies(monitorFocus: SelMonitorFocus[]): SelCompetency[] {
+  if (monitorFocus.length === 0) return RECOMMENDED_PULSE_AREAS.slice(0, 3);
+  const mapped = Array.from(new Set(monitorFocus.map((f) => MONITOR_FOCUS_TO_COMPETENCY[f])));
+  return mapped.length > 0 ? mapped : RECOMMENDED_PULSE_AREAS.slice(0, 3);
+}
 
 /** Real, if currently narrow — the grades that actually have students in
  * the roster (the wider GRADES constant in mockData.ts is a school-wide
@@ -127,11 +170,35 @@ function writePulses(pulses: Pulse[]) {
 export function createPulse(input: Omit<Pulse, "id" | "status" | "createdAt">): Pulse {
   const pulse: Pulse = { ...input, id: `pulse-${Date.now()}`, status: "draft", createdAt: new Date().toISOString() };
   writePulses([pulse, ...getPulses()]);
+  markSelTaskDone("first-pulse");
   return pulse;
 }
 
 export function assignPulse(id: string) {
   writePulses(getPulses().map((p) => (p.id === id ? { ...p, status: "active" } : p)));
+}
+
+/** The simplified Create-SEL-Pulse flow's "Send now"/"Schedule" — unlike
+ * createPulse (which always starts as an unassigned "draft"), this goes
+ * straight to "active" or "scheduled" since the flow has no separate
+ * draft/assign step. May be called once per resolved grade when the
+ * coordinator targets "Whole school" or several grades/classrooms at
+ * once, so the id includes a random suffix — Date.now() alone can collide
+ * across calls made in the same synchronous loop. */
+export function sendPulse(
+  input: Omit<Pulse, "id" | "status" | "createdAt" | "scheduledFor">,
+  options: { scheduledFor?: string } = {},
+): Pulse {
+  const pulse: Pulse = {
+    ...input,
+    id: `pulse-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    status: options.scheduledFor ? "scheduled" : "active",
+    createdAt: new Date().toISOString(),
+    scheduledFor: options.scheduledFor,
+  };
+  writePulses([pulse, ...getPulses()]);
+  markSelTaskDone("first-pulse");
+  return pulse;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -206,6 +273,67 @@ export function resultsForPulse(pulse: Pulse): PulseResult[] {
     const delta = series.length >= 2 ? score - series[series.length - 2] : null;
     return { competency, score, delta, band: bandFor(competency, score) };
   });
+}
+
+/** Overall student well-being — the average of the latest available week's
+ * score across every (grade, competency) pair tracked by an active pulse,
+ * with "higher is worse" competencies (Conflict) inverted first so every
+ * input represents "healthier = higher" before averaging. `null` when no
+ * active pulse has any real weekly data yet, so the dashboard can show an
+ * honest setup state instead of a fabricated number. */
+export function overallWellbeingScore(pulses: Pulse[]): number | null {
+  const scores: number[] = [];
+  for (const pulse of pulses.filter((p) => p.status === "active")) {
+    for (const competency of pulse.competencies) {
+      const series = weeklySeriesFor(pulse.grade, competency);
+      if (series.length === 0) continue;
+      const latest = series[series.length - 1];
+      scores.push(HIGHER_IS_WORSE.has(competency) ? 100 - latest : latest);
+    }
+  }
+  if (scores.length === 0) return null;
+  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+}
+
+export type PulseProgress = { responsesReceived: number; totalPossible: number; coveragePct: number };
+
+const RESPONSE_RAMP_DAYS = 7;
+
+// Three coverage tiers for Student Well-Being / School Climate, per the
+// FTUE spec: below EARLY_INSIGHT, show live "Collecting responses"
+// progress (no fabricated number). At/above EARLY_INSIGHT but below
+// FULL_SCORE, show a qualitative sentence labeled with the real
+// participation % — deliberately *not* a precise score yet ("this is
+// better than immediately presenting a precise 74/100 score"). Only at
+// FULL_SCORE does the precise number take over.
+export const PULSE_EARLY_INSIGHT_THRESHOLD_PCT = 60;
+export const PULSE_FULL_SCORE_THRESHOLD_PCT = 100;
+
+/** No live survey-response backend exists (see file header) — this stands
+ * in for one the same way lib/selProgram.ts's currentWeekFor() derives
+ * "current week" from real elapsed time since assignment, rather than a
+ * random or static fabricated number. Ramps from 0% right when a pulse is
+ * first sent to 100% coverage after RESPONSE_RAMP_DAYS of real elapsed
+ * time, against the real student count for the grades actually being
+ * surveyed. Tracks the *most recently sent* active pulse, not the oldest
+ * — otherwise a school's long-running seed pulses would permanently pin
+ * this at 100%, and a coordinator sending a brand-new "Whole school" pulse
+ * (which reuses those same grades) would never see the "collecting"
+ * state their own just-sent pulse should honestly be in. `null` when no
+ * pulse is actively collecting yet (e.g. only a scheduled-for-later pulse
+ * exists). */
+export function pulseResponseProgress(pulses: Pulse[], nowMs: number = Date.now()): PulseProgress | null {
+  const active = pulses.filter((p) => p.status === "active");
+  if (active.length === 0) return null;
+
+  const grades = new Set<string>(active.map((p) => p.grade));
+  const totalPossible = STUDENTS.filter((s) => grades.has(s.grade)).length;
+  const mostRecentCreatedAt = Math.max(...active.map((p) => +new Date(p.createdAt)));
+  const daysElapsed = (nowMs - mostRecentCreatedAt) / (24 * 60 * 60 * 1000);
+  const coveragePct = Math.max(0, Math.min(100, Math.round((daysElapsed / RESPONSE_RAMP_DAYS) * 100)));
+  const responsesReceived = Math.round((coveragePct / 100) * totalPossible);
+
+  return { responsesReceived, totalPossible, coveragePct };
 }
 
 export type GradeComparisonRow = { grade: Grade; score: number | null; band: Band | null };

@@ -28,8 +28,10 @@ import {
   recommendGroups,
   RESPONSE_CATEGORIES,
   RESPONSE_TONE,
+  GROUP_FREQUENCIES,
   type SelGroup,
   type NextStep,
+  type GroupFrequency,
 } from "@/lib/selGroups";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -148,7 +150,12 @@ function TieredSupport() {
                         )}
                       </div>
                       <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                        {g.targetSkill} · Facilitator: {g.facilitator} · {g.sessionsHeld} of {g.sessionsPlanned} sessions held
+                        {g.targetSkill} · Facilitator: {g.facilitator} · {g.frequency} · {g.sessionsHeld} of{" "}
+                        {g.sessionsPlanned} sessions held
+                      </p>
+                      <p className="text-[10.5px] text-muted-foreground mt-0.5">
+                        Started {new Date(g.startDate).toLocaleDateString()} · Review{" "}
+                        {new Date(g.reviewDate).toLocaleDateString()}
                       </p>
                       <div className="flex items-center gap-1.5 mt-2">
                         {g.studentIds.map((id) => {
@@ -294,6 +301,15 @@ const STEP_LABEL: Record<NextStep, string> = {
   refer: "Refer",
 };
 
+function todayDateInputValue(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+function daysFromNowInputValue(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function CreateGroupDialog({
   open,
   onOpenChange,
@@ -307,18 +323,35 @@ function CreateGroupDialog({
   const [name, setName] = useState("");
   const [targetSkill, setTargetSkill] = useState<SelCompetency>(prefill?.targetSkill ?? SEL_COMPETENCIES[0]);
   const [facilitator, setFacilitator] = useState(teacherOptions[0] ?? "");
+  const [frequency, setFrequency] = useState<GroupFrequency>("Weekly");
   const [sessionsPlanned, setSessionsPlanned] = useState(6);
   const [studentIds, setStudentIds] = useState<string[]>(prefill?.studentIds ?? []);
+  const [startDate, setStartDate] = useState(todayDateInputValue());
+  const [reviewDate, setReviewDate] = useState(daysFromNowInputValue(14));
 
   const toggleStudent = (id: string) => {
     setStudentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const canSubmit = name.trim().length > 0 && studentIds.length > 0 && facilitator.length > 0;
+  const canSubmit =
+    name.trim().length > 0 &&
+    studentIds.length > 0 &&
+    facilitator.length > 0 &&
+    startDate.length > 0 &&
+    reviewDate.length > 0;
 
   const submit = () => {
     if (!canSubmit) return;
-    createGroup({ name: name.trim(), targetSkill, facilitator, studentIds, sessionsPlanned });
+    createGroup({
+      name: name.trim(),
+      targetSkill,
+      facilitator,
+      studentIds,
+      sessionsPlanned,
+      frequency,
+      startDate: new Date(startDate).toISOString(),
+      reviewDate: new Date(reviewDate).toISOString(),
+    });
     toast.success("Group created", { description: `${name.trim()} is now an active Tier 2 group.` });
     onOpenChange(false);
   };
@@ -370,14 +403,49 @@ function CreateGroupDialog({
             </div>
           </div>
 
-          <div>
-            <FieldLabel required>Sessions planned</FieldLabel>
-            <Input
-              type="number"
-              min={1}
-              value={sessionsPlanned}
-              onChange={(e) => setSessionsPlanned(Math.max(1, Number(e.target.value) || 1))}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>Frequency</FieldLabel>
+              <Select value={frequency} onValueChange={(v) => setFrequency(v as GroupFrequency)}>
+                <SelectTrigger className="h-9 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GROUP_FREQUENCIES.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel required>Sessions planned</FieldLabel>
+              <Input
+                type="number"
+                min={1}
+                value={sessionsPlanned}
+                onChange={(e) => setSessionsPlanned(Math.max(1, Number(e.target.value) || 1))}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>Start date</FieldLabel>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (e.target.value > reviewDate) setReviewDate(e.target.value);
+                }}
+              />
+            </div>
+            <div>
+              <FieldLabel required>Review date</FieldLabel>
+              <Input type="date" value={reviewDate} min={startDate} onChange={(e) => setReviewDate(e.target.value)} />
+            </div>
           </div>
 
           <div>

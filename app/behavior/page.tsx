@@ -15,27 +15,35 @@ import {
 } from "@/components/ui/select";
 import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfidence";
 import { BehaviorSnapshot } from "@/components/dashboard/BehaviorSnapshot";
-import { BehaviorRecommendsStrip } from "@/components/dashboard/BehaviorRecommendsStrip";
+import { BehaviorClassroomStrategies } from "@/components/dashboard/BehaviorClassroomStrategies";
 import { BehaviorDriverCards } from "@/components/dashboard/BehaviorDriverCards";
+import { ProblemAreasToSkills } from "@/components/dashboard/ProblemAreasToSkills";
 import { BehaviorTrendTracking } from "@/components/dashboard/BehaviorTrendTracking";
 import { BehaviorPatternInsights } from "@/components/dashboard/BehaviorPatternInsights";
 import { BehaviorPriorityActions } from "@/components/dashboard/BehaviorPriorityActions";
 import { BehaviorActivityContext } from "@/components/dashboard/BehaviorActivityContext";
 import { BehaviorTimeOfDay } from "@/components/dashboard/BehaviorTimeOfDay";
 import { BehaviorWatchlistRail } from "@/components/dashboard/BehaviorWatchlistRail";
+import { BehaviorSupportTable } from "@/components/dashboard/BehaviorSupportTable";
 import { PbisProgressLog } from "@/components/dashboard/PbisProgressLog";
 import { MonthlyBehaviorCheckIn } from "@/components/dashboard/MonthlyBehaviorCheckIn";
+import { BehaviorTriggersActions } from "@/components/dashboard/BehaviorTriggersActions";
 import {
   behaviorActivityContextPatterns,
   behaviorPatternInsights,
   behaviorPriorityActions,
-  behaviorTierRecommendations,
   behaviorTimeOfDayPattern,
+  behaviorTriggerPatterns,
   classBehaviorSnapshot,
   classDisruptionBreakdown,
+  pickStrategiesForTriggers,
   studentsNeedingBehaviorSupport,
 } from "@/lib/classBehavior";
-import { getBehaviorLogTimestampsThisWeek, getPositiveLogCountThisWeek } from "@/lib/checkInTools";
+import {
+  getBehaviorLogAntecedentsThisWeek,
+  getBehaviorLogTimestampsThisWeek,
+  getPositiveLogCountThisWeek,
+} from "@/lib/checkInTools";
 import { getAllFollowUpRecords } from "@/lib/interventionFollowUps";
 import { cn } from "@/lib/utils";
 
@@ -82,11 +90,6 @@ function BehaviorPage({ classroom }: { classroom: string }) {
   const snapshot = useMemo(() => classBehaviorSnapshot(), []);
   const breakdown = useMemo(() => classDisruptionBreakdown(), []);
   const supportRoster = useMemo(() => studentsNeedingBehaviorSupport(), []);
-  const tierRecommendations = useMemo(
-    () => behaviorTierRecommendations(breakdown, supportRoster),
-    [breakdown, supportRoster],
-  );
-
   // Real, but localStorage-backed — fetched client-side only to avoid an
   // SSR/hydration mismatch, same pattern as DataSourcesConfidence.
   const [positiveLogs, setPositiveLogs] = useState(0);
@@ -118,8 +121,12 @@ function BehaviorPage({ classroom }: { classroom: string }) {
   const activityContextRows = useMemo(() => behaviorActivityContextPatterns(breakdown), [breakdown]);
 
   const [behaviorTimestamps, setBehaviorTimestamps] = useState<string[]>([]);
+  const [behaviorAntecedents, setBehaviorAntecedents] = useState<string[]>([]);
   useEffect(() => {
-    const refresh = () => setBehaviorTimestamps(getBehaviorLogTimestampsThisWeek());
+    const refresh = () => {
+      setBehaviorTimestamps(getBehaviorLogTimestampsThisWeek());
+      setBehaviorAntecedents(getBehaviorLogAntecedentsThisWeek());
+    };
     refresh();
     window.addEventListener("ah-behavior-log-change", refresh);
     return () => window.removeEventListener("ah-behavior-log-change", refresh);
@@ -129,6 +136,22 @@ function BehaviorPage({ classroom }: { classroom: string }) {
     () => behaviorTimeOfDayPattern(behaviorTimestamps, breakdown),
     [behaviorTimestamps, breakdown],
   );
+
+  const triggerRows = useMemo(
+    () => behaviorTriggerPatterns(behaviorAntecedents),
+    [behaviorAntecedents],
+  );
+
+  const recommendedStrategies = useMemo(
+    () => pickStrategiesForTriggers(behaviorAntecedents),
+    [behaviorAntecedents],
+  );
+
+  const triggerCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const trigger of behaviorAntecedents) counts[trigger] = (counts[trigger] ?? 0) + 1;
+    return counts;
+  }, [behaviorAntecedents]);
 
   return (
     <div className="relative">
@@ -168,19 +191,16 @@ function BehaviorPage({ classroom }: { classroom: string }) {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
           <div className="space-y-6 min-w-0">
             {/* 2. Behaviour snapshot */}
-            <BehaviorSnapshot snapshot={snapshot} breakdown={breakdown} supportRoster={supportRoster} positiveLogs={positiveLogs} />
+            <BehaviorSnapshot snapshot={snapshot} />
 
-            {/* Priority actions — right after the snapshot and above Yellow
-                Recommends, so the teacher journey is: score → what to do → strategies → trending → why. */}
+            {/* Priority actions — right after the snapshot, above the rest of the journey. */}
             <BehaviorPriorityActions actions={priorityActions} supportRoster={supportRoster} />
-
-            <BehaviorRecommendsStrip recommendations={tierRecommendations} />
-
-            {/* 3. Weekly trend — kept compact, its own visual */}
-            <BehaviorTrendTracking snapshot={snapshot} positiveLogs={positiveLogs} />
 
             {/* 4 + 5. Where friction is coming from — collapsible driver cards + impacting skills */}
             <BehaviorDriverCards stats={breakdown} />
+
+            {/* 3. Problem Areas to Skills — static reference table */}
+            <ProblemAreasToSkills />
 
             {/* 6. Cross-pattern insights across all logs and check-ins */}
             <BehaviorPatternInsights insights={patternInsights} />
@@ -196,6 +216,18 @@ function BehaviorPage({ classroom }: { classroom: string }) {
 
             {/* Monthly check-in */}
             <MonthlyBehaviorCheckIn />
+
+            {/* 5. Behavior Triggers & Actions — why is this happening */}
+            <BehaviorTriggersActions rows={triggerRows} />
+
+            {/* 6. Classroom Management Strategies — connects triggers to strategies */}
+            <BehaviorClassroomStrategies strategies={recommendedStrategies} triggerCounts={triggerCounts} />
+
+            {/* 7. Behavior Trend Tracking — is behaviour improving? */}
+            <BehaviorTrendTracking snapshot={snapshot} breakdown={breakdown} />
+
+            {/* 8. Students Needing Behavior Support — individual layer */}
+            <BehaviorSupportTable items={supportRoster} />
           </div>
 
           <div className="xl:sticky xl:top-[84px]">

@@ -13,26 +13,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FieldLabel, OptionChip } from "@/components/dashboard/behaviorFormShared";
 import { type Grade } from "@/data/mockData";
 import {
-  createPulse,
   assignPulse,
+  sendPulse,
   getPulses,
   pulseGradeOptions,
   resultsForPulse,
   compareGrades,
   emergingPatternFor,
-  questionCountFor,
-  SEL_COMPETENCIES,
-  PULSE_DAYS,
-  PULSE_FREQUENCIES,
+  RECOMMENDED_PULSE_AREAS,
+  suggestedPulseCompetencies,
   PULSE_FORMATS,
   BAND_LABEL,
   BAND_TONE,
   type Pulse,
   type SelCompetency,
-  type PulseDay,
-  type PulseFrequency,
   type PulseFormat,
 } from "@/lib/selPulse";
+import { classroomImplementationRows, type ClassroomImplementation } from "@/lib/selImplementation";
+import { getSelOnboarding } from "@/lib/selOnboarding";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -94,7 +92,12 @@ function PulsePage() {
     [activeGrades],
   );
 
-  const [createOpen, setCreateOpen] = useState(false);
+  // Dashboard entry points (School Snapshot, the setup queue, Action Hub's
+  // "Take me there") link here with ?create=1 to drop the coordinator
+  // straight into pulse creation instead of the list — read directly from
+  // the already-Suspense-protected searchParams, same as gradeParam above,
+  // rather than syncing it in via an effect.
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get("create") === "1");
   const [createKey, setCreateKey] = useState(0);
 
   return (
@@ -158,11 +161,18 @@ function PulsePage() {
                         className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] ${
                           p.status === "active"
                             ? "bg-[hsl(142_55%_45%/0.12)] text-[hsl(142_55%_38%)]"
-                            : "bg-muted text-muted-foreground"
+                            : p.status === "scheduled"
+                              ? "bg-[hsl(38_92%_48%/0.12)] text-[hsl(38_92%_38%)]"
+                              : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {p.status === "active" ? "Active" : "Draft"}
+                        {p.status === "active" ? "Active" : p.status === "scheduled" ? "Scheduled" : "Draft"}
                       </span>
+                      {p.status === "scheduled" && p.scheduledFor && (
+                        <span className="text-[10.5px] text-muted-foreground">
+                          for {new Date(p.scheduledFor).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11.5px] text-muted-foreground mt-0.5 truncate">
                       {p.title} · {p.day} · {p.frequency} · {PULSE_FORMATS.find((f) => f.key === p.format)?.label}
@@ -315,6 +325,27 @@ function PulsePage() {
   );
 }
 
+type PulseAudience = "school" | "grades" | "classrooms";
+
+function formatForCompetencyCount(n: number): PulseFormat {
+  if (n <= 4) return "4-question";
+  if (n <= 6) return "6-question";
+  return "8-question";
+}
+
+function tomorrowDateInputValue(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The simplified "first meaningful product action" flow: what to check in
+ * on (pre-filled from Action 1's monitor-focus picks), who receives it,
+ * and when — Yellow fills in the day/frequency/question-format details so
+ * the coordinator never has to author a pulse from scratch. Sends one real
+ * Pulse per resolved grade, since every downstream score in this app is
+ * grade-keyed (a "whole school" or "selected classrooms" pulse still
+ * ultimately becomes one real pulse per grade touched). */
 function CreatePulseDialog({
   open,
   onOpenChange,
@@ -326,29 +357,62 @@ function CreatePulseDialog({
   // as InterventionFollowUpForm's sessionKey — so plain initial state here
   // is enough; no reset-on-open effect needed.
   const gradeOptions = useMemo(() => pulseGradeOptions(), []);
-  const [title, setTitle] = useState("How are students feeling this week?");
-  const [grade, setGrade] = useState<Grade | null>(gradeOptions[0] ?? null);
-  const [day, setDay] = useState<PulseDay>("Friday");
-  const [frequency, setFrequency] = useState<PulseFrequency>("Weekly");
-  const [format, setFormat] = useState<PulseFormat>("4-question");
-  const [competencies, setCompetencies] = useState<SelCompetency[]>([]);
+  const classroomRows = useMemo(() => classroomImplementationRows(), []);
+  const monitorFocus = useMemo(() => getSelOnboarding().monitorFocus ?? [], []);
 
-  const maxCompetencies = questionCountFor(format);
+  const [title, setTitle] = useState("Weekly Student Well-Being Pulse");
+  const [competencies, setCompetencies] = useState<SelCompetency[]>(() =>
+    suggestedPulseCompetencies(monitorFocus),
+  );
+
+  const [audience, setAudience] = useState<PulseAudience>("school");
+  const [selectedGrades, setSelectedGrades] = useState<Grade[]>([]);
+  const [selectedClassrooms, setSelectedClassrooms] = useState<string[]>([]);
+
+  const [timing, setTiming] = useState<"now" | "schedule">("now");
+  const [scheduledFor, setScheduledFor] = useState(tomorrowDateInputValue());
 
   const toggleCompetency = (c: SelCompetency) => {
-    setCompetencies((prev) => {
-      if (prev.includes(c)) return prev.filter((x) => x !== c);
-      if (prev.length >= maxCompetencies) return prev;
-      return [...prev, c];
-    });
+    setCompetencies((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
+  const toggleGrade = (g: Grade) => {
+    setSelectedGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+  };
+  const toggleClassroom = (c: string) => {
+    setSelectedClassrooms((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
   };
 
-  const canSubmit = grade !== null && competencies.length === maxCompetencies;
+  const resolvedGrades = useMemo<Grade[]>(() => {
+    if (audience === "school") return gradeOptions;
+    if (audience === "grades") return selectedGrades;
+    const grades = new Set(
+      classroomRows.filter((r) => selectedClassrooms.includes(r.classroom)).map((r) => r.grade),
+    );
+    return Array.from(grades);
+  }, [audience, gradeOptions, selectedGrades, selectedClassrooms, classroomRows]);
+
+  const canSubmit =
+    title.trim().length > 0 &&
+    competencies.length > 0 &&
+    resolvedGrades.length > 0 &&
+    (timing === "now" || scheduledFor.length > 0);
 
   const submit = () => {
-    if (!grade || !canSubmit) return;
-    createPulse({ title, grade, day, frequency, format, competencies });
-    toast.success("Pulse created as a draft", { description: "Assign it from the list to start collecting responses." });
+    if (!canSubmit) return;
+    const format = formatForCompetencyCount(competencies.length);
+    for (const grade of resolvedGrades) {
+      sendPulse(
+        { title, grade, day: "Friday", frequency: "Weekly", format, competencies },
+        { scheduledFor: timing === "schedule" ? scheduledFor : undefined },
+      );
+    }
+    const gradeCount = resolvedGrades.length;
+    toast.success(timing === "now" ? "Pulse sent" : "Pulse scheduled", {
+      description:
+        timing === "now"
+          ? `${gradeCount} grade${gradeCount === 1 ? "" : "s"} will start receiving this pulse.`
+          : `Scheduled for ${new Date(scheduledFor).toLocaleDateString()}.`,
+    });
     onOpenChange(false);
   };
 
@@ -356,94 +420,18 @@ function CreatePulseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create a pulse</DialogTitle>
-          <DialogDescription>Pick who it goes to, when, and which SEL areas it measures.</DialogDescription>
+          <DialogTitle>Create SEL Pulse</DialogTitle>
+          <DialogDescription>
+            Yellow pre-builds the questions — just tell it who and when.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <FieldLabel>Pulse question</FieldLabel>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel required>Who — grade</FieldLabel>
-              <Select value={grade ?? undefined} onValueChange={(v) => setGrade(v as Grade)}>
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue placeholder="Select grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gradeOptions.map((g) => (
-                    <SelectItem key={g} value={g}>
-                      {g}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <FieldLabel required>When</FieldLabel>
-              <Select value={day} onValueChange={(v) => setDay(v as PulseDay)}>
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PULSE_DAYS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel required>Frequency</FieldLabel>
-              <Select value={frequency} onValueChange={(v) => setFrequency(v as PulseFrequency)}>
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PULSE_FREQUENCIES.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <FieldLabel required>Format</FieldLabel>
-              <Select
-                value={format}
-                onValueChange={(v) => {
-                  setFormat(v as PulseFormat);
-                  setCompetencies([]);
-                }}
-              >
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PULSE_FORMATS.map((f) => (
-                    <SelectItem key={f.key} value={f.key}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <FieldLabel required>
-              What to measure ({competencies.length}/{maxCompetencies})
-            </FieldLabel>
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {SEL_COMPETENCIES.map((c) => (
+            <FieldLabel required>What do you want to check in on?</FieldLabel>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {RECOMMENDED_PULSE_AREAS.map((c) => (
                 <OptionChip
                   key={c}
                   label={c}
@@ -455,8 +443,81 @@ function CreatePulseDialog({
             </div>
           </div>
 
+          <div>
+            <FieldLabel required>Who should receive it?</FieldLabel>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {(
+                [
+                  { key: "school", label: "Whole school" },
+                  { key: "grades", label: "Selected grades" },
+                  { key: "classrooms", label: "Selected classrooms" },
+                ] as { key: PulseAudience; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setAudience(opt.key)}
+                  data-active={audience === opt.key}
+                  className="premium-pill !h-8 !px-3 !text-[12px]"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {audience === "grades" && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {gradeOptions.map((g) => (
+                  <OptionChip key={g} label={g} selected={selectedGrades.includes(g)} onClick={() => toggleGrade(g)} />
+                ))}
+              </div>
+            )}
+            {audience === "classrooms" && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {classroomRows.map((r: ClassroomImplementation) => (
+                  <OptionChip
+                    key={r.classroom}
+                    label={`${r.classroom} · ${r.teacher}`}
+                    selected={selectedClassrooms.includes(r.classroom)}
+                    onClick={() => toggleClassroom(r.classroom)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <FieldLabel required>When?</FieldLabel>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={() => setTiming("now")}
+                data-active={timing === "now"}
+                className="premium-pill !h-8 !px-3 !text-[12px]"
+              >
+                Send now
+              </button>
+              <button
+                type="button"
+                onClick={() => setTiming("schedule")}
+                data-active={timing === "schedule"}
+                className="premium-pill !h-8 !px-3 !text-[12px]"
+              >
+                Schedule
+              </button>
+            </div>
+            {timing === "schedule" && (
+              <Input
+                type="date"
+                value={scheduledFor}
+                min={tomorrowDateInputValue()}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                className="mt-2 h-9 w-auto"
+              />
+            )}
+          </div>
+
           <Button className="w-full" disabled={!canSubmit} onClick={submit}>
-            Create pulse
+            Send pulse
           </Button>
         </div>
       </DialogContent>

@@ -2,11 +2,13 @@
 const KEY = "ah_theme";
 export type Theme = "light" | "dark";
 
+// Defaults to light regardless of OS/browser preference — dark mode only
+// ever applies once a teacher explicitly switches to it from Settings.
 export function getTheme(): Theme {
   if (typeof window === "undefined") return "light";
   const stored = window.localStorage.getItem(KEY) as Theme | null;
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "light";
 }
 
 export function applyTheme(theme: Theme) {

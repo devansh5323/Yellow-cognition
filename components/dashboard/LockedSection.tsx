@@ -36,7 +36,7 @@ export function LockedSection({
 
   return (
     <div className="relative rounded-2xl overflow-hidden">
-      <div className="pointer-events-none select-none blur-[1.5px] opacity-75 saturate-90">
+      <div className="pointer-events-none select-none blur-[0.75px] opacity-80 saturate-95">
         {children}
       </div>
       <div className="absolute inset-0 flex items-center justify-center p-4">

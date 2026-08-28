@@ -6,16 +6,16 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Ban,
   ChevronDown,
   Clipboard,
   Compass,
   Gamepad2,
+  Hand,
   HeartPulse,
   Info,
-  Shuffle,
   Users,
   Video,
-  Wind,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -37,11 +37,11 @@ const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 const DRIVER_ICON: Record<DisruptionKey, LucideIcon> = {
   "off-task": Compass,
-  impulse: Zap,
-  transition: Shuffle,
+  "non-compliance": Ban,
   peer: Users,
-  anxiety: Wind,
+  impulse: Zap,
   emotional: HeartPulse,
+  participation: Hand,
 };
 
 function comingSoon(action: string) {
@@ -92,10 +92,10 @@ export function BehaviorDriverCards({ stats }: { stats: DisruptionStat[] }) {
     >
       <header className="mb-4">
         <div className="premium-eyebrow">
-          <span>Behaviour drivers</span>
+          <span>Disruption breakdown</span>
         </div>
         <h3 className="font-heading font-extrabold text-[17px] leading-tight mt-1.5">
-          Where behaviour friction is coming from
+          What kind of behaviour is happening
         </h3>
         <p className="text-[12px] text-muted-foreground mt-0.5 max-w-prose">
           The main behaviour and regulation signals shaping this score.

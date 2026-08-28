@@ -23,7 +23,9 @@ import {
   type PillarKey,
   type ScoreBand,
 } from "@/lib/classHealth";
-import { getRoster, getStats, sendReminders, type RosterStudent } from "@/lib/roster";
+import { getRoster, getStats, sendReminders, simulateLogin, type RosterStudent } from "@/lib/roster";
+import { getOnboarding } from "@/lib/onboarding";
+import { DRIVER_META, driverScore } from "@/lib/driverMeta";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
@@ -114,11 +116,16 @@ export function ClassroomHealthScore({
   const [pendingOpen, setPendingOpen] = useState(false);
   const handleSendReminders = () => {
     const count = sendReminders();
-    if (count > 0) {
-      toast.success(`Reminder sent to ${count} parent${count === 1 ? "" : "s"}`);
-    } else {
-      toast.info("Everyone has already been reminded");
-    }
+    // Demo shortcut: simulate every remaining parent responding right away
+    // instead of waiting on a real reply, so sending reminders is what
+    // visibly unlocks the Class Health Score in a walkthrough.
+    pendingStudents.forEach((s) => simulateLogin(s.id));
+    setPendingOpen(false);
+    toast.success(
+      count > 0
+        ? `Reminder sent to ${count} parent${count === 1 ? "" : "s"} — everyone has now responded!`
+        : "Everyone has now responded!",
+    );
   };
 
   // The score is the whole point of this segment reappearing after the
@@ -149,6 +156,13 @@ export function ClassroomHealthScore({
   const areasNeedingSupport = (Object.entries(ch.pillars) as [PillarKey, number][]).filter(
     ([key, score]) => pillarStatus(score, ch.pillarDelta[key]) === "needs-attention",
   ).length;
+
+  // The driver card the teacher picked in "Select focus area" (Data
+  // Readiness's step 2) — surfaced here so the score they said matters most
+  // is never buried among the other six.
+  const focusArea = getOnboarding().focusArea;
+  const focusDriver = focusArea ? DRIVER_META[focusArea] : null;
+  const focusScore = focusArea ? driverScore(focusArea, ch.pillars) : 0;
 
   const distribution = DISTRIBUTION;
   const total = distribution.reduce((sum, d) => sum + d.count, 0);
@@ -181,7 +195,7 @@ export function ClassroomHealthScore({
           overlay below instead of being replaced by a bare placeholder, so
           this card still looks alive (like the rest of the dashboard's
           locked segments) rather than empty. */}
-      <div className={cn(!showScore && "pointer-events-none select-none blur-[1.5px] opacity-70 saturate-90")}>
+      <div className={cn(!showScore && "pointer-events-none select-none blur-[0.75px] opacity-75 saturate-95")}>
         <>
       <div
         className="relative overflow-hidden rounded-[20px] p-5 md:p-7"
@@ -272,8 +286,8 @@ export function ClassroomHealthScore({
         </div>
       </div>
 
-      {/* Strongest area / Needs attention */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Strongest area / Needs attention / Your focus area */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -343,6 +357,37 @@ export function ClassroomHealthScore({
             {weakDelta} vs last week
           </span>
         </div>
+
+        {focusDriver && (
+          <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${focusDriver.tone} 14%, transparent)`, color: focusDriver.tone }}
+              >
+                <focusDriver.Icon className="h-3.5 w-3.5" />
+              </span>
+              <span
+                className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: focusDriver.tone }}
+              >
+                Your focus area
+              </span>
+            </div>
+            <h3
+              className="font-heading font-extrabold text-[16px] leading-tight"
+              style={{ color: focusDriver.tone }}
+            >
+              {focusDriver.title}
+            </h3>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              {focusDriver.description}
+            </p>
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
+              {focusScore}/100
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Student distribution */}

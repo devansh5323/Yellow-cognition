@@ -13,7 +13,6 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import {
-  GraduationCap,
   Mail,
   Lock,
   Eye,
@@ -22,11 +21,8 @@ import {
   ArrowLeft,
   Check,
   AlertCircle,
-  Building2,
   Users,
   User,
-  Landmark,
-  HeartHandshake,
   Bell,
   Lightbulb,
   TrendingUp,
@@ -35,6 +31,8 @@ import {
 import { signIn, getSession, type UserRole } from "@/lib/auth";
 import { isOnboarded } from "@/lib/onboarding";
 import { isSchoolOnboarded } from "@/lib/schoolOnboarding";
+import { isSelOnboarded } from "@/lib/selOnboarding";
+import { ROLES, mapRole, type RoleKey } from "@/lib/authRoles";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -58,72 +56,12 @@ const rise = {
 
 const PURPLE = "hsl(262 65% 68%)";
 
-type RoleKey = "teacher" | "principal" | "educator" | "district" | "sel";
-
-const ROLES: {
-  key: RoleKey;
-  title: string;
-  description: string;
-  subLabel: string;
-  Icon: LucideIcon;
-  tone: string;
-}[] = [
-  {
-    key: "teacher",
-    title: "Teacher",
-    description: "Access classroom insights and student progress.",
-    subLabel: "Best for classroom educators",
-    Icon: GraduationCap,
-    tone: "hsl(142 55% 45%)",
-  },
-  {
-    key: "principal",
-    title: "School Principal",
-    description: "Monitor school health and teacher effectiveness.",
-    subLabel: "Best for school leaders",
-    Icon: Building2,
-    tone: "hsl(212 90% 58%)",
-  },
-  {
-    key: "educator",
-    title: "Special Educator",
-    description: "Support students with personalized strategies.",
-    subLabel: "Best for special education experts",
-    Icon: Users,
-    tone: "hsl(262 60% 62%)",
-  },
-  {
-    key: "district",
-    title: "District Dashboard",
-    description: "View district-wide trends and performance.",
-    subLabel: "Best for district administrators",
-    Icon: Landmark,
-    tone: "hsl(28 88% 54%)",
-  },
-  {
-    key: "sel",
-    title: "SEL Coordinator",
-    description: "Track social-emotional wellbeing and support programs.",
-    subLabel: "Best for SEL coordinators",
-    Icon: HeartHandshake,
-    tone: "hsl(330 65% 62%)",
-  },
-];
-
 const FEATURES: { label: string; Icon: LucideIcon }[] = [
   { label: "Know your students better", Icon: Users },
   { label: "Spot what needs your attention", Icon: Bell },
   { label: "Receive practical recommendations", Icon: Lightbulb },
   { label: "Track student growth", Icon: TrendingUp },
 ];
-
-function mapRole(role: RoleKey): UserRole {
-  if (role === "principal") return "admin";
-  if (role === "district") return "district";
-  if (role === "educator") return "specialEducator";
-  if (role === "sel") return "selCoordinator";
-  return "teacher";
-}
 
 export default function LoginPage() {
   const prefersReducedMotion = useReducedMotion();
@@ -133,7 +71,7 @@ export default function LoginPage() {
     if (r === "admin") return isSchoolOnboarded() ? "/school/dashboard" : "/school/welcome";
     if (r === "specialEducator") return "/specialist/dashboard";
     if (r === "district") return "/district/dashboard";
-    if (r === "selCoordinator") return "/sel/dashboard";
+    if (r === "selCoordinator") return isSelOnboarded() ? "/sel/dashboard" : "/sel/welcome";
     return isOnboarded() ? "/dashboard" : "/welcome";
   };
 
@@ -422,12 +360,14 @@ export default function LoginPage() {
                             </span>
                             <div className="min-w-0 mt-2.5 pr-5">
                               <div className="font-heading font-bold text-[13.5px] leading-tight">{r.title}</div>
-                              <p className="mt-1 text-[11.5px] text-muted-foreground leading-snug">
-                                {r.description}
-                              </p>
-                              <p className="mt-1.5 flex items-center gap-1 text-[10.5px] text-muted-foreground/80">
-                                <User className="h-2.5 w-2.5" />
-                                {r.subLabel}
+                              <p className="mt-1.5 flex items-start gap-1 text-[11.5px] text-muted-foreground leading-snug">
+                                <User className="h-2.5 w-2.5 mt-0.5 shrink-0" />
+                                <span>
+                                  For{" "}
+                                  <span className="font-bold" style={{ color: r.tone }}>
+                                    {r.audience}
+                                  </span>
+                                </span>
                               </p>
                             </div>
                           </button>

@@ -12,17 +12,36 @@
 // template libraries (e.g. specialEdPlaceholderData.ts's TRACKER_TEMPLATES).
 
 import { STUDENTS, type Grade } from "@/data/mockData";
+import { getSchoolTeachers } from "@/lib/schoolData";
 import { needsGradeOptions } from "@/lib/selNeeds";
-import { SEL_COMPETENCIES, type SelCompetency } from "@/lib/selPulse";
+import { SEL_COMPETENCIES, PULSE_FREQUENCIES, type SelCompetency, type PulseFrequency } from "@/lib/selPulse";
+import { markSelTaskDone } from "@/lib/selOnboarding";
+
+export { PULSE_FREQUENCIES as PROGRAM_FREQUENCIES };
+export type ProgramFrequency = PulseFrequency;
+
+/** Real teacher directory (the same one School Admin/Teacher Support draw
+ * from), for the "Assigned teacher" field — not an invented list. */
+export function programTeacherOptions(): string[] {
+  return getSchoolTeachers().map((t) => t.name);
+}
 
 export { needsGradeOptions as programGradeOptions };
 
 export type StudentParticipation = { participating: number; total: number; pct: number };
 
+/** Real count of distinct teachers with at least one SEL program assigned
+ * to them (draft or assigned — `assignedTeacher` is set at creation time),
+ * against the real full teacher roster — the "teacher connection status"
+ * shown before deeper implementation metrics unlock. */
+export function connectedTeacherSummary(programs: SelProgram[]): { connected: number; total: number } {
+  return { connected: new Set(programs.map((p) => p.assignedTeacher)).size, total: programTeacherOptions().length };
+}
+
 /** Takes the caller's already-fetched programs rather than re-reading
  * localStorage itself — keeps callers' useMemo dependency arrays honest.
- * Lives here (not lib/selSnapshot.ts) so lib/selGroups.ts can reuse it too
- * without creating an import cycle back through the snapshot module. */
+ * Lives here so lib/selGroups.ts and components/sel/SchoolSnapshot.tsx can
+ * both reuse it without an import cycle. */
 export function studentParticipationSummary(programs: SelProgram[]): StudentParticipation {
   const assignedGrades = new Set<string>(programs.filter((p) => p.status === "assigned").map((p) => p.grade));
   const participating = STUDENTS.filter((s) => assignedGrades.has(s.grade)).length;
@@ -139,6 +158,8 @@ export type SelProgram = {
   id: string;
   grade: Grade;
   focus: SelCompetency;
+  frequency: ProgramFrequency;
+  assignedTeacher: string;
   duration: number;
   weeks: ProgramWeek[];
   status: ProgramStatus;
@@ -168,11 +189,19 @@ function writePrograms(programs: SelProgram[]) {
   window.dispatchEvent(new CustomEvent("ah-sel-program-change"));
 }
 
-export function createProgram(input: { grade: Grade; focus: SelCompetency; duration: number }): SelProgram {
+export function createProgram(input: {
+  grade: Grade;
+  focus: SelCompetency;
+  frequency: ProgramFrequency;
+  assignedTeacher: string;
+  duration: number;
+}): SelProgram {
   const program: SelProgram = {
     id: `program-${Date.now()}`,
     grade: input.grade,
     focus: input.focus,
+    frequency: input.frequency,
+    assignedTeacher: input.assignedTeacher,
     duration: input.duration,
     weeks: weeksForFocus(input.focus, input.duration),
     status: "draft",
@@ -180,6 +209,7 @@ export function createProgram(input: { grade: Grade; focus: SelCompetency; durat
     assignedAt: null,
   };
   writePrograms([program, ...getPrograms()]);
+  markSelTaskDone("first-program");
   return program;
 }
 

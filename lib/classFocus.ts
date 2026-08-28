@@ -251,6 +251,128 @@ export function classFocusDomains(students: Student[] = STUDENTS): FocusDomainSt
 }
 
 /* ─────────────────────────────────────────────────────────
+ * Attention Domain Heatmap (all 8 sub-domains)
+ * ───────────────────────────────────────────────────────── */
+
+export type AttentionHeatmapStatus = "high" | "med" | "low";
+
+/** Structurally compatible with FocusDomainStat (a strict subset by key) —
+ * AttentionSubDomainDrawer accepts either, since both describe "a domain's
+ * score picture," just for a wider vs. narrower set of domains. */
+export type AttentionHeatmapStat = {
+  key: AttentionDomainKey;
+  short: string;
+  label: string;
+  description: string;
+  score: number;
+  prevScore: number;
+  hue: string;
+  status: AttentionHeatmapStatus;
+  atRiskCount: number;
+  atRiskPct: number;
+};
+
+const HEATMAP_HUE: Record<AttentionDomainKey, string> = {
+  sus: "hsl(142 55% 46%)",
+  vis: "hsl(196 75% 50%)",
+  aud: "hsl(258 55% 60%)",
+  sel: "hsl(38 92% 55%)",
+  div: "hsl(286 60% 60%)",
+  swi: "hsl(168 62% 42%)",
+  hyp: "hsl(0 70% 55%)",
+  beh: "hsl(200 70% 48%)",
+};
+
+const HEATMAP_DESCRIPTION: Record<AttentionDomainKey, string> = {
+  sus: FOCUS_DOMAIN_DESCRIPTION.sus,
+  vis: FOCUS_DOMAIN_DESCRIPTION.vis,
+  aud: FOCUS_DOMAIN_DESCRIPTION.aud,
+  sel: FOCUS_DOMAIN_DESCRIPTION.sel,
+  div: FOCUS_DOMAIN_DESCRIPTION.div,
+  swi: FOCUS_DOMAIN_DESCRIPTION.swi,
+  hyp: "Staying settled and in-seat during instruction.",
+  beh: "Managing impulses and following classroom expectations.",
+};
+
+export const ATTENTION_HEATMAP_STATUS_LABEL: Record<AttentionHeatmapStatus, string> = {
+  high: "High",
+  med: "Med",
+  low: "Low",
+};
+
+export const ATTENTION_HEATMAP_STATUS_TONE: Record<AttentionHeatmapStatus, string> = {
+  high: "hsl(152 55% 45%)",
+  med: "hsl(32 92% 52%)",
+  low: "hsl(0 78% 58%)",
+};
+
+function heatmapStatus(score: number): AttentionHeatmapStatus {
+  if (score >= 75) return "high";
+  if (score >= 55) return "med";
+  return "low";
+}
+
+/**
+ * All 8 attention/behaviour sub-domains — unlike classFocusDomains() (which
+ * deliberately covers only the 6 focus-specific ones), this includes
+ * hyp/beh too, since the heatmap is meant to show the whole sub-domain
+ * picture rather than just the focus slice used elsewhere on this page.
+ */
+export function classAttentionHeatmap(students: Student[] = STUDENTS): AttentionHeatmapStat[] {
+  return ATTENTION_DOMAINS.map((d) => {
+    const scores = students.map((s) => studentAttentionDomains(s)[d.key]);
+    const score = avg(scores);
+    const atRiskCount = scores.filter((v) => v < 55).length;
+    return {
+      key: d.key,
+      short: d.short,
+      label: d.label,
+      description: HEATMAP_DESCRIPTION[d.key],
+      score,
+      prevScore: Math.max(0, score - 3),
+      hue: HEATMAP_HUE[d.key],
+      status: heatmapStatus(score),
+      atRiskCount,
+      atRiskPct: Math.round((atRiskCount / Math.max(1, students.length)) * 100),
+    };
+  });
+}
+
+/** Real (if class-wide, not per-domain) engagement volume — total logged
+ * behaviour + positive observations spread across the roster — shown on
+ * every heatmap card for context on how much data backs these scores. */
+export function attentionHeatmapLogsPerStudent(students: Student[] = STUDENTS): number {
+  const total = getBehaviorLogTotalCount() + getPositiveLogTotalCount();
+  return Math.round((total / Math.max(1, students.length)) * 10) / 10;
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Time-Based Attention Drop (within-session decline curve)
+ * ───────────────────────────────────────────────────────── */
+
+export type AttentionDropPoint = { minute: number; level: number };
+
+/**
+ * A within-session attention curve tied to the real "Sustained Focus"
+ * sub-domain score — no per-minute data exists in this app, so rather than
+ * a fixed illustrative shape, the drop-off point and steepness both scale
+ * with the actual sustained-attention score (weaker sustained focus →
+ * earlier, steeper decline), so it moves when the underlying data does.
+ */
+export function attentionDropCurve(
+  students: Student[] = STUDENTS,
+): { points: AttentionDropPoint[]; dropAtMinute: number } {
+  const sustained = classFocusDomains(students).find((d) => d.key === "sus")?.score ?? 70;
+  const dropAtMinute = Math.max(10, Math.min(25, Math.round(sustained / 4)));
+  const points = [0, 15, 30, 45, 60].map((minute) => {
+    const past = Math.max(0, minute - dropAtMinute);
+    const level = Math.max(25, 95 - past * 1.6);
+    return { minute, level: Math.round(level) };
+  });
+  return { points, dropAtMinute };
+}
+
+/* ─────────────────────────────────────────────────────────
  * Attention Pattern Insights
  * ───────────────────────────────────────────────────────── */
 
@@ -419,254 +541,159 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
 }
 
 /* ─────────────────────────────────────────────────────────
- * Yellow Recommends — Focus
+ * Yellow Recommends — Recommended Actions & Quick Activities
  * ───────────────────────────────────────────────────────── */
 
-export type FocusRecommendKind = "Whole Class" | "Small Group" | "Hero Activity";
-
-export type FocusRecommendation = {
+export type RecommendedAction = {
   id: string;
   title: string;
-  rationale: string;
-  kind: FocusRecommendKind;
-  durationMins: number;
-  /** Sub-domains the activity targets. */
-  targets: FocusDomainKey[];
+  detail: string;
+  visual: "timer" | "clock";
+  durationLabel: string;
 };
 
-const HERO_ACTIVITIES: FocusRecommendation[] = [
+/** 2 whole-class habit changes — deliberately few and concrete (matches
+ * "simple changes you can try in your next class," not a long backlog). */
+export const RECOMMENDED_ACTIONS: RecommendedAction[] = [
   {
-    id: "hero-lighthouse",
-    title: "Run the Lighthouse focus drill (10 min)",
-    rationale: "Builds sustained attention through a single-channel timed challenge.",
-    kind: "Hero Activity",
-    durationMins: 10,
-    targets: ["sus", "sel"],
+    id: "act-2min-reset",
+    title: "Add 2-min reset after 15 mins",
+    detail: "Take a short movement or mindfulness break to recharge attention.",
+    visual: "timer",
+    durationLabel: "2 min",
   },
   {
-    id: "hero-echo",
-    title: "Echo: repeat-back instruction game",
-    rationale: "Trains auditory focus and reduces 'please repeat' moments in class.",
-    kind: "Hero Activity",
-    durationMins: 8,
-    targets: ["aud", "sel"],
-  },
-  {
-    id: "hero-spotter",
-    title: "Spotter visual-search sprint",
-    rationale: "Sharpens visual attention with a fast, low-stakes warm-up.",
-    kind: "Hero Activity",
-    durationMins: 6,
-    targets: ["vis", "sel"],
-  },
-  {
-    id: "hero-task-switch",
-    title: "Task-Switch ramp (3 levels)",
-    rationale: "Rehearses smooth transitions between activity types.",
-    kind: "Hero Activity",
-    durationMins: 9,
-    targets: ["swi", "div"],
+    id: "act-visual-timer",
+    title: "Use visual timer for timed tasks",
+    detail: "Helps students pace their work and stay on track.",
+    visual: "clock",
+    durationLabel: "15:00",
   },
 ];
 
-const CLASSROOM_ACTIONS: FocusRecommendation[] = [
+export type QuickActivityType = "Movement" | "Discussion" | "Game";
+
+export type QuickActivity = {
+  id: string;
+  type: QuickActivityType;
+  title: string;
+  description: string;
+  durationMins: number;
+  groupSize: string;
+  category: string;
+  howToPlay: string[];
+};
+
+/** A small "Attention Hero" activity library — enough per type (Movement /
+ * Discussion / Game) for the tab filter to be meaningfully different, not
+ * just cosmetic. Names reuse the same game universe as ALL_GAMES in
+ * mockData.ts where it fits, for consistency with the rest of the app. */
+export const QUICK_ACTIVITIES: QuickActivity[] = [
   {
-    id: "act-pomodoro",
-    title: "Run a 15/3 focus block before breaks",
-    rationale: "Most students lose focus after 15 minutes — short resets restore baseline.",
-    kind: "Whole Class",
-    durationMins: 18,
-    targets: ["sus"],
+    id: "clap-at-7",
+    type: "Game",
+    title: "Clap at 7",
+    description: "Builds focus, working memory and self-control.",
+    durationMins: 5,
+    groupSize: "Whole class",
+    category: "Focus & Memory",
+    howToPlay: [
+      "Take turns counting numbers aloud (Child: 1, You: 2, Child: 3…).",
+      "Clap instead of saying any multiple of 7.",
+      "Try one round and track errors.",
+      "Discuss a strategy to improve (e.g., silently mouthing numbers, finger tapping to keep rhythm).",
+      "Play again and compare performance. Add more rules for extra challenge (e.g., clap at multiples of 5 and 7).",
+    ],
   },
   {
-    id: "act-2min-warning",
-    title: "Use a 2-minute transition warning",
-    rationale: "Reduces lost minutes between activities and supports switching.",
-    kind: "Whole Class",
-    durationMins: 2,
-    targets: ["swi"],
+    id: "memory-chain",
+    type: "Game",
+    title: "Memory Chain",
+    description: "Builds sustained attention and working memory through a growing list.",
+    durationMins: 5,
+    groupSize: "Whole class",
+    category: "Focus & Memory",
+    howToPlay: [
+      "First student says one word (e.g., an animal).",
+      "The next student repeats it and adds one more.",
+      "Continue around the room, repeating the whole growing list each time.",
+      "When someone misses, start a new chain with a different theme.",
+    ],
   },
   {
-    id: "act-front-row",
-    title: "Front-row seating for 4 students this week",
-    rationale: "Shields the most distractible students from peripheral noise.",
-    kind: "Small Group",
-    durationMins: 0,
-    targets: ["sel", "aud"],
+    id: "stretch-reset",
+    type: "Movement",
+    title: "Stretch & Reset",
+    description: "A short standing stretch sequence to shake off restlessness.",
+    durationMins: 3,
+    groupSize: "Whole class",
+    category: "Regulation",
+    howToPlay: [
+      "Everyone stands next to their desk.",
+      "Lead 4 simple stretches (reach up, touch toes, twist left/right, shake out arms), 10 seconds each.",
+      "Finish with 3 slow breaths together.",
+      "Sit back down and begin the next task.",
+    ],
   },
   {
-    id: "act-checklist",
-    title: "Single-step checklists on multi-step work",
-    rationale: "Helps divided-attention strugglers hold the sequence.",
-    kind: "Small Group",
-    durationMins: 0,
-    targets: ["div"],
+    id: "simon-says-focus",
+    type: "Movement",
+    title: "Simon Says — Focus Edition",
+    description: "Classic listening game that rewards careful attention to instructions.",
+    durationMins: 5,
+    groupSize: "Whole class",
+    category: "Auditory Focus",
+    howToPlay: [
+      "Play a fast round of Simon Says with simple movements.",
+      "Only follow instructions that start with \"Simon says\".",
+      "Speed up the pace every few rounds.",
+      "The last students standing lead the next round.",
+    ],
+  },
+  {
+    id: "one-word-checkin",
+    type: "Discussion",
+    title: "One-Word Check-In",
+    description: "A quick round of one-word feelings to re-center attention.",
+    durationMins: 4,
+    groupSize: "Whole class",
+    category: "Self-Awareness",
+    howToPlay: [
+      "Ask each student to share one word describing how they feel right now.",
+      "No explanations needed — just the word.",
+      "Go around the room quickly, table by table.",
+      "Note any patterns (e.g., several students say \"tired\") to adjust pacing.",
+    ],
+  },
+  {
+    id: "would-you-rather",
+    type: "Discussion",
+    title: "Would You Rather — Quick Round",
+    description: "A fast, fun prompt that re-engages wandering attention.",
+    durationMins: 3,
+    groupSize: "Small group",
+    category: "Engagement",
+    howToPlay: [
+      "Pose a light \"would you rather\" question to the class.",
+      "Students vote by raising hands or moving to a side of the room.",
+      "Ask 1–2 students to explain their choice.",
+      "Transition straight into the next activity while energy is up.",
+    ],
   },
 ];
 
-export function pickFocusRecommendations(
-  domains: FocusDomainStat[],
-  count = 5,
-): FocusRecommendation[] {
-  const ranked = [...domains].sort((a, b) => a.score - b.score);
-  const weakest = new Set(ranked.slice(0, 3).map((d) => d.key));
-
-  // Pick the hero activities that hit a weak sub-domain first…
-  const heroes = HERO_ACTIVITIES.filter((h) => h.targets.some((t) => weakest.has(t)));
-  // …and the same for classroom actions.
-  const actions = CLASSROOM_ACTIONS.filter((a) => a.targets.some((t) => weakest.has(t)));
-
-  // Interleave so the strip alternates between actions and heroes.
-  const ordered: FocusRecommendation[] = [];
-  const pool = [...actions, ...heroes];
-  const seen = new Set<string>();
-  for (const r of pool) {
-    if (seen.has(r.id)) continue;
-    seen.add(r.id);
-    ordered.push(r);
-    if (ordered.length >= count) break;
-  }
-  // Fall back to the full list if filtering left too few items.
-  if (ordered.length < count) {
-    for (const r of [...HERO_ACTIVITIES, ...CLASSROOM_ACTIONS]) {
-      if (seen.has(r.id)) continue;
-      seen.add(r.id);
-      ordered.push(r);
-      if (ordered.length >= count) break;
-    }
-  }
-  return ordered;
+/** The single most informative pattern insight, surfaced as "based on your
+ * top insight" context for Yellow Recommends — same data Component 2
+ * already generates, just reused instead of duplicated. */
+export function yellowRecommendsTopInsight(students: Student[] = STUDENTS): string {
+  return (
+    attentionPatternInsights(students)[0]?.title ?? "Keep an eye on class focus this week."
+  );
 }
 
 /* ─────────────────────────────────────────────────────────
  * Monthly Focus Check-in (MCQ)
  * ───────────────────────────────────────────────────────── */
-
-export type FocusCheckInOption = {
-  id: string;
-  label: string;
-  /** -2 (worst) … +2 (best) — used to derive a friction read on submit. */
-  weight: number;
-};
-
-export type FocusCheckInQuestion = {
-  id: string;
-  prompt: string;
-  helper?: string;
-  options: FocusCheckInOption[];
-};
-
-/**
- * 8 monthly MCQs. Single-select per question. Designed to be completable in
- * under 90 seconds — captures classroom-friction signal that the daily
- * gameplay/PFI feed cannot see.
- */
-export const FOCUS_CHECKIN_QUESTIONS: FocusCheckInQuestion[] = [
-  {
-    id: "sustain",
-    prompt: "On average, how long does the class sustain attention during direct instruction?",
-    options: [
-      { id: "lt5", label: "Under 5 min", weight: -2 },
-      { id: "5to10", label: "5–10 min", weight: -1 },
-      { id: "10to15", label: "10–15 min", weight: 0 },
-      { id: "15to25", label: "15–25 min", weight: 1 },
-      { id: "gt25", label: "25 min+", weight: 2 },
-    ],
-  },
-  {
-    id: "drift",
-    prompt: "When attention drifts, what is the most common trigger?",
-    options: [
-      { id: "noise", label: "Ambient noise / chatter", weight: -1 },
-      { id: "peers", label: "Peer distraction", weight: -1 },
-      { id: "task", label: "Task is too hard", weight: -2 },
-      { id: "boring", label: "Task feels repetitive", weight: 0 },
-      { id: "rare", label: "Rarely drifts", weight: 2 },
-    ],
-  },
-  {
-    id: "instruction",
-    prompt: "How often do you need to repeat verbal instructions?",
-    options: [
-      { id: "always", label: "Every time", weight: -2 },
-      { id: "often", label: "Most lessons", weight: -1 },
-      { id: "some", label: "Sometimes", weight: 0 },
-      { id: "rare", label: "Rarely", weight: 1 },
-      { id: "never", label: "Almost never", weight: 2 },
-    ],
-  },
-  {
-    id: "transitions",
-    prompt: "How smoothly does the class move between activities?",
-    options: [
-      { id: "chaotic", label: "Chaotic — 5+ min lost", weight: -2 },
-      { id: "slow", label: "Slow — 3–5 min lost", weight: -1 },
-      { id: "ok", label: "Acceptable — under 3 min", weight: 0 },
-      { id: "fast", label: "Quick — under 1 min", weight: 2 },
-    ],
-  },
-  {
-    id: "multi-step",
-    prompt: "When given a 3-step instruction, what share of the class executes all 3 steps?",
-    options: [
-      { id: "lt25", label: "Under 25%", weight: -2 },
-      { id: "25to50", label: "25–50%", weight: -1 },
-      { id: "50to75", label: "50–75%", weight: 0 },
-      { id: "gt75", label: "Over 75%", weight: 2 },
-    ],
-  },
-  {
-    id: "visual",
-    prompt: "How well does the class follow written / visual instructions on a worksheet?",
-    options: [
-      { id: "poor", label: "Most need 1:1 prompting", weight: -2 },
-      { id: "mixed", label: "Half struggle without help", weight: -1 },
-      { id: "ok", label: "Most follow with light cueing", weight: 0 },
-      { id: "strong", label: "Independently follows", weight: 2 },
-    ],
-  },
-  {
-    id: "initiation",
-    prompt: "After instructions end, how quickly does the class start the task?",
-    options: [
-      { id: "long", label: "More than 2 min", weight: -2 },
-      { id: "1to2", label: "1–2 min", weight: -1 },
-      { id: "30to60", label: "30–60 sec", weight: 0 },
-      { id: "lt30", label: "Under 30 sec", weight: 2 },
-    ],
-  },
-  {
-    id: "regulation",
-    prompt: "What share of students need a redirect or movement break in a typical class?",
-    options: [
-      { id: "many", label: "More than 5", weight: -2 },
-      { id: "few", label: "3–5", weight: -1 },
-      { id: "couple", label: "1–2", weight: 0 },
-      { id: "none", label: "None", weight: 2 },
-    ],
-  },
-];
-
-export function focusCheckInFrictionScore(answers: Record<string, string>): {
-  score: number;
-  max: number;
-  pct: number;
-} {
-  let weighted = 0;
-  let max = 0;
-  for (const q of FOCUS_CHECKIN_QUESTIONS) {
-    const optId = answers[q.id];
-    const opt = q.options.find((o) => o.id === optId);
-    const best = Math.max(...q.options.map((o) => o.weight));
-    max += best;
-    if (opt) weighted += opt.weight;
-  }
-  // Re-base from −2…+2 to 0…100 so the badge reads as "% friction-free".
-  const range = max + 2 * FOCUS_CHECKIN_QUESTIONS.length;
-  const offset = weighted + 2 * FOCUS_CHECKIN_QUESTIONS.length;
-  const pct = Math.round((offset / Math.max(1, range)) * 100);
-  return { score: weighted, max, pct };
-}
 
 /* ─────────────────────────────────────────────────────────
  * Data Sources & Confidence
@@ -740,14 +767,16 @@ export function dataSourcesSnapshot(
  * Students Needing Focus Support
  * ───────────────────────────────────────────────────────── */
 
-export type FocusSupportStatus = "watch" | "needs-support";
+export type FocusSupportStatus = "strong" | "watch" | "needs-support";
 
 export const FOCUS_SUPPORT_STATUS_LABEL: Record<FocusSupportStatus, string> = {
-  watch: "Watch",
-  "needs-support": "Needs Support",
+  strong: "On Track",
+  watch: "Fluctuating",
+  "needs-support": "At Risk",
 };
 
 export const FOCUS_SUPPORT_STATUS_TONE: Record<FocusSupportStatus, string> = {
+  strong: "hsl(142 55% 42%)",
   watch: "hsl(38 92% 48%)",
   "needs-support": "hsl(0 78% 52%)",
 };
@@ -780,8 +809,13 @@ export type FocusSupportRow = {
 /** Students whose overall focus score isn't yet "strong", ranked worst-first,
  * each paired with their single weakest attention sub-domain — the same
  * domain data that powers the sub-domain breakdown above, just re-sliced
- * per student instead of per domain. */
-export function focusSupportRoster(students: Student[] = STUDENTS): FocusSupportRow[] {
+ * per student instead of per domain. Pass `includeAll: true` to keep
+ * "strong" students in the list too (the class-wide view), instead of only
+ * the priority cases. */
+export function focusSupportRoster(
+  students: Student[] = STUDENTS,
+  opts: { includeAll?: boolean } = {},
+): FocusSupportRow[] {
   return students
     .map((s) => {
       const overallStatus = statusFromScore(s.pfi);
@@ -792,11 +826,16 @@ export function focusSupportRoster(students: Student[] = STUDENTS): FocusSupport
       );
       const topDomainScore = Math.round(domainScores[topDomain]);
       const topDomainLabel = FOCUS_DOMAIN_LABEL[topDomain];
-      if (overallStatus === "strong") return null;
+      if (overallStatus === "strong" && !opts.includeAll) return null;
       return {
         student: s,
         score: Math.round(s.pfi),
-        status: overallStatus === "at-risk" ? ("needs-support" as const) : ("watch" as const),
+        status:
+          overallStatus === "at-risk"
+            ? ("needs-support" as const)
+            : overallStatus === "fluctuating"
+              ? ("watch" as const)
+              : ("strong" as const),
         trend: Math.round(s.pfi - s.pfiPrevCheckIn),
         topDomain,
         topDomainLabel,
@@ -808,4 +847,21 @@ export function focusSupportRoster(students: Student[] = STUDENTS): FocusSupport
     })
     .filter((r): r is FocusSupportRow => r !== null)
     .sort((a, b) => a.score - b.score);
+}
+
+/** Best-fit "Attention Hero" activity per sub-domain — reuses the same
+ * QUICK_ACTIVITIES library Yellow Recommends already has, so a suggested
+ * activity here always links to a real, playable entry there. */
+const DOMAIN_SUGGESTED_ACTIVITY: Record<FocusDomainKey, string> = {
+  sus: "stretch-reset",
+  vis: "clap-at-7",
+  aud: "simon-says-focus",
+  sel: "one-word-checkin",
+  div: "memory-chain",
+  swi: "would-you-rather",
+};
+
+export function suggestedActivityForDomain(domain: FocusDomainKey): QuickActivity {
+  const id = DOMAIN_SUGGESTED_ACTIVITY[domain];
+  return QUICK_ACTIVITIES.find((a) => a.id === id) ?? QUICK_ACTIVITIES[0];
 }

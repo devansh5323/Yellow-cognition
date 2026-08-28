@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { toast } from "sonner";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { AssignedSelProgramBanner } from "@/components/dashboard/AssignedSelProgramBanner";
 import { ClassroomSetupPrompt } from "@/components/onboarding/ClassroomSetupPrompt";
@@ -15,33 +14,13 @@ import { TeacherCheckInTools } from "@/components/dashboard/TeacherCheckInTools"
 import { BehaviorPatternInsightsSection } from "@/components/dashboard/BehaviorPatternInsightsSection";
 import { StudentDrilldownRow } from "@/components/dashboard/StudentDrilldownRow";
 import { LockedSection } from "@/components/dashboard/LockedSection";
-import { getOnboarding } from "@/lib/onboarding";
+import { computeFtueStage, type FtueStage } from "@/lib/onboarding";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const fadeIn = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE } },
 };
-
-// The setup journey, end to end: the 3 cards in Data Readiness → Class
-// Health Score (do your first check-in) → Teacher Check-In Tools' Record
-// Behaviour → its Positive Behaviour Log → everything unlocked. Each stage
-// highlights exactly one real dashboard segment instead of a separate
-// checklist, and only the next segment in line is ever unlocked/glowing —
-// it should read as a guided tour/tutorial, not a free-for-all.
-type FtueStage = "cards" | "checkin" | "behavior" | "positive" | "done";
-
-function computeStage(): FtueStage {
-  const onboarding = getOnboarding();
-  const hasClassroom = onboarding.classrooms.length > 0;
-  const rosterReady = hasClassroom && onboarding.classrooms.every((c) => c.rosterReady);
-  const cardsDone = hasClassroom && rosterReady && !!onboarding.focusArea && !!onboarding.fumiActivated;
-  if (!cardsDone) return "cards";
-  if (!onboarding.tasks["first-checkin"]) return "checkin";
-  if (!onboarding.tasks["behavior-log"]) return "behavior";
-  if (!onboarding.tasks["positive-log"]) return "positive";
-  return "done";
-}
 
 function scrollToTarget(selector: string, delay = 300) {
   window.setTimeout(() => {
@@ -55,11 +34,8 @@ function scrollToTarget(selector: string, delay = 300) {
 // stage machine.
 function nextActionTarget(stage: FtueStage): { type: "scroll"; selector: string } | { type: "navigate"; href: string } {
   switch (stage) {
-    case "checkin":
+    case "tour":
       return { type: "navigate", href: "/check-in" };
-    case "behavior":
-    case "positive":
-      return { type: "scroll", selector: "[data-tour-target='teacher-checkin-tools']" };
     case "cards":
     default:
       return { type: "scroll", selector: "[data-tour-target='data-readiness']" };
@@ -80,42 +56,39 @@ function DashboardPage() {
   // (not a hardcoded default) — otherwise a plain page reload mid-journey
   // would look like a fake "transition" and re-fire toasts/scrolls.
   const [stage, setStage] = useState<FtueStage>(() =>
-    typeof window === "undefined" ? "cards" : computeStage(),
+    typeof window === "undefined" ? "cards" : computeFtueStage(),
   );
-  const prevStageRef = useRef<FtueStage>(stage);
 
-  // Arriving straight from submitting the first check-in (see
-  // app/check-in/page.tsx's redirect) — scroll to Teacher Check-In Tools
+  // Arriving straight from finishing the Classroom Log walkthrough (see
+  // app/check-in/page.tsx's redirect) — scroll to Class Health Score
   // regardless of the live-transition tracking below, since this is a fresh
   // page load, not a state change observed while already mounted here.
   useEffect(() => {
     const focus = new URLSearchParams(window.location.search).get("focus");
-    if (focus === "teacher-tools") {
-      scrollToTarget("[data-tour-target='teacher-checkin-tools']", 400);
+    if (focus === "classroom-health") {
+      scrollToTarget("[data-tour-target='classroom-health']", 400);
       router.replace("/dashboard");
     }
   }, [router]);
 
+  // Redirect into the Classroom Log walkthrough whenever this page is
+  // showing while stage is "tour" — both on a live transition (finishing
+  // the 3rd setup card while already here) AND on a fresh landing that's
+  // already mid-tour (e.g. a reload, or coming back before finishing it).
+  // The "tour" → "done" transition only ever happens on /check-in, handled
+  // by the redirect above instead.
   useEffect(() => {
     const refresh = () => {
-      const next = computeStage();
-      const prev = prevStageRef.current;
-      if (prev !== next) {
-        if (next === "positive") {
-          toast.success("Nice work! Now recognise a positive behaviour.");
-          scrollToTarget("[data-tour-target='teacher-checkin-tools']");
-        } else if (next === "done") {
-          toast.success("Your classroom insights are ready!");
-          scrollToTarget("[data-tour-target='classroom-health']");
-        }
+      const next = computeFtueStage();
+      if (next === "tour") {
+        router.push("/check-in");
       }
-      prevStageRef.current = next;
       setStage(next);
     };
     refresh();
     window.addEventListener("ah-onboarding-change", refresh);
     return () => window.removeEventListener("ah-onboarding-change", refresh);
-  }, []);
+  }, [router]);
 
   const handleTakeMeThere = () => {
     const target = nextActionTarget(stage);
@@ -146,7 +119,7 @@ function DashboardPage() {
             its own locked-state UI ("Almost ready" / "Start check-in"), which
             the generic blur-fog treatment would otherwise obscure and make
             unclickable on top of. */}
-        <ClassroomHealthScore locked={stage !== "done"} highlighted={stage === "checkin"} />
+        <ClassroomHealthScore locked={stage !== "done"} />
         <LockedSection
           label="Driver cards locked"
           hint="See what's driving your Class Health Score once setup is done."
@@ -165,13 +138,11 @@ function DashboardPage() {
         </LockedSection>
         <LockedSection
           label="Check-in tools locked"
-          hint="Record behaviour and positive logs once your first check-in is done."
-          locked={stage === "cards" || stage === "checkin"}
+          hint="Record behaviour and positive logs once setup is done."
+          locked={stage !== "done"}
           onAction={handleTakeMeThere}
         >
-          <TeacherCheckInTools
-            highlightTool={stage === "behavior" ? "record-behavior" : stage === "positive" ? "positive-log" : undefined}
-          />
+          <TeacherCheckInTools />
         </LockedSection>
         <LockedSection
           label="Pattern insights locked"

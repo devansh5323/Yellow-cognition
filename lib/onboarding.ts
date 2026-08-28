@@ -63,6 +63,9 @@ export type OnboardingState = {
   focusArea?: OnboardingGoal;
   /** Whether the teacher has activated Fumi from the getting-started checklist. */
   fumiActivated?: boolean;
+  /** Whether the teacher has finished (or dismissed) the Classroom Log
+   * walkthrough — the FTUE's final step, right after the 3 setup cards. */
+  checkinTourCompleted?: boolean;
 };
 
 const DEFAULT_TASKS: Record<ActivationTaskId, boolean> = {
@@ -133,6 +136,10 @@ export function completeTour(): OnboardingState {
   return setOnboarding({ tourCompleted: true });
 }
 
+export function completeCheckinTour(): OnboardingState {
+  return setOnboarding({ checkinTourCompleted: true });
+}
+
 export function resetOnboarding(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(KEY);
@@ -149,4 +156,27 @@ export function tasksCompletedCount(state: OnboardingState): {
 } {
   const entries = Object.values(state.tasks);
   return { done: entries.filter(Boolean).length, total: entries.length };
+}
+
+// The setup journey, end to end: the 3 cards in Data Readiness → redirected
+// to the Classroom Log tab for a guided, purely explanatory walkthrough of
+// its tools (record card, Record Behaviour, Positive Behaviour Log,
+// Intervention Follow-Up) → everything unlocked. The walkthrough doesn't
+// require the teacher to actually perform any of the tools' real actions —
+// finishing (or dismissing) it is what flips this to "done". Shared by
+// app/dashboard/page.tsx and app/check-in/page.tsx — "done" is the RTUE line.
+export type FtueStage = "cards" | "tour" | "done";
+
+export function computeFtueStage(): FtueStage {
+  const onboarding = getOnboarding();
+  const hasClassroom = onboarding.classrooms.length > 0;
+  const rosterReady = hasClassroom && onboarding.classrooms.every((c) => c.rosterReady);
+  const cardsDone = hasClassroom && rosterReady && !!onboarding.focusArea && !!onboarding.fumiActivated;
+  if (!cardsDone) return "cards";
+  if (!onboarding.checkinTourCompleted) return "tour";
+  return "done";
+}
+
+export function isFtueDone(): boolean {
+  return computeFtueStage() === "done";
 }

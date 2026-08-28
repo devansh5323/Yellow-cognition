@@ -63,7 +63,8 @@ export function CheckInStatusBanner({ hideCta = false }: { hideCta?: boolean }) 
   // Hydrate after mount — listCheckIns reads localStorage which is browser-only.
   const [history, setHistory] = useState<ClassCheckIn[]>([]);
   useEffect(() => {
-    setHistory(listCheckInsForTeacher(TEACHER_NAME));
+    const refresh = () => setHistory(listCheckInsForTeacher(TEACHER_NAME));
+    refresh();
   }, []);
 
   const latest = history[0];
@@ -91,15 +92,12 @@ export function CheckInStatusBanner({ hideCta = false }: { hideCta?: boolean }) 
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE }}
-      className="premium-elevated rounded-[22px] p-5 md:p-6 relative overflow-hidden"
+      className="relative overflow-hidden rounded-2xl border border-border bg-card"
     >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        aria-hidden
-        style={{ background: palette.glow }}
-      />
-      <div className="relative z-10 grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
-        <div className="flex items-start gap-4 min-w-0">
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: palette.accent }} aria-hidden />
+
+      <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-5">
+        <div className="flex items-start gap-3.5 min-w-0 flex-1">
           <div
             className={cn(
               "h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border",
@@ -112,7 +110,7 @@ export function CheckInStatusBanner({ hideCta = false }: { hideCta?: boolean }) 
             <div className="premium-eyebrow">
               <span>{palette.eyebrow}</span>
             </div>
-            <h2 className="mt-1 font-heading font-extrabold text-[20px] md:text-[22px] leading-tight">
+            <h2 className="mt-1 font-heading font-extrabold text-[19px] md:text-[21px] leading-tight">
               {palette.headline(daysSince)}
             </h2>
             <p className="mt-1 text-[12.5px] text-muted-foreground">
@@ -127,7 +125,7 @@ export function CheckInStatusBanner({ hideCta = false }: { hideCta?: boolean }) 
           </div>
         </div>
 
-        <div className="flex items-center gap-4 md:gap-5 md:justify-self-end">
+        <div className="flex items-center gap-4 shrink-0">
           <CycleRibbon cycles={cycles} />
           {!hideCta && (
             <Button asChild size="sm" variant={palette.ctaVariant} className={palette.ctaClass}>
@@ -150,29 +148,27 @@ function CycleRibbon({
 }) {
   return (
     <div
-      className="hidden sm:flex items-center gap-2"
+      className="hidden sm:flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3.5 py-2"
       role="list"
       aria-label="Last six monthly check-ins"
     >
-      {cycles.map((c) => (
-        <div
-          key={c.offset}
-          role="listitem"
-          title={`${c.label} — ${c.submitted ? "submitted" : "no check-in"}`}
-          className="flex flex-col items-center gap-1.5"
-        >
-          <span
-            className={cn(
-              "h-2.5 w-2.5 rounded-full transition-colors",
-              c.submitted
-                ? "bg-primary shadow-[0_0_0_3px_hsl(142_55%_45%/0.18)]"
-                : "bg-muted border border-border/80",
-            )}
-            aria-hidden
-          />
-          <span className="text-[9px] font-bold tracking-[0.12em] uppercase text-muted-foreground leading-none">
-            {c.label}
-          </span>
+      {cycles.map((c, i) => (
+        <div key={c.offset} className="flex items-center gap-3">
+          <div role="listitem" title={`${c.label} — ${c.submitted ? "submitted" : "no check-in"}`} className="flex flex-col items-center gap-1.5">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full transition-colors",
+                c.submitted
+                  ? "bg-primary shadow-[0_0_0_3px_hsl(142_55%_45%/0.18)]"
+                  : "bg-muted border border-border/80",
+              )}
+              aria-hidden
+            />
+            <span className="text-[9px] font-bold tracking-[0.1em] uppercase text-muted-foreground leading-none">
+              {c.label}
+            </span>
+          </div>
+          {i < cycles.length - 1 && <span className="h-px w-3 bg-border/70 -mt-3.5" aria-hidden />}
         </div>
       ))}
     </div>
@@ -184,7 +180,7 @@ type Palette = {
   Icon: typeof CalendarCheck2;
   iconBg: string;
   iconText: string;
-  glow: string;
+  accent: string;
   headline: (d: number) => string;
   ctaLabel: string;
   CtaIcon: typeof ArrowRight;
@@ -198,8 +194,7 @@ const STATE_PALETTE: Record<CycleState, Palette> = {
     Icon: Sparkles,
     iconBg: "bg-primary/10 border-primary/25",
     iconText: "text-primary",
-    glow:
-      "radial-gradient(60% 60% at 0% 0%, hsl(200 70% 80% / 0.30), transparent 65%), radial-gradient(60% 50% at 100% 30%, hsl(142 60% 80% / 0.28), transparent 65%)",
+    accent: "hsl(142 55% 45%)",
     headline: () => "Capture your first check-in",
     ctaLabel: "Start check-in",
     CtaIcon: Plus,
@@ -211,8 +206,7 @@ const STATE_PALETTE: Record<CycleState, Palette> = {
     Icon: CalendarCheck2,
     iconBg: "bg-primary/10 border-primary/25",
     iconText: "text-primary",
-    glow:
-      "radial-gradient(60% 60% at 0% 0%, hsl(142 60% 82% / 0.32), transparent 65%), radial-gradient(60% 50% at 100% 20%, hsl(200 60% 82% / 0.18), transparent 70%)",
+    accent: "hsl(142 55% 45%)",
     headline: (d) =>
       d <= 0
         ? "Submitted today — nicely done"
@@ -227,8 +221,7 @@ const STATE_PALETTE: Record<CycleState, Palette> = {
     Icon: CalendarCheck2,
     iconBg: "bg-amber-500/10 border-amber-500/30",
     iconText: "text-amber-600",
-    glow:
-      "radial-gradient(60% 60% at 0% 0%, hsl(38 92% 80% / 0.36), transparent 65%), radial-gradient(60% 50% at 100% 20%, hsl(38 92% 70% / 0.20), transparent 70%)",
+    accent: "hsl(38 92% 50%)",
     headline: () => "Time for this month's check-in",
     ctaLabel: "Start check-in",
     CtaIcon: ArrowRight,
@@ -240,8 +233,7 @@ const STATE_PALETTE: Record<CycleState, Palette> = {
     Icon: AlertCircle,
     iconBg: "bg-destructive/10 border-destructive/30",
     iconText: "text-destructive",
-    glow:
-      "radial-gradient(60% 60% at 0% 0%, hsl(0 78% 80% / 0.36), transparent 65%), radial-gradient(60% 50% at 100% 20%, hsl(0 78% 70% / 0.20), transparent 70%)",
+    accent: "hsl(0 78% 56%)",
     headline: (d) => `Overdue · ${Math.max(d - 30, 1)}d past your monthly cadence`,
     ctaLabel: "Catch up now",
     CtaIcon: ArrowRight,

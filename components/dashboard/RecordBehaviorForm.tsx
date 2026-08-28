@@ -260,7 +260,7 @@ function RecordBehaviorDialog({
       tag: followUp && followUp !== "No follow-up" ? followUp : undefined,
       sharedWithParent: !!parentCommunication,
     });
-    logBehaviorEvent(student.id);
+    logBehaviorEvent(student.id, antecedent ?? undefined);
 
     const flags = [
       parentCommunication ? "parent notified" : null,

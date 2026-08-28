@@ -8,6 +8,7 @@ import { getSession, type TeacherSession } from "@/lib/auth";
 import { completeOnboarding, getOnboarding, setOnboarding } from "@/lib/onboarding";
 import { BOARDS } from "@/lib/boardTaxonomy";
 import { Field, Eyebrow } from "@/components/onboarding/formPrimitives";
+import { FumiIntro } from "@/components/onboarding/FumiIntro";
 import { cn } from "@/lib/utils";
 
 export default function Page() {
@@ -16,13 +17,15 @@ export default function Page() {
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-// Just two steps — "tell us about you," then straight into the dashboard.
-// Classroom setup used to live here as its own multi-step chunk of the
-// wizard; it's now a prompt on the dashboard itself (see
+// Welcome hero, then "meet Fumi" (2 quick screens on what Yellow/Fumi do),
+// then "tell us about you," then straight into the dashboard. Classroom
+// setup used to live here as its own multi-step chunk of the wizard; it's
+// now a prompt on the dashboard itself (see
 // components/onboarding/ClassroomSetupPrompt.tsx) since it doesn't need to
 // block getting into the product.
 const STEPS = [
   { id: "welcome", label: "Welcome" },
+  { id: "fumi-intro", label: "Meet Fumi" },
   { id: "profile", label: "About you" },
 ] as const;
 
@@ -159,6 +162,7 @@ function WelcomePage() {
             className="w-full"
           >
             {step.id === "welcome" && <StepWelcome session={session} onBegin={goNext} />}
+            {step.id === "fumi-intro" && <FumiIntro onBack={goBack} onComplete={goNext} />}
             {step.id === "profile" && (
               <StepShell
                 title="Tell us about you"

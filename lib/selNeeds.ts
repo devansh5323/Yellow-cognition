@@ -1,7 +1,7 @@
 // SEL Needs Explorer — Tool 2. The analytical engine: "where does the
 // school need SEL support?" drilling School → Grade → Classroom → Student.
 //
-// Three of the 9 SEL_COMPETENCIES already have a real, per-student signal
+// Two of the 9 SEL_COMPETENCIES already have a real, per-student signal
 // via classBehavior.ts's driver breakdown (the same real attention/behaviour
 // data every other dashboard in this app is built on) — that's what lets
 // this drill all the way to an individual student. The rest either fall
@@ -19,7 +19,6 @@ import { SEL_COMPETENCIES, weeklySeriesFor, type SelCompetency } from "@/lib/sel
 const COMPETENCY_DRIVER: Partial<Record<SelCompetency, DisruptionKey>> = {
   "Emotional regulation": "emotional",
   "Peer relationships": "peer",
-  "Coping with Challenges": "anxiety",
 };
 
 // Short "when it shows up" fragments per driver — presentation-layer
@@ -29,7 +28,6 @@ const COMPETENCY_DRIVER: Partial<Record<SelCompetency, DisruptionKey>> = {
 const CONCENTRATION_CONTEXT: Partial<Record<DisruptionKey, string>> = {
   emotional: "during transitions and challenging independent tasks",
   peer: "during group work and unstructured time",
-  anxiety: "before assessments and unfamiliar tasks",
 };
 
 export type NeedsBand = "excellent" | "stable" | "watch" | "needs-support";

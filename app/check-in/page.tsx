@@ -5,20 +5,29 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
+  ArrowUp,
+  Check,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   FileText,
   History,
   Loader2,
   Mic,
+  MoreVertical,
+  ShieldCheck,
   Sparkles,
   Square,
+  Star,
+  Sun,
   Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { CheckInStatusBanner } from "@/components/dashboard/CheckInStatusBanner";
+import { CheckInToolsGrid } from "@/components/dashboard/CheckInToolsGrid";
+import { CheckInToolsTour } from "@/components/onboarding/CheckInToolsTour";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +35,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ClassCheckInReport } from "@/components/reports/ClassCheckInReport";
-import { cn } from "@/lib/utils";
 import {
   STUDENTS,
   SUBJECTS,
@@ -39,10 +53,19 @@ import {
   type ClassCheckIn,
   type StudentBehaviourRating,
 } from "@/data/mockData";
-import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
+import { TEACHER_NAME, timeOfDayGreeting } from "@/components/dashboard/DataReadinessCard";
 import { saveCheckIn, newCheckInId, listCheckInsForTeacher, deleteCheckIn } from "@/lib/checkIn";
-import { getOnboarding, markTaskDone } from "@/lib/onboarding";
+import { computeFtueStage, isFtueDone, markTaskDone, type FtueStage } from "@/lib/onboarding";
+import { getPositiveLogCountThisWeek } from "@/lib/checkInTools";
+import { getPendingFollowUpCount, getPendingFollowUps } from "@/lib/interventionFollowUps";
+import { hasRecordingConsent, setRecordingConsent } from "@/lib/recordingConsent";
 import { toast } from "sonner";
+
+const CONSENT_POINTS = [
+  "Used to generate classroom insights",
+  "Focuses on classroom-level patterns, not individual conversations",
+  "Not used to evaluate your teaching",
+] as const;
 
 export default function Page() {
   return (
@@ -149,9 +172,69 @@ function CheckInPage() {
     [historyTick],
   );
 
+  // Two sections only make sense once a teacher has actually graduated out
+  // of first-time setup: the monthly-check-in status banner ("overdue" reads
+  // oddly for something a brand-new teacher never started) and Recent
+  // recordings (nothing to review yet, and seeded demo history would
+  // otherwise leak through for a technically-fresh session). Same "done"
+  // gate the dashboard itself uses.
+  const [showRtueSections, setShowRtueSections] = useState(false);
+  const [ftueStage, setFtueStage] = useState<FtueStage>("cards");
+  useEffect(() => {
+    const refresh = () => {
+      setShowRtueSections(isFtueDone());
+      setFtueStage(computeFtueStage());
+    };
+    refresh();
+    window.addEventListener("ah-onboarding-change", refresh);
+    return () => window.removeEventListener("ah-onboarding-change", refresh);
+  }, []);
+
+  // The FTUE's final step — a purely explanatory walkthrough of this page's
+  // tools. Finishing (or dismissing) it flips the stage to "done" and sends
+  // the teacher back to the dashboard to see everything unlock.
+  const finishTour = () => {
+    toast.success("Your classroom insights are ready!");
+    router.push("/dashboard?focus=classroom-health");
+  };
+
+  const [headerStats, setHeaderStats] = useState({
+    positivesThisWeek: 0,
+    followUpsPending: 0,
+    followUpStudentId: undefined as string | undefined,
+    followUpReason: undefined as string | undefined,
+  });
+  useEffect(() => {
+    const refresh = () => {
+      const followUpTarget = getPendingFollowUps()[0];
+      setHeaderStats({
+        positivesThisWeek: getPositiveLogCountThisWeek(),
+        followUpsPending: getPendingFollowUpCount(),
+        followUpStudentId: followUpTarget?.student.id,
+        followUpReason: followUpTarget?.reason,
+      });
+    };
+    refresh();
+    window.addEventListener("ah-positive-log-change", refresh);
+    window.addEventListener("ah-followup-change", refresh);
+    return () => {
+      window.removeEventListener("ah-positive-log-change", refresh);
+      window.removeEventListener("ah-followup-change", refresh);
+    };
+  }, []);
+
+  const openNextFollowUp = () => {
+    window.dispatchEvent(
+      new CustomEvent("ah-open-followup-form", {
+        detail: headerStats.followUpStudentId
+          ? { studentId: headerStats.followUpStudentId, reason: headerStats.followUpReason }
+          : {},
+      }),
+    );
+  };
+
   const [recState, setRecState] = useState<RecordState>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [isFirstCheckin, setIsFirstCheckin] = useState(false);
   const [reportCheckIn, setReportCheckIn] = useState<ClassCheckIn | null>(null);
   const intervalRef = useRef<number | null>(null);
 
@@ -169,6 +252,42 @@ function CheckInPage() {
     }, 1000);
   };
 
+  // The browser's own microphone permission prompt handles technical
+  // access — separate from the product consent dialog below, which is
+  // about what Yellow does with the recording, not device access.
+  const beginRecording = async () => {
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      startRecording();
+    } catch {
+      toast.error("Microphone access is required to record your classroom.");
+    }
+  };
+
+  // First-ever recording asks for consent before anything is captured —
+  // every recording after that goes straight through. Revoking it from
+  // Settings brings this prompt back for the next one.
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+
+  const requestStart = () => {
+    if (hasRecordingConsent()) {
+      beginRecording();
+      return;
+    }
+    setConsentChecked(false);
+    setConsentOpen(true);
+  };
+
+  const confirmConsentAndContinue = () => {
+    setRecordingConsent(true);
+    setConsentOpen(false);
+    beginRecording();
+  };
+
   const stopRecording = () => {
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
@@ -176,13 +295,10 @@ function CheckInPage() {
     }
     setRecState("saving");
 
-    const wasFirstCheckinDone = !!getOnboarding().tasks["first-checkin"];
-    setIsFirstCheckin(!wasFirstCheckinDone);
-
     window.setTimeout(() => {
       const payload = buildRecordedCheckIn();
       saveCheckIn(payload);
-      if (!wasFirstCheckinDone) markTaskDone("first-checkin");
+      markTaskDone("first-checkin");
       setHistoryTick((t) => t + 1);
       setRecState("saved");
 
@@ -190,20 +306,9 @@ function CheckInPage() {
     }, 900);
   };
 
-  useEffect(() => {
-    if (recState === "insights" && isFirstCheckin) {
-      const t = window.setTimeout(() => {
-        toast.success("Let's log a behaviour observation next.");
-        router.push("/dashboard?focus=teacher-tools");
-      }, 1800);
-      return () => window.clearTimeout(t);
-    }
-  }, [recState, isFirstCheckin, router]);
-
   const recordAnother = () => {
     setRecState("idle");
     setElapsed(0);
-    setIsFirstCheckin(false);
   };
 
   const handleDelete = (id: string) => {
@@ -215,27 +320,78 @@ function CheckInPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <CheckInStatusBanner hideCta />
+    <div className="space-y-9 md:space-y-11 max-w-6xl mx-auto">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3.5">
+          <span className="h-11 w-11 rounded-2xl bg-amber-500/10 text-amber-500 inline-flex items-center justify-center shrink-0">
+            <Sun className="h-5.5 w-5.5" />
+          </span>
+          <div>
+            <h1 className="font-heading font-black text-[24px] md:text-[28px] leading-tight">
+              {timeOfDayGreeting()}, {TEACHER_NAME.split(" ")[0]} <span aria-hidden>👋</span>
+            </h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              Here&apos;s what needs your attention today.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="rounded-2xl border border-border bg-card px-4 py-2.5 flex items-center gap-2.5">
+            <span className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 inline-flex items-center justify-center shrink-0">
+              <Star className="h-4 w-4" />
+            </span>
+            <div>
+              <div className="font-heading font-extrabold text-[16px] leading-none">
+                {headerStats.positivesThisWeek}
+              </div>
+              <div className="text-[10.5px] text-muted-foreground mt-1 flex items-center gap-1 whitespace-nowrap">
+                Positives logged this week
+                <ArrowUp className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openNextFollowUp}
+            className="rounded-2xl border border-border bg-card px-4 py-2.5 flex items-center gap-2.5 text-left transition-colors hover:bg-muted/30"
+          >
+            <span className="h-9 w-9 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+              <ClipboardCheck className="h-4 w-4" />
+            </span>
+            <div>
+              <div className="font-heading font-extrabold text-[16px] leading-none">
+                {headerStats.followUpsPending}
+              </div>
+              <div className="text-[10.5px] text-muted-foreground mt-1 flex items-center gap-1 whitespace-nowrap">
+                Follow-ups pending
+                <ChevronRight className="h-2.5 w-2.5 shrink-0" />
+              </div>
+            </div>
+          </button>
+        </div>
+      </header>
+
+      {showRtueSections && <CheckInStatusBanner hideCta />}
 
       <RecordCard
         recState={recState}
         elapsed={elapsed}
-        onStart={startRecording}
+        onStart={requestStart}
         onStop={stopRecording}
         onRecordAnother={recordAnother}
         onViewInsights={() => router.push("/friction")}
-        isFirstCheckin={isFirstCheckin}
       />
 
-      {history.length > 0 && (
-        <HistoryPanel
-          history={history}
-          onDelete={handleDelete}
-          onViewReport={setReportCheckIn}
-        />
+      <CheckInToolsGrid />
+
+      {showRtueSections && (
+        <HistoryPanel history={history} onDelete={handleDelete} onViewReport={setReportCheckIn} />
       )}
     </div>
+
+    <CheckInToolsTour active={ftueStage === "tour"} onDone={finishTour} />
 
     <Dialog open={!!reportCheckIn} onOpenChange={(o) => !o && setReportCheckIn(null)}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -256,11 +412,72 @@ function CheckInPage() {
         )}
       </DialogContent>
     </Dialog>
+
+    <Dialog open={consentOpen} onOpenChange={setConsentOpen}>
+      <DialogContent className="max-w-lg p-8 gap-6">
+        <DialogHeader>
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary inline-flex items-center justify-center mb-1">
+            <Mic className="h-5 w-5" />
+          </div>
+          <DialogTitle className="font-heading text-[19px]">A quick note before you start</DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed">
+            Yellow listens to your classroom recording to identify patterns in behaviour,
+            engagement, and learning readiness.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            What happens to your recording?
+          </p>
+          <ul className="space-y-2.5">
+            {CONSENT_POINTS.map((point) => (
+              <li key={point} className="flex items-start gap-2.5 text-[13.5px] text-foreground/90 leading-snug">
+                <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[12px] text-muted-foreground leading-snug">
+            Your recording will only be used to power Yellow&apos;s classroom insights.
+          </p>
+        </div>
+
+        <label className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-4 cursor-pointer">
+          <Checkbox
+            checked={consentChecked}
+            onCheckedChange={(v) => setConsentChecked(v === true)}
+            className="h-5 w-5 rounded-full"
+          />
+          <span className="text-[13.5px] font-semibold leading-snug">I understand and agree</span>
+        </label>
+
+        <Button
+          className="w-full h-12 gap-1.5 text-[14.5px]"
+          disabled={!consentChecked}
+          onClick={confirmConsentAndContinue}
+        >
+          Start recording
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+
+        <p className="text-[11.5px] text-muted-foreground text-center -mt-1 inline-flex items-center justify-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          You can manage this permission anytime in Settings.
+        </p>
+      </DialogContent>
+    </Dialog>
     </TooltipProvider>
   );
 }
 
 // ───────────────── Record card ─────────────────
+
+const HOW_IT_WORKS = [
+  { Icon: Mic, text: "Yellow listens in and captures key signals" },
+  { Icon: Sparkles, text: "Patterns are analysed instantly" },
+  { Icon: ClipboardCheck, text: "Insights and recommendations are generated" },
+] as const;
 
 function RecordCard({
   recState,
@@ -269,7 +486,6 @@ function RecordCard({
   onStop,
   onRecordAnother,
   onViewInsights,
-  isFirstCheckin,
 }: {
   recState: RecordState;
   elapsed: number;
@@ -277,23 +493,23 @@ function RecordCard({
   onStop: () => void;
   onRecordAnother: () => void;
   onViewInsights: () => void;
-  isFirstCheckin: boolean;
 }) {
   return (
-    <section className="premium-elevated rounded-[28px] p-8 md:p-14 flex flex-col items-center text-center min-h-[380px] justify-center relative overflow-hidden">
+    <section
+      data-tour-target="record-card"
+      className="premium-elevated rounded-[28px] px-8 py-11 md:px-12 md:py-14 relative overflow-hidden"
+    >
       <div
         className="absolute inset-0 pointer-events-none"
         aria-hidden
         style={{
           background:
-            "linear-gradient(135deg, color-mix(in srgb, " +
-            BLUE +
-            " 7%, transparent), color-mix(in srgb, " +
-            VIOLET +
-            " 9%, transparent))",
+            "radial-gradient(60% 65% at 50% 38%, color-mix(in srgb, " +
+            GREEN +
+            " 10%, transparent), transparent 70%)",
         }}
       />
-      <div className="relative z-10 flex flex-col items-center w-full">
+      <div className="relative z-10 w-full">
       <AnimatePresence mode="wait">
         {recState === "idle" && (
           <motion.div
@@ -302,34 +518,63 @@ function RecordCard({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="flex flex-col items-center"
+            className="flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-6"
           >
-            <div className="premium-eyebrow justify-center">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span>Class check-in</span>
-            </div>
-            <h1 className="mt-2 font-heading font-extrabold text-[24px] md:text-[28px] leading-tight">
-              Record today&apos;s class
-            </h1>
-            <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm">
-              Yellow listens in and turns it into your class check-in automatically — no manual
-              entry needed.
-            </p>
+            <div className="flex-1 min-w-0 text-center lg:text-left">
+              <div className="premium-eyebrow justify-center lg:justify-start">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span>Classroom log</span>
+              </div>
+              <h2 className="mt-2 font-heading font-extrabold text-[24px] md:text-[28px] leading-tight">
+                Record today&apos;s class
+              </h2>
+              <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm mx-auto lg:mx-0">
+                Turn today&apos;s classroom activity into useful insights, automatically.
+              </p>
 
-            <button
-              type="button"
-              onClick={onStart}
-              aria-label="Start recording today's class"
-              className="relative h-24 w-24 mt-7 rounded-full inline-flex items-center justify-center transition-colors shadow-lg bg-primary hover:bg-primary/90 shadow-primary/30"
-            >
-              <Mic className="h-9 w-9 text-primary-foreground" />
-            </button>
-            <p className="mt-4 text-[14px] font-semibold text-foreground">
-              Tap to start recording
-            </p>
-            <p className="mt-5 text-[11.5px] text-muted-foreground/80 max-w-xs">
-              Only classroom patterns are analysed — nothing is stored as raw audio.
-            </p>
+              <div className="mt-6 flex items-center justify-center lg:justify-start gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={onStart}
+                  className="inline-flex items-center gap-2 rounded-xl px-5 h-11 bg-primary text-primary-foreground font-heading font-bold text-[13.5px] shadow-md shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Mic className="h-4 w-4" />
+                  Start recording
+                </button>
+                <span className="text-[12px] text-muted-foreground">No manual entry needed</span>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col items-center gap-3 mx-auto lg:mx-6">
+              <button
+                type="button"
+                onClick={onStart}
+                aria-label="Start recording today's class"
+                className="group relative h-24 w-24 rounded-full inline-flex items-center justify-center transition-transform hover:scale-[1.03] active:scale-[0.97] shadow-lg bg-primary shadow-primary/30"
+              >
+                <span
+                  className="absolute -inset-3 rounded-full opacity-40 transition-opacity group-hover:opacity-60"
+                  style={{ background: `color-mix(in srgb, ${GREEN} 22%, transparent)`, filter: "blur(10px)" }}
+                  aria-hidden
+                />
+                <Mic className="relative h-9 w-9 text-primary-foreground" />
+              </button>
+              <p className="text-[13px] font-semibold text-foreground">Tap to start recording</p>
+              <p className="text-[11px] text-muted-foreground/80 max-w-[200px] text-center">
+                Only classroom patterns are analysed — nothing is stored as raw audio.
+              </p>
+            </div>
+
+            <div className="flex-1 min-w-0 flex flex-col gap-3.5 max-w-xs mx-auto lg:mx-0">
+              {HOW_IT_WORKS.map(({ Icon, text }) => (
+                <div key={text} className="flex items-center gap-3">
+                  <span className="h-9 w-9 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <p className="text-[12.5px] text-muted-foreground leading-snug text-left">{text}</p>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -340,7 +585,7 @@ function RecordCard({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="flex flex-col items-center"
+            className="w-full flex flex-col items-center text-center"
           >
             <button
               type="button"
@@ -381,7 +626,7 @@ function RecordCard({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="flex flex-col items-center gap-3"
+            className="w-full flex flex-col items-center gap-3 text-center"
           >
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
             <p className="text-[14px] font-semibold text-muted-foreground">
@@ -397,7 +642,7 @@ function RecordCard({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: EASE }}
-            className="flex flex-col items-center gap-3"
+            className="w-full flex flex-col items-center gap-3 text-center"
           >
             <motion.span
               initial={{ scale: 0.4, opacity: 0 }}
@@ -422,7 +667,7 @@ function RecordCard({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="flex flex-col items-center gap-4"
+            className="w-full flex flex-col items-center gap-4 text-center"
           >
             <motion.span
               initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
@@ -443,22 +688,18 @@ function RecordCard({
                 Yellow found new insights from this recording
               </p>
               <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
-                {isFirstCheckin
-                  ? "Taking you to log a behaviour observation next…"
-                  : "See what stood out in today's class."}
+                See what stood out in today&apos;s class.
               </p>
             </div>
-            {!isFirstCheckin && (
-              <div className="flex items-center gap-2.5 mt-1">
-                <Button variant="outline" onClick={onRecordAnother}>
-                  Record another
-                </Button>
-                <Button onClick={onViewInsights} className="gap-1.5">
-                  View insights
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2.5 mt-1">
+              <Button variant="outline" onClick={onRecordAnother}>
+                Record another
+              </Button>
+              <Button onClick={onViewInsights} className="gap-1.5">
+                View insights
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -500,83 +741,116 @@ function HistoryPanel({
   onDelete: (id: string) => void;
   onViewReport: (checkIn: ClassCheckIn) => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+
+  if (history.length === 0) {
+    return (
+      <section className="rounded-2xl border border-border border-dashed bg-card/50 p-6 text-center">
+        <History className="h-5 w-5 text-muted-foreground mx-auto" />
+        <p className="mt-2 text-[13px] font-semibold text-foreground/80">No recordings yet</p>
+        <p className="mt-1 text-[12px] text-muted-foreground max-w-xs mx-auto">
+          Your recorded class check-ins will show up here, with a full report for each one.
+        </p>
+      </section>
+    );
+  }
+
+  const visible = showAll ? history : history.slice(0, 6);
+
   return (
-    <section className="premium-elevated rounded-[22px] p-5">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2"
-      >
-        <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-primary" />
-          <h3 className="font-heading font-extrabold text-[15px]">My recent recordings</h3>
-          <Badge variant="outline" className="text-[10.5px]">
-            {history.length}
-          </Badge>
+    <section className="premium-surface rounded-2xl p-5 md:p-6">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <span className="h-9 w-9 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+            <History className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="font-heading font-extrabold text-[16px] leading-tight">Recent activity</h3>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Your latest recordings and logs.</p>
+          </div>
         </div>
-        <ChevronRight
-          className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-90")}
-        />
-      </button>
-      {open && (
-        <ul className="mt-3 space-y-2">
-          {history.slice(0, 6).map((c) => {
-            const totalRoster = c.students.length;
-            const rated = c.students.filter(
-              (s) => s.absent || Object.keys(s.ratings).length > 0,
-            ).length;
-            const tone = SUBJECT_TONE[c.subject] ?? BLUE;
-            return (
-              <li
-                key={c.id}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/50 px-3 py-2.5 text-[12.5px] transition-colors hover:border-foreground/15 hover:bg-background/80"
+        {history.length > 6 && (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="text-[12px] font-semibold text-primary hover:underline shrink-0"
+          >
+            {showAll ? "Show less" : `View all (${history.length})`}
+          </button>
+        )}
+      </div>
+
+      <ul className="mt-4 space-y-2">
+        {visible.map((c) => {
+          const totalRoster = c.students.length;
+          const rated = c.students.filter(
+            (s) => s.absent || Object.keys(s.ratings).length > 0,
+          ).length;
+          const tone = SUBJECT_TONE[c.subject] ?? BLUE;
+          return (
+            <li
+              key={c.id}
+              className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/50 px-3.5 py-3 text-[12.5px] transition-colors hover:border-foreground/15 hover:bg-background/80"
+            >
+              <span
+                className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0 font-heading font-extrabold text-[13px]"
+                style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
+                aria-hidden
               >
+                {c.subject.charAt(0)}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold truncate">
+                  {c.grade}
+                  {c.section ?? ""} · {c.subject}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(c.createdAt)}</div>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 shrink-0">
                 <span
-                  className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0 font-heading font-extrabold text-[13px]"
-                  style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
-                  aria-hidden
+                  className="text-[10.5px] font-bold px-2 py-1 rounded-full"
+                  style={{ background: `color-mix(in srgb, ${tone} 10%, transparent)`, color: tone }}
                 >
-                  {c.subject.charAt(0)}
+                  Recording
                 </span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">
-                    {c.grade}
-                    {c.section ?? ""} · {c.subject}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                    <span>{timeAgo(c.createdAt)}</span>
-                    <span>{c.classSize} students</span>
-                    <span>
-                      rated {rated}/{totalRoster}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 gap-1.5 text-[11.5px] font-semibold"
-                    onClick={() => onViewReport(c)}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    View report
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-destructive hover:text-destructive"
-                    onClick={() => onDelete(c.id)}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                <span className="text-[10.5px] font-bold px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                  {c.classSize} students
+                </span>
+                <span className="text-[10.5px] font-bold px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                  rated {rated}/{totalRoster}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 gap-1.5 text-[11.5px] font-semibold text-primary hover:text-primary"
+                  onClick={() => onViewReport(c)}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  View report
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="More actions">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[180px] rounded-xl text-[12.5px]">
+                    <DropdownMenuItem
+                      className="gap-2 text-destructive focus:text-destructive"
+                      onSelect={() => onDelete(c.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete recording
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

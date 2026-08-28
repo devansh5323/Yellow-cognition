@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Plus, Upload } from "lucide-react";
 import { SelAppShell } from "@/components/sel/SelAppShell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,13 +15,20 @@ import {
   assignProgram,
   getPrograms,
   programGradeOptions,
+  programTeacherOptions,
   weeksForFocus,
   PROGRAM_DURATIONS,
   PROGRAM_FOCUS_OPTIONS,
+  PROGRAM_FREQUENCIES,
   type SelProgram,
+  type ProgramFrequency,
 } from "@/lib/selProgram";
 import { type SelCompetency } from "@/lib/selPulse";
 import { cn } from "@/lib/utils";
+
+function comingSoon(action: string) {
+  toast("Coming soon", { description: `${action} isn't available yet.` });
+}
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -67,16 +74,26 @@ function ProgramPlanner() {
             Build a multi-week program, then assign it to a grade — teachers see it on their dashboard once it&apos;s live.
           </p>
         </header>
-        <Button
-          onClick={() => {
-            setCreateKey((k) => k + 1);
-            setCreateOpen(true);
-          }}
-          className="gap-1.5 shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Create program
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => comingSoon("CSV import")}
+            className="gap-1.5"
+          >
+            <Upload className="h-4 w-4" />
+            Import from CSV
+          </Button>
+          <Button
+            onClick={() => {
+              setCreateKey((k) => k + 1);
+              setCreateOpen(true);
+            }}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Create program
+          </Button>
+        </div>
       </div>
 
       <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -110,7 +127,9 @@ function ProgramPlanner() {
                         {p.status === "assigned" ? "Assigned" : "Draft"}
                       </span>
                     </div>
-                    <p className="text-[11.5px] text-muted-foreground mt-0.5">{p.duration}-week program</p>
+                    <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                      {p.duration}-week program · {p.frequency} · {p.assignedTeacher}
+                    </p>
                   </div>
                   {p.status === "draft" && (
                     <Button
@@ -149,15 +168,19 @@ function ProgramPlanner() {
 
 function CreateProgramDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const gradeOptions = useMemo(() => programGradeOptions(), []);
+  const teacherOptions = useMemo(() => programTeacherOptions(), []);
   const [grade, setGrade] = useState<Grade | null>(gradeOptions[0] ?? null);
   const [focus, setFocus] = useState<SelCompetency>(PROGRAM_FOCUS_OPTIONS[0]);
+  const [frequency, setFrequency] = useState<ProgramFrequency>("Weekly");
+  const [assignedTeacher, setAssignedTeacher] = useState<string | null>(teacherOptions[0] ?? null);
   const [duration, setDuration] = useState<number>(6);
 
   const preview = useMemo(() => weeksForFocus(focus, duration), [focus, duration]);
+  const canSubmit = grade !== null && assignedTeacher !== null;
 
   const submit = () => {
-    if (!grade) return;
-    createProgram({ grade, focus, duration });
+    if (!grade || !assignedTeacher) return;
+    createProgram({ grade, focus, frequency, assignedTeacher, duration });
     toast.success("Program created as a draft", { description: "Assign it from the list to notify teachers." });
     onOpenChange(false);
   };
@@ -167,7 +190,9 @@ function CreateProgramDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Create an SEL program</DialogTitle>
-          <DialogDescription>Pick a grade, focus, and duration — the week-by-week plan builds itself.</DialogDescription>
+          <DialogDescription>
+            Pick a grade, focus, frequency, and teacher — the week-by-week plan builds itself.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -182,6 +207,39 @@ function CreateProgramDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                   {gradeOptions.map((g) => (
                     <SelectItem key={g} value={g}>
                       {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel required>SEL focus</FieldLabel>
+              <Select value={focus} onValueChange={(v) => setFocus(v as SelCompetency)}>
+                <SelectTrigger className="h-9 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROGRAM_FOCUS_OPTIONS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>Frequency</FieldLabel>
+              <Select value={frequency} onValueChange={(v) => setFrequency(v as ProgramFrequency)}>
+                <SelectTrigger className="h-9 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROGRAM_FREQUENCIES.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -205,15 +263,15 @@ function CreateProgramDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           </div>
 
           <div>
-            <FieldLabel required>Focus</FieldLabel>
-            <Select value={focus} onValueChange={(v) => setFocus(v as SelCompetency)}>
+            <FieldLabel required>Assigned teacher</FieldLabel>
+            <Select value={assignedTeacher ?? undefined} onValueChange={(v) => setAssignedTeacher(v)}>
               <SelectTrigger className="h-9 rounded-xl">
-                <SelectValue />
+                <SelectValue placeholder="Select teacher" />
               </SelectTrigger>
               <SelectContent>
-                {PROGRAM_FOCUS_OPTIONS.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                {teacherOptions.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -232,7 +290,7 @@ function CreateProgramDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             </ol>
           </div>
 
-          <Button className="w-full" disabled={!grade} onClick={submit}>
+          <Button className="w-full" disabled={!canSubmit} onClick={submit}>
             Create program
           </Button>
         </div>

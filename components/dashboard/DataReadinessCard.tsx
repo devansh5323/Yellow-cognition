@@ -8,8 +8,10 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   GraduationCap,
-  Lock,
+  Info,
+  Lightbulb,
   Rocket,
   Send,
   Sparkles,
@@ -18,9 +20,12 @@ import {
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReturningActionHub } from "@/components/dashboard/ReturningActionHub";
+import { DataReadinessTour } from "@/components/onboarding/DataReadinessTour";
 import { getStats, getRoster, type InviteStats, type RosterStudent } from "@/lib/roster";
 import { listCheckInsForTeacher } from "@/lib/checkIn";
 import { getOnboarding, setOnboarding, type OnboardingGoal } from "@/lib/onboarding";
+import { classHealth } from "@/lib/classHealth";
+import { DRIVER_META, driverScore } from "@/lib/driverMeta";
 import { cn } from "@/lib/utils";
 
 export const TEACHER_NAME = "Maya Khan";
@@ -57,18 +62,37 @@ type StartStep = {
 
 // The 7 driver cards from components/dashboard/DriverCards.tsx (4 Cognitive
 // Performance + 3 Student Wellbeing) — same ids, so a picked focus area maps
-// straight onto one of those driver keys.
-const FOCUS_OPTIONS: { id: OnboardingGoal; label: string }[] = [
-  { id: "focus", label: "Attention and focus" },
-  { id: "academic", label: "Learning readiness" },
-  { id: "task", label: "Task engagement" },
-  { id: "behavior", label: "Behavior and discipline" },
-  { id: "anxiety", label: "Anxiety and Coping Index" },
-  { id: "peer-safety", label: "Peer Safety and Belonging" },
-  { id: "frustration", label: "Anger and Emotional Regulation" },
+// straight onto one of those driver keys. Titles/descriptions/icons/tones
+// all come from lib/driverMeta.ts's DRIVER_META so this stays in sync with
+// DriverCards.tsx and ClassroomHealthScore rather than duplicating copy.
+const FOCUS_ORDER: OnboardingGoal[] = [
+  "focus",
+  "academic",
+  "task",
+  "behavior",
+  "anxiety",
+  "peer-safety",
+  "frustration",
 ];
 
-function timeOfDayGreeting(): string {
+/** "Yellow recommends" — the real weakest-scoring area across this class's
+ * actual pillar data (same driverScore()/classHealth() pipeline DriverCards
+ * already uses), not an arbitrarily picked developer favorite. */
+function recommendedFocusArea(): OnboardingGoal {
+  const { pillars } = classHealth();
+  let best = FOCUS_ORDER[0];
+  let bestScore = Infinity;
+  for (const id of FOCUS_ORDER) {
+    const score = driverScore(id, pillars);
+    if (score < bestScore) {
+      bestScore = score;
+      best = id;
+    }
+  }
+  return best;
+}
+
+export function timeOfDayGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
@@ -94,7 +118,7 @@ function buildStartSteps(): StartStep[] {
   // reappear until that new classroom gets a student list too.
   const rosterReady = hasClassroom && onboarding.classrooms.every((c) => c.rosterReady);
   const classroomsDone = hasClassroom && rosterReady;
-  const focusOption = FOCUS_OPTIONS.find((f) => f.id === onboarding.focusArea);
+  const focusMeta = onboarding.focusArea ? DRIVER_META[onboarding.focusArea] : undefined;
   const fumiDone = !!onboarding.fumiActivated;
 
   return [
@@ -118,10 +142,10 @@ function buildStartSteps(): StartStep[] {
       title: "Select focus area",
       description: "Tell us what matters most for your class this term.",
       Icon: Target,
-      done: !!focusOption,
+      done: !!focusMeta,
       lockedWhenDone: false,
-      status: focusOption ? focusOption.label : "Not started",
-      cta: focusOption ? "Change focus area" : "Choose focus area",
+      status: focusMeta ? focusMeta.title : "Not started",
+      cta: focusMeta ? "Change focus area" : "Choose focus area",
       tone: VIOLET,
     },
     {
@@ -145,6 +169,10 @@ export function DataReadinessCard() {
   const [collapsed, setCollapsed] = useState(false);
   const [focusPromptOpen, setFocusPromptOpen] = useState(false);
   const [fumiPromptOpen, setFumiPromptOpen] = useState(false);
+  // Session-local only — dismissing the guided walkthrough never fakes step
+  // completion, it just hides this visual guide; the plain step cards
+  // underneath stay fully usable either way.
+  const [tourDismissed, setTourDismissed] = useState(false);
 
   useEffect(() => {
     const refresh = () => {
@@ -190,6 +218,9 @@ export function DataReadinessCard() {
   // that glows (it's what the teacher should do next), and everything
   // after it stays blurred/locked until its turn comes.
   const activeIndex = steps.findIndex((s) => !s.done);
+  // Full sentence shown when a teacher taps a step before its turn — named
+  // after the step currently blocking everything after it.
+  const blockingMessage = activeIndex !== -1 ? `${steps[activeIndex].title} first.` : "";
 
   // The classroom step has two not-done sub-states — no classroom yet
   // (header's "+ Add classroom" pill glows instead, this card stays grey)
@@ -202,14 +233,12 @@ export function DataReadinessCard() {
   const lastCheckin = listCheckInsForTeacher(TEACHER_NAME)[0];
   const firstName = TEACHER_NAME.split(" ")[0];
 
-  // Finishing the 3 steps only unlocks the next segment's CTA (Class Health
-  // Score's "Start check-in") — it does NOT swap this card over to the
-  // returning-user hub. Gating on a real check-in doesn't work either: this
-  // app ships with seeded demo check-ins (SEED_CHECKINS in lib/checkIn.ts),
-  // so lastCheckin is already truthy before the teacher does anything. The
-  // returning-hub trigger is deferred — for now this always shows the 3
-  // steps (all checked off once done), never auto-switching.
-  const isReturning = false;
+  // Mirrors Class Health Score's own unlock condition: the 3 steps alone
+  // only unlock that segment's "Start check-in" CTA, not the full RTUE —
+  // this card swaps over to the returning-user hub once every student has
+  // actually connected via Fumi too (same gate as showScore there).
+  const allFumiConnected = stats.total > 0 && stats.active === stats.total;
+  const isReturning = stepsAllDone && allFumiConnected;
 
   const handleStepAction = (id: StartStepId) => {
     if (id === "classroom") {
@@ -248,8 +277,9 @@ export function DataReadinessCard() {
         initial={reduce ? undefined : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: EASE }}
-        className="rounded-2xl border border-border bg-card p-6 md:p-8"
+        className="space-y-1"
         aria-label="Data readiness"
+        data-tour-target="data-readiness"
       >
         {/* Header — clickable to expand/collapse the body */}
         <button
@@ -260,12 +290,18 @@ export function DataReadinessCard() {
           className="group w-full text-left flex items-center justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <div className="min-w-0">
-            <div className="premium-eyebrow">
-              <span>{isReturning ? `${timeOfDayGreeting()}, ${firstName} 👋` : "Data readiness"}</span>
-            </div>
-            {isReturning && (
-              <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
-                Data Readiness & Action Hub
+            {isReturning ? (
+              <>
+                <div className="premium-eyebrow">
+                  <span>{`${timeOfDayGreeting()}, ${firstName} 👋`}</span>
+                </div>
+                <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
+                  Data Readiness & Action Hub
+                </h2>
+              </>
+            ) : (
+              <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
+                Three steps to get started
               </h2>
             )}
             <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
@@ -323,7 +359,7 @@ export function DataReadinessCard() {
                     className="text-[10.5px] font-bold px-2 py-1 rounded-full"
                     style={{ background: `color-mix(in srgb, ${heroTone} 14%, transparent)`, color: heroTone }}
                   >
-                    {heroPct === 0 ? "Getting started" : heroPct === 100 ? "All set" : "In progress"}
+                    {stepsAllDone ? "Students connected" : "Class setup completed"}
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 w-32 rounded-full bg-muted/40 overflow-hidden ml-auto">
@@ -369,26 +405,20 @@ export function DataReadinessCard() {
               animate={{ height: "auto", opacity: 1 }}
               exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: EASE }}
-              className="overflow-hidden"
+              // Not applied while returning: an `overflow-hidden` ancestor
+              // becomes the containing block for `position: sticky`
+              // descendants, which would trap ReturningActionHub's sticky
+              // sidebar inside this collapse wrapper instead of letting it
+              // stick against the real page scroll. The 3-steps checklist
+              // has no sticky content, so it keeps the clean clip during
+              // its collapse/expand animation.
+              className={cn(!isReturning && "overflow-hidden")}
             >
               {isReturning ? (
                 <ReturningActionHub stats={stats} />
               ) : (
-                <div className="mt-5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <h3 className="font-heading font-extrabold text-[14.5px]">Three steps to get started</h3>
-                      <span
-                        className="text-[10.5px] font-bold tabular-nums px-2 py-0.5 rounded-full"
-                        style={{ background: `color-mix(in srgb, ${BLUE} 10%, transparent)`, color: BLUE }}
-                      >
-                        {doneCount} of {totalSteps} complete
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-col md:flex-row items-stretch gap-2.5">
+                <div className="mt-4">
+                  <div className="flex flex-col md:flex-row items-stretch gap-2.5">
                     {steps.map((step, i) => (
                       <Fragment key={step.id}>
                         <StartStepCard
@@ -412,6 +442,11 @@ export function DataReadinessCard() {
                               ? !hasClassroom
                               : activeIndex !== -1 && i > activeIndex
                           }
+                          blockingMessage={
+                            step.id === "classroom"
+                              ? "Add a classroom using the '+ Add classroom' button above."
+                              : blockingMessage
+                          }
                         />
                         {i < steps.length - 1 && (
                           <div className="hidden md:flex items-center justify-center shrink-0 text-muted-foreground/40">
@@ -428,32 +463,25 @@ export function DataReadinessCard() {
         </AnimatePresence>
       </motion.section>
 
-      <Dialog open={focusPromptOpen} onOpenChange={setFocusPromptOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Select your focus area</DialogTitle>
-            <DialogDescription>
-              What matters most for your class this term? You can change this anytime.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {FOCUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  setOnboarding({ focusArea: opt.id });
-                  setFocusPromptOpen(false);
-                  toast.success(`Focus area set to ${opt.label}`);
-                }}
-                className="premium-pill !h-9 !px-3.5 !text-[12.5px]"
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {!isReturning && (
+        <DataReadinessTour
+          steps={steps.map((s) => ({
+            ...s,
+            // Before any classroom exists, the real "next action" lives in
+            // the topbar's "+ Add classroom" pill, not this (still-greyed)
+            // card — same sub-state the static row's own glow already
+            // distinguishes. Once a classroom exists (even roster-pending),
+            // this card is the right target for "Add student list".
+            target: s.id === "classroom" && !hasClassroom ? "add-classroom-header" : `step-${s.id}`,
+          }))}
+          activeIndex={activeIndex}
+          dismissed={tourDismissed}
+          onAction={(id) => handleStepAction(id as StartStepId)}
+          onDismiss={() => setTourDismissed(true)}
+        />
+      )}
+
+      <FocusAreaDialog open={focusPromptOpen} onOpenChange={setFocusPromptOpen} />
 
       <Dialog open={fumiPromptOpen} onOpenChange={setFumiPromptOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -552,6 +580,7 @@ function StartStepCard({
   onAction,
   active = false,
   upcoming = false,
+  blockingMessage = "",
 }: {
   step: StartStep;
   index: number;
@@ -560,12 +589,19 @@ function StartStepCard({
   /** This is the next thing the teacher should do — glows via the same
    * tone-colored border flicker used before, no separate alert color. */
   active?: boolean;
-  /** Hasn't been reached yet (an earlier step still isn't done) — stays
-   * blurred and non-interactive until its turn comes. */
+  /** Hasn't been reached yet (an earlier step still isn't done) — card stays
+   * fully visible (never blurred/dimmed), only its CTA is disabled until its
+   * turn comes. */
   upcoming?: boolean;
+  /** What to tell the teacher when they tap this step's CTA before its turn. */
+  blockingMessage?: string;
 }) {
   const Icon = step.Icon;
-  const disabled = (step.done && step.lockedWhenDone) || upcoming;
+  // Only a completed one-time action (lockedWhenDone) is a *true* disabled
+  // button — an upcoming step stays clickable so tapping it can explain why
+  // it's not available yet, instead of silently doing nothing.
+  const doneLocked = step.done && step.lockedWhenDone;
+  const disabled = doneLocked || upcoming;
   // Uses the step's own tone for the glow — no separate "alert" color — via
   // the --attn custom property so it doesn't bleed into descendant text.
   const attnStyle = active ? ({ "--attn": step.tone } as React.CSSProperties) : undefined;
@@ -574,12 +610,12 @@ function StartStepCard({
   return (
     <motion.article
       initial={reduce ? undefined : { opacity: 0, y: 4 }}
-      animate={{ opacity: upcoming ? 0.55 : 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 * index, duration: 0.3, ease: EASE }}
+      data-tour-target={`step-${step.id}`}
       className={cn(
-        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-[filter] duration-300",
+        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-colors duration-300",
         active ? "border-flicker" : "border-border",
-        upcoming && "blur-[2.5px] pointer-events-none select-none",
       )}
       style={{
         ...attnStyle,
@@ -608,11 +644,16 @@ function StartStepCard({
         <div className="flex-1 min-w-0">
           <h4
             className={cn(
-              "font-heading font-extrabold text-[13.5px] leading-tight",
+              "font-heading font-extrabold text-[13.5px] leading-tight inline-flex items-center gap-1.5",
               step.done && "line-through decoration-2 text-muted-foreground",
             )}
             style={step.done ? { textDecorationColor: `color-mix(in srgb, ${GREEN} 60%, transparent)` } : undefined}
           >
+            {step.id === "fumi" && (
+              // Placeholder for a future link to the Fumi info/marketing
+              // page — no href yet, just the affordance.
+              <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-label="Learn more about Fumi" />
+            )}
             {step.title}
           </h4>
           <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">{step.description}</p>
@@ -629,8 +670,14 @@ function StartStepCard({
 
       <button
         type="button"
-        onClick={() => onAction(step.id)}
-        disabled={disabled}
+        onClick={() => {
+          if (upcoming) {
+            toast.info(blockingMessage);
+            return;
+          }
+          onAction(step.id);
+        }}
+        disabled={doneLocked}
         className={cn(
           "mt-auto flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold transition-colors",
           disabled && "cursor-default",
@@ -644,15 +691,132 @@ function StartStepCard({
               : { background: `color-mix(in srgb, ${step.tone} 12%, transparent)`, color: step.tone }
         }
       >
-        {upcoming ? "Locked" : step.cta}
-        {upcoming ? (
-          <Lock className="h-3.5 w-3.5" />
-        ) : disabled ? (
+        {step.cta}
+        {step.done && step.lockedWhenDone ? (
           <Check className="h-3.5 w-3.5" />
         ) : (
           <ArrowRight className="h-3.5 w-3.5" />
         )}
       </button>
     </motion.article>
+  );
+}
+
+function FocusAreaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  // Recomputed each time the dialog opens rather than memoized — cheap
+  // (same classHealth()/driverScore() pipeline DriverCards already calls
+  // on every render) and always reflects the class's current real data.
+  const recommended = recommendedFocusArea();
+  const recommendedMeta = DRIVER_META[recommended];
+
+  const selectFocus = (id: OnboardingGoal) => {
+    setOnboarding({ focusArea: id });
+    onOpenChange(false);
+    toast.success(`Focus area set to ${DRIVER_META[id].title}`);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-8">
+        <DialogHeader>
+          <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary inline-flex items-center justify-center mb-1">
+            <Target className="h-5.5 w-5.5" />
+          </div>
+          <div className="premium-eyebrow">
+            <span>Let&apos;s get started</span>
+          </div>
+          <DialogTitle className="font-heading text-[24px] mt-1">Select your focus area</DialogTitle>
+          <DialogDescription className="text-[13.5px]">
+            What matters most for your class this term? You can change this anytime.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div
+          className="flex items-center gap-3.5 rounded-2xl border p-4"
+          style={{
+            borderColor: `color-mix(in srgb, ${recommendedMeta.tone} 30%, transparent)`,
+            background: `color-mix(in srgb, ${recommendedMeta.tone} 6%, transparent)`,
+          }}
+        >
+          <span
+            className="h-11 w-11 rounded-xl inline-flex items-center justify-center shrink-0"
+            style={{ background: `color-mix(in srgb, ${recommendedMeta.tone} 16%, transparent)`, color: recommendedMeta.tone }}
+          >
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-[10.5px] font-bold uppercase tracking-[0.08em]"
+              style={{ color: recommendedMeta.tone }}
+            >
+              Yellow recommends
+            </div>
+            <div className="font-heading font-extrabold text-[14px] leading-tight mt-0.5">
+              {recommendedMeta.title}
+            </div>
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+              This is where your class&apos;s current data shows the most room to grow.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => selectFocus(recommended)}
+            className="shrink-0 h-9 px-3.5 rounded-lg text-[12.5px] font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: recommendedMeta.tone }}
+          >
+            Select this
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {FOCUS_ORDER.map((id) => {
+            const meta = DRIVER_META[id];
+            const isRecommended = id === recommended;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => selectFocus(id)}
+                className={cn(
+                  "relative text-left rounded-2xl border bg-background p-5 min-h-[168px] flex flex-col gap-3 transition-colors hover:border-foreground/20 hover:bg-muted/20",
+                  isRecommended ? "border-primary/40" : "border-border",
+                )}
+              >
+                {isRecommended && (
+                  <span className="absolute -top-2.5 left-4 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+                    Recommended
+                  </span>
+                )}
+                <div className="flex items-start justify-between">
+                  <span
+                    className="h-11 w-11 rounded-xl inline-flex items-center justify-center"
+                    style={{ background: `color-mix(in srgb, ${meta.tone} 14%, transparent)`, color: meta.tone }}
+                  >
+                    <meta.Icon className="h-5 w-5" strokeWidth={2.2} />
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                </div>
+                <div>
+                  <h4 className="font-heading font-extrabold text-[14.5px] leading-tight">{meta.title}</h4>
+                  <p className="text-[12px] text-muted-foreground mt-1.5 leading-snug">{meta.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl bg-muted/30 p-4">
+          <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+            <Lightbulb className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-[13px] font-bold">Not sure yet?</div>
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+              You can always explore other areas and adjust your focus later.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

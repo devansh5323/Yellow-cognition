@@ -125,7 +125,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users },
   { to: "/classroom", label: "Classroom", icon: School },
-  { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
+  { to: "/check-in", label: "Classroom Log", icon: ClipboardCheck },
   { to: "/friction", label: "Friction", icon: Timer },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -371,6 +371,7 @@ export function AppShell({
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent("ah-open-classroom-setup"))}
                   aria-label="Add classroom"
+                  data-tour-target="add-classroom-header"
                   className={cn(
                     "premium-pill !h-10 !px-3.5 !text-[13px] border-dashed",
                     classrooms.length === 0 && "border-flicker",

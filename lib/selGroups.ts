@@ -16,8 +16,12 @@
 import { STUDENTS, type Student } from "@/data/mockData";
 import { studentComposites } from "@/lib/classHealth";
 import { classDisruptionBreakdown, DISRUPTION_LABEL, type DisruptionKey } from "@/lib/classBehavior";
-import type { SelActionItem, SelCompetency } from "@/lib/selPulse";
+import { PULSE_FREQUENCIES, type SelActionItem, type SelCompetency, type PulseFrequency } from "@/lib/selPulse";
 import { studentParticipationSummary, type SelProgram } from "@/lib/selProgram";
+import { markSelTaskDone } from "@/lib/selOnboarding";
+
+export { PULSE_FREQUENCIES as GROUP_FREQUENCIES };
+export type GroupFrequency = PulseFrequency;
 
 export const RESPONSE_CATEGORIES = [
   "Improving",
@@ -44,6 +48,8 @@ export type SelGroup = {
   targetSkill: SelCompetency;
   facilitator: string;
   studentIds: string[];
+  frequency: GroupFrequency;
+  startDate: string;
   createdAt: string;
   reviewDate: string;
   sessionsPlanned: number;
@@ -78,6 +84,8 @@ function seedGroups(): SelGroup[] {
       targetSkill: "Emotional regulation",
       facilitator: "Ms. Priya Sharma",
       studentIds: studentIdsByName(["Aarav Patel", "Kabir Khanna"]),
+      frequency: "Weekly",
+      startDate: daysAgo(28),
       createdAt: daysAgo(28),
       reviewDate: daysFromNow(2),
       sessionsPlanned: 6,
@@ -91,6 +99,8 @@ function seedGroups(): SelGroup[] {
       targetSkill: "Peer relationships",
       facilitator: "Ms. Riya Kapoor",
       studentIds: studentIdsByName(["Advik Choudhary", "Anika Saxena", "Kyra Bose"]),
+      frequency: "Biweekly",
+      startDate: daysAgo(28),
       createdAt: daysAgo(28),
       reviewDate: daysFromNow(-1),
       sessionsPlanned: 6,
@@ -131,17 +141,20 @@ export function createGroup(input: {
   facilitator: string;
   studentIds: string[];
   sessionsPlanned: number;
+  frequency: GroupFrequency;
+  startDate: string;
+  reviewDate: string;
 }): SelGroup {
   const group: SelGroup = {
     id: `group-${Date.now()}`,
     ...input,
     createdAt: new Date().toISOString(),
-    reviewDate: daysFromNow(14),
     sessionsHeld: 0,
     responseCategory: "Early Improvement",
     outcome: "active",
   };
   writeGroups([group, ...getGroups()]);
+  markSelTaskDone("first-group");
   return group;
 }
 
@@ -283,7 +296,6 @@ export function implementationVsResponseInsight(groups: SelGroup[]): Implementat
 const DRIVER_TO_COMPETENCY: Partial<Record<DisruptionKey, SelCompetency>> = {
   emotional: "Emotional regulation",
   peer: "Peer relationships",
-  anxiety: "Coping with Challenges",
 };
 
 export type GroupRecommendation = {
@@ -303,10 +315,11 @@ export function recommendGroups(groups: SelGroup[]): GroupRecommendation[] {
     .map((c) => c.student);
 
   // Only cluster by drivers this SEL framework actually tracks a
-  // competency for — off-task/impulse/transition are real signals too, but
-  // they're attention/behaviour concepts outside this tool's SEL taxonomy,
-  // so they're excluded before picking each student's "worst" rather than
-  // being allowed to win ties and silently swallow every recommendation.
+  // competency for — off-task/impulse/non-compliance/participation are real
+  // signals too, but they're attention/behaviour concepts outside this
+  // tool's SEL taxonomy, so they're excluded before picking each student's
+  // "worst" rather than being allowed to win ties and silently swallow
+  // every recommendation.
   const trackedDrivers = new Set(Object.keys(DRIVER_TO_COMPETENCY) as DisruptionKey[]);
 
   const byDriver = new Map<DisruptionKey, Student[]>();

@@ -150,17 +150,17 @@ export function TeacherCheckInTools({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
       className="space-y-3"
-      aria-label="Teacher check-in tools"
+      aria-label="Teacher classroom log"
       data-tour-target="teacher-checkin-tools"
     >
       <div className="premium-eyebrow">
-        <span>Teacher Check-in Tools</span>
+        <span>Teacher Classroom Log</span>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
         <div>
           <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
-            Your Check-In Tools
+            Your Classroom Log
           </h2>
           <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug">
             Capture the signals that power your class insights and recommendations.

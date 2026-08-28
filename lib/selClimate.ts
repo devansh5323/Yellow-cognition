@@ -184,6 +184,16 @@ export function strongestArea(areas: SelCompetency[] = SCHOOL_CLIMATE_AREAS): St
   return { competency: best.competency, score: best.score!, onTrackFraction, sentence };
 }
 
+/** Overall school climate — the average score across every area that has
+ * real data, school-wide (not per-grade). `null` when nothing has data
+ * yet, so the dashboard's snapshot tile can show an honest "Building"
+ * state instead of a fabricated number. */
+export function overallClimateScore(areas: SelCompetency[] = SCHOOL_CLIMATE_AREAS): number | null {
+  const rows = areaOverview(areas).filter((r) => r.available && r.score !== null);
+  if (rows.length === 0) return null;
+  return Math.round(rows.reduce((a, r) => a + r.score!, 0) / rows.length);
+}
+
 export type ClimateCoverage = { overallPct: number; byGrade: { grade: Grade; pct: number }[] };
 
 export function climateCoverage(areas: SelCompetency[] = SCHOOL_CLIMATE_AREAS): ClimateCoverage {

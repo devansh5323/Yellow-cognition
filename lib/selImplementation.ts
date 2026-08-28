@@ -13,7 +13,7 @@
 
 import { STUDENTS, type Grade } from "@/data/mockData";
 import { classroomKey } from "@/lib/selNeeds";
-import type { SelActionItem, SelCompetency } from "@/lib/selPulse";
+import { allEmergingPatterns, type SelActionItem, type SelCompetency, type Pulse, type PatternInsight } from "@/lib/selPulse";
 
 export type ImplementationStatus = "on-track" | "watch" | "needs-follow-up";
 
@@ -168,19 +168,89 @@ export function currentFocusByGrade(rows: ClassroomImplementation[]): GradeFocus
 /** Feeds the dashboard's Action Hub alongside Pulse's emerging-pattern
  * rungs — only produces an item when a real classroom is genuinely behind. */
 export function buildImplementationActionItems(rows: ClassroomImplementation[]): SelActionItem[] {
+  const items: SelActionItem[] = [];
   const insight = worstImplementationInsight(rows);
-  if (!insight) return [];
-  const row = rows.find((r) => r.classroom === insight.classroom);
-  if (!row) return [];
-  return [
-    {
-      id: `implementation-${insight.classroom}`,
-      priority: row.status === "needs-follow-up" ? "high" : "medium",
-      action: `Support ${insight.classroom} on ${row.selFocus.toLowerCase()}`,
-      whyItMatters: insight.sentence,
-      related: `Grade ${insight.classroom} · ${row.teacher}`,
-      ctaLabel: "Support teacher",
+  if (insight) {
+    const row = rows.find((r) => r.classroom === insight.classroom);
+    if (row) {
+      items.push({
+        id: `implementation-${insight.classroom}`,
+        priority: row.status === "needs-follow-up" ? "high" : "medium",
+        action: `Support ${insight.classroom} on ${row.selFocus.toLowerCase()}`,
+        whyItMatters: insight.sentence,
+        related: `Grade ${insight.classroom} · ${row.teacher}`,
+        ctaLabel: "Support teacher",
+        href: "/sel/implementation",
+      });
+    }
+  }
+  const missing = classesMissingSel(rows);
+  if (missing.count > 0) {
+    items.push({
+      id: "classes-missing-sel",
+      priority: "medium",
+      action: `Follow up with ${missing.count} class${missing.count === 1 ? "" : "es"} missing SEL`,
+      whyItMatters: `${missing.classrooms.join(", ")} ${missing.classrooms.length === 1 ? "hasn't" : "haven't"} completed this month's planned SEL activities.`,
+      related: missing.classrooms.join(", "),
+      ctaLabel: "Review classrooms",
       href: "/sel/implementation",
-    },
-  ];
+    });
+  }
+  return items;
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Need vs. Implementation — cross-references a real worsening pulse trend
+ * (allEmergingPatterns) against real per-grade implementation completion,
+ * so the coordinator can tell whether a rising concern is happening
+ * *despite* strong delivery (a strategy problem) or *alongside* a delivery
+ * gap (an implementation problem) — the same on-track threshold (90%)
+ * classroomImplementationRows() already uses, not a new invented cutoff.
+ * ───────────────────────────────────────────────────────── */
+
+const STRONG_IMPLEMENTATION_PCT = 90;
+
+export type NeedVsImplementationInsight = {
+  pattern: PatternInsight;
+  implementationPct: number;
+  strongImplementation: boolean;
+  sentence: string;
+};
+
+export function needVsImplementationInsights(
+  pulses: Pulse[],
+  rows: ClassroomImplementation[],
+): NeedVsImplementationInsight[] {
+  const patterns = allEmergingPatterns(pulses);
+  if (patterns.length === 0) return [];
+  const byGrade = implementationByGrade(rows);
+
+  const insights: NeedVsImplementationInsight[] = [];
+  for (const pattern of patterns) {
+    const gradeRow = byGrade.find((g) => g.grade === pattern.grade);
+    if (!gradeRow) continue;
+    const verb = pattern.direction === "increasing" ? "increased" : "declined";
+    const strongImplementation = gradeRow.completionPct >= STRONG_IMPLEMENTATION_PCT;
+    const sentence = strongImplementation
+      ? `${pattern.grade} ${pattern.concernCompetency.toLowerCase()} concerns have ${verb} despite strong SEL implementation (${gradeRow.completionPct}% of planned activities completed).`
+      : `${pattern.grade} ${pattern.concernCompetency.toLowerCase()} concerns have ${verb}, but only ${gradeRow.completionPct}% of planned SEL activities have been completed.`;
+    insights.push({ pattern, implementationPct: gradeRow.completionPct, strongImplementation, sentence });
+  }
+  return insights;
+}
+
+/** Feeds the dashboard's Action Hub — a second, higher-priority rung on top
+ * of implementation's own worst-classroom rung, since a worsening trend
+ * that's already been cross-referenced against real delivery data is more
+ * actionable than either signal alone. */
+export function buildNeedVsImplementationActionItems(pulses: Pulse[], rows: ClassroomImplementation[]): SelActionItem[] {
+  return needVsImplementationInsights(pulses, rows).map((insight) => ({
+    id: `need-vs-implementation-${insight.pattern.grade}-${insight.pattern.concernCompetency}`,
+    priority: "high",
+    action: `Review ${insight.pattern.concernCompetency.toLowerCase()} in ${insight.pattern.grade} against SEL delivery`,
+    whyItMatters: insight.sentence,
+    related: insight.pattern.grade,
+    ctaLabel: "Compare need vs. delivery",
+    href: "/sel/implementation",
+  }));
 }

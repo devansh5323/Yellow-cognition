@@ -6,7 +6,7 @@
 import { listCheckInsForTeacher } from "@/lib/checkIn";
 import { markTaskDone } from "@/lib/onboarding";
 
-export type LoggedEvent = { at: string; studentId?: string };
+export type LoggedEvent = { at: string; studentId?: string; antecedent?: string };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,10 +30,10 @@ function readLog(key: string): LoggedEvent[] {
   }
 }
 
-function appendLog(key: string, eventName: string, studentId?: string) {
+function appendLog(key: string, eventName: string, studentId?: string, antecedent?: string) {
   if (typeof window === "undefined") return;
   const list = readLog(key);
-  list.push({ at: new Date().toISOString(), studentId });
+  list.push({ at: new Date().toISOString(), studentId, antecedent });
   window.localStorage.setItem(key, JSON.stringify(list));
   window.dispatchEvent(new CustomEvent(eventName));
 }
@@ -41,8 +41,8 @@ function appendLog(key: string, eventName: string, studentId?: string) {
 const BEHAVIOR_KEY = "ah_behavior_log_events";
 const POSITIVE_KEY = "ah_positive_log_events";
 
-export function logBehaviorEvent(studentId?: string) {
-  appendLog(BEHAVIOR_KEY, "ah-behavior-log-change", studentId);
+export function logBehaviorEvent(studentId?: string, antecedent?: string) {
+  appendLog(BEHAVIOR_KEY, "ah-behavior-log-change", studentId, antecedent);
   markTaskDone("behavior-log");
 }
 
@@ -66,6 +66,15 @@ export function getBehaviorLogTimestampsThisWeek(): string[] {
 
 export function getBehaviorLogTotalCount(): number {
   return readLog(BEHAVIOR_KEY).length;
+}
+
+/** Real "before it happened" triggers teachers actually selected this week
+ * on the Record Behaviour form — the closest thing this app has to a
+ * teacher-diary signal for why behaviour is happening. */
+export function getBehaviorLogAntecedentsThisWeek(): string[] {
+  return readLog(BEHAVIOR_KEY)
+    .filter((e) => isThisWeek(e.at) && e.antecedent)
+    .map((e) => e.antecedent!);
 }
 
 export function getPositiveLogCountThisWeek(): number {

@@ -72,10 +72,11 @@ export const TIME_OF_DAY_OPTIONS = ["Morning", "Midday", "Afternoon", "End of da
 export const ANTECEDENT_OPTIONS = [
   "Difficult task",
   "Long wait",
+  "Long instruction blocks",
   "Transition",
-  "Peer interaction",
+  "Peer proximity",
   "Change in routine",
-  "Noise / distraction",
+  "Noise levels",
   "Correction",
   "Unknown",
 ] as const;

@@ -62,6 +62,7 @@ import {
 } from "@/lib/onboarding";
 import { RosterPicker, rosterMethodLabel } from "@/components/onboarding/RosterPicker";
 import { RosterManager } from "@/components/onboarding/RosterManager";
+import { hasRecordingConsent, setRecordingConsent } from "@/lib/recordingConsent";
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["value"];
 
@@ -1022,6 +1023,21 @@ function LanguageCard() {
 function DataPrivacyCard() {
   const [analytics, setAnalytics] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [recordingConsent, setRecordingConsentState] = useState(false);
+
+  useEffect(() => {
+    setRecordingConsentState(hasRecordingConsent());
+  }, []);
+
+  const toggleRecordingConsent = (v: boolean) => {
+    setRecordingConsent(v);
+    setRecordingConsentState(v);
+    toast.success(
+      v
+        ? "Classroom recording consent granted."
+        : "Classroom recording consent revoked — you'll be asked again before your next recording.",
+    );
+  };
 
   const exportData = () => {
     toast.success("Data export queued — you'll get an email when it's ready");
@@ -1041,6 +1057,13 @@ function DataPrivacyCard() {
           hint="Helps us improve Yellow. Never includes student data."
           checked={analytics}
           onChange={setAnalytics}
+        />
+
+        <ToggleRow
+          label="Classroom recording consent"
+          hint="Required before Yellow can record and analyse your classroom."
+          checked={recordingConsent}
+          onChange={toggleRecordingConsent}
         />
 
         <div className="flex items-center justify-between gap-3 rounded-xl p-3 border border-border/60 bg-card/40">

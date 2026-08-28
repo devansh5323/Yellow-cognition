@@ -12,7 +12,20 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { studentAttentionDomains, type Student, type AttentionDomainKey } from "@/data/mockData";
-import type { FocusDomainStat } from "@/lib/classFocus";
+
+// Structural shape only — accepts both FocusDomainStat (6 focus domains)
+// and AttentionHeatmapStat (all 8), since this drawer just needs a domain's
+// score picture, not which specific stat type produced it.
+type DomainDrawerStat = {
+  key: AttentionDomainKey;
+  label: string;
+  description: string;
+  hue: string;
+  score: number;
+  prevScore: number;
+  atRiskCount: number;
+  atRiskPct: number;
+};
 
 export function AttentionSubDomainDrawer({
   open,
@@ -24,7 +37,7 @@ export function AttentionSubDomainDrawer({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  domain: FocusDomainStat | null;
+  domain: DomainDrawerStat | null;
   domainKey: AttentionDomainKey | null;
   students: Student[];
   interventions: string[];

@@ -3,37 +3,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  Gauge,
   Info,
-  Lightbulb,
-  Send,
+  Pencil,
   Sparkles,
   Users,
 } from "lucide-react";
 import {
   classHealth,
-  pillarStatus,
   scoreBand,
   SCORE_BANDS,
   type PillarKey,
   type ScoreBand,
 } from "@/lib/classHealth";
-import { getRoster, getStats, sendReminders, simulateLogin, type RosterStudent } from "@/lib/roster";
-import { getOnboarding } from "@/lib/onboarding";
+import { getOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { DRIVER_META, driverScore } from "@/lib/driverMeta";
+import { FocusAreaDialog } from "@/components/dashboard/DataReadinessCard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -80,6 +71,23 @@ const DISTRIBUTION = [
   { key: "needs-support", label: "Needs Support", tone: RED, count: 3 },
 ] as const;
 
+/** One honest line about the picked focus area, ranked against every other
+ * driver via the same driverScore() pipeline DriverCards uses — no
+ * fabricated commentary, just where this area actually sits relative to the
+ * other 6. */
+function focusInsight(focusArea: OnboardingGoal, pillars: Record<PillarKey, number>): string {
+  const scores = (Object.keys(DRIVER_META) as OnboardingGoal[]).map((id) => ({
+    id,
+    score: driverScore(id, pillars),
+  }));
+  const focusScore = scores.find((s) => s.id === focusArea)?.score ?? 0;
+  const higherCount = scores.filter((s) => s.id !== focusArea && s.score > focusScore).length;
+
+  if (focusScore >= 80) return "Already one of your strongest areas — keep reinforcing it.";
+  if (higherCount === scores.length - 1) return "Your class's lowest-scoring area right now — a solid pick to focus on.";
+  return `${higherCount} of your other ${scores.length - 1} tracked areas are scoring higher.`;
+}
+
 export function ClassroomHealthScore({
   locked = false,
   highlighted = false,
@@ -97,42 +105,18 @@ export function ClassroomHealthScore({
   // placeholder.
   const ch = useMemo(() => classHealth(), []);
 
-  // The Class Health Score itself stays gated behind Fumi activation — even
-  // once the rest of the FTUE journey (check-in, behaviour log, positive
-  // log) is done, we don't show the real score until every parent has
-  // actually connected via Fumi (their child's roster entry is "active").
-  const [roster, setRosterState] = useState<RosterStudent[]>([]);
-  useEffect(() => {
-    const refresh = () => setRosterState(getRoster());
-    refresh();
-    window.addEventListener("ah-roster-change", refresh);
-    return () => window.removeEventListener("ah-roster-change", refresh);
-  }, []);
-  const rosterStats = getStats(roster);
-  const allFumiConnected = roster.length > 0 && rosterStats.active === rosterStats.total;
-  const pendingStudents = roster.filter((s) => s.status !== "active");
-  const showScore = !locked && allFumiConnected;
-
-  const [pendingOpen, setPendingOpen] = useState(false);
-  const handleSendReminders = () => {
-    const count = sendReminders();
-    // Demo shortcut: simulate every remaining parent responding right away
-    // instead of waiting on a real reply, so sending reminders is what
-    // visibly unlocks the Class Health Score in a walkthrough.
-    pendingStudents.forEach((s) => simulateLogin(s.id));
-    setPendingOpen(false);
-    toast.success(
-      count > 0
-        ? `Reminder sent to ${count} parent${count === 1 ? "" : "s"} — everyone has now responded!`
-        : "Everyone has now responded!",
-    );
-  };
+  // The Class Health Score's only gate is the FTUE stage machine itself
+  // (locked) — it no longer additionally waits on every parent connecting
+  // via Fumi, since that's out of the teacher's control and shouldn't hold
+  // up the rest of RTUE once the teacher's own setup is genuinely done.
+  const showScore = !locked;
 
   // The score is the whole point of this segment reappearing after the
   // setup journey — this is the "payoff" moment, so a genuine unlock
   // (showScore: false → true) gets a one-time celebratory reveal (count-up +
   // glow) instead of just materializing as static text.
   const [celebrate, setCelebrate] = useState(false);
+  const [focusPromptOpen, setFocusPromptOpen] = useState(false);
   const prevShowScoreRef = useRef(showScore);
   useEffect(() => {
     const wasShowing = prevShowScoreRef.current;
@@ -153,10 +137,6 @@ export function ClassroomHealthScore({
   const strongDelta = ch.pillarDelta[strongest[0]];
   const weakDelta = ch.pillarDelta[weakest[0]];
 
-  const areasNeedingSupport = (Object.entries(ch.pillars) as [PillarKey, number][]).filter(
-    ([key, score]) => pillarStatus(score, ch.pillarDelta[key]) === "needs-attention",
-  ).length;
-
   // The driver card the teacher picked in "Select focus area" (Data
   // Readiness's step 2) — surfaced here so the score they said matters most
   // is never buried among the other six.
@@ -166,7 +146,6 @@ export function ClassroomHealthScore({
 
   const distribution = DISTRIBUTION;
   const total = distribution.reduce((sum, d) => sum + d.count, 0);
-  const healthy = distribution[0].count + distribution[1].count;
 
   return (
     <motion.section
@@ -177,8 +156,17 @@ export function ClassroomHealthScore({
       aria-label="Classroom Health Score"
       data-tour-target="classroom-health"
     >
-      <div className="premium-eyebrow">
-        <span>Classroom Health</span>
+      {/* Bigger, bolder than a plain premium-eyebrow — this is the
+          dashboard's headline metric, so its label shouldn't read as just
+          another section among equals. */}
+      <div className="flex items-center gap-2.5">
+        <span
+          className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0"
+          style={{ background: `color-mix(in srgb, ${BLUE} 16%, transparent)`, color: BLUE }}
+        >
+          <Gauge className="h-4 w-4" strokeWidth={2.4} />
+        </span>
+        <span className="font-heading font-extrabold text-[15px] tracking-tight">Classroom Health</span>
       </div>
       <p className="text-[12.5px] text-muted-foreground -mt-1">
         How your class is functioning across learning, behaviour, and well-being.
@@ -186,10 +174,17 @@ export function ClassroomHealthScore({
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border bg-card p-5 md:p-6",
-          highlighted ? "border-flicker" : "border-border",
+          "relative overflow-hidden rounded-[28px] border-2 bg-card p-5 md:p-6",
+          highlighted && "border-flicker",
         )}
-        style={highlighted ? ({ "--attn": BLUE } as React.CSSProperties) : undefined}
+        style={
+          highlighted
+            ? ({ "--attn": BLUE } as React.CSSProperties)
+            : {
+                borderColor: `color-mix(in srgb, ${BLUE} 22%, transparent)`,
+                boxShadow: `0 28px 64px -30px color-mix(in srgb, ${BLUE} 45%, transparent), 0 14px 34px -20px color-mix(in srgb, ${VIOLET} 30%, transparent)`,
+              }
+        }
       >
       {/* The real hero + breakdown always renders — blurred behind the gate
           overlay below instead of being replaced by a bare placeholder, so
@@ -197,24 +192,24 @@ export function ClassroomHealthScore({
           locked segments) rather than empty. */}
       <div className={cn(!showScore && "pointer-events-none select-none blur-[0.75px] opacity-75 saturate-95")}>
         <>
-      <div
-        className="relative overflow-hidden rounded-[20px] p-5 md:p-7"
-        style={{
-          background:
-            "linear-gradient(135deg, color-mix(in srgb, " +
-            BLUE +
-            " 8%, transparent), color-mix(in srgb, " +
-            VIOLET +
-            " 10%, transparent))",
-        }}
-      >
-        <div className="relative grid grid-cols-1 lg:grid-cols-[auto_1.3fr_auto_1fr] gap-6 lg:gap-7 items-center">
-          <ScoreRing score={ch.score} tone={tone} celebrate={celebrate} size={168} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 items-stretch">
+        {/* Card 1 — score + headline */}
+        <div
+          className="relative overflow-hidden rounded-2xl border border-border/50 p-5 md:p-7 flex flex-col sm:flex-row items-center gap-6"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in srgb, " +
+              BLUE +
+              " 8%, transparent), color-mix(in srgb, " +
+              VIOLET +
+              " 10%, transparent))",
+          }}
+        >
+          <ScoreRing score={ch.score} tone={tone} celebrate={celebrate} size={152} />
 
-          {/* Headline */}
           <div className="min-w-0 space-y-2">
             <div className="premium-eyebrow" style={{ color: tone }}>
-              <span>Classroom Health</span>
+              <span>This week&apos;s status</span>
             </div>
             <h3
               className="font-heading font-extrabold text-[24px] md:text-[27px] leading-tight"
@@ -241,53 +236,95 @@ export function ClassroomHealthScore({
               {ch.delta} points this week
             </span>
           </div>
+        </div>
 
-          <div className="hidden lg:block w-px self-stretch bg-border/60" aria-hidden />
-
-          {/* Right-hand stats */}
-          <div className="min-w-0 space-y-4">
-            <div className="flex items-start gap-3">
-              <span
-                className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
-              >
-                <Users className="h-4.5 w-4.5" />
-              </span>
-              <p className="text-[13.5px] leading-snug min-w-0">
-                <span className="block font-heading font-extrabold text-foreground">
-                  {healthy} of {total} students
-                </span>
-                <span className="text-muted-foreground">
-                  are showing Stable or Strong classroom health.
-                </span>
+        {/* Card 2 — the teacher's own selected focus area, as its own
+            standalone card so it reads as a distinct, tappable-feeling
+            highlight rather than a stat squeezed into the hero. */}
+        <div className="flex flex-col gap-2 min-w-0">
+          <div
+            className="relative overflow-hidden rounded-2xl border p-5 md:p-6 flex flex-col justify-center gap-3"
+            style={
+              focusDriver
+                ? {
+                    borderColor: `color-mix(in srgb, ${focusDriver.tone} 35%, transparent)`,
+                    background: `color-mix(in srgb, ${focusDriver.tone} 8%, transparent)`,
+                  }
+                : undefined
+            }
+          >
+            {focusDriver ? (
+              <>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0"
+                    style={{ background: `color-mix(in srgb, ${focusDriver.tone} 18%, transparent)`, color: focusDriver.tone }}
+                  >
+                    <focusDriver.Icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-[0.12em]"
+                    style={{ color: focusDriver.tone }}
+                  >
+                    Your focus area
+                  </span>
+                </div>
+                <div>
+                  <h4
+                    className="font-heading font-extrabold text-[18px] leading-tight"
+                    style={{ color: focusDriver.tone }}
+                  >
+                    {focusDriver.title}
+                  </h4>
+                  <p className="text-[12px] text-muted-foreground mt-1 leading-snug">
+                    {focusDriver.description}
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[10.5px] font-bold text-muted-foreground mb-1">
+                    <span>SCORE</span>
+                    <span className="tabular-nums">{focusScore}/100</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-background/80 overflow-hidden">
+                    <motion.span
+                      initial={reduce ? undefined : { scaleX: 0 }}
+                      animate={{ scaleX: focusScore / 100 }}
+                      transition={{ duration: 0.5, ease: EASE }}
+                      className="block h-full w-full origin-left rounded-full"
+                      style={{ background: focusDriver.tone }}
+                    />
+                  </div>
+                </div>
+                <p
+                  className="flex items-start gap-1.5 text-[11px] leading-snug"
+                  style={{ color: `color-mix(in srgb, ${focusDriver.tone} 80%, hsl(var(--muted-foreground)))` }}
+                >
+                  <Sparkles className="h-3 w-3 mt-[1.5px] shrink-0" />
+                  {focusInsight(focusArea as OnboardingGoal, ch.pillars)}
+                </p>
+              </>
+            ) : (
+              <p className="text-[13px] text-muted-foreground leading-snug">
+                Pick a focus area from Today&apos;s Priority Actions to see it highlighted here.
               </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span
-                className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${VIOLET} 14%, transparent)`, color: VIOLET }}
-              >
-                <Lightbulb className="h-4.5 w-4.5" />
-              </span>
-              <p className="text-[13.5px] leading-snug min-w-0">
-                <span className="block font-heading font-extrabold text-foreground">
-                  Most students
-                </span>
-                <span className="text-muted-foreground">
-                  {areasNeedingSupport > 0
-                    ? `are meeting expectations, with ${
-                        areasNeedingSupport === 1 ? "one area" : `${areasNeedingSupport} areas`
-                      } needing support.`
-                    : "are meeting expectations across every area."}
-                </span>
-              </p>
-            </div>
+            )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setFocusPromptOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-border/60 hover:border-border transition-colors w-fit self-center"
+          >
+            <Pencil className="h-3 w-3" />
+            {focusDriver ? "Change focus area" : "Choose focus area"}
+          </button>
         </div>
       </div>
 
-      {/* Strongest area / Needs attention / Your focus area */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <FocusAreaDialog open={focusPromptOpen} onOpenChange={setFocusPromptOpen} />
+
+      {/* Strongest area / Needs attention — focus area now lives in the hero above */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -357,37 +394,6 @@ export function ClassroomHealthScore({
             {weakDelta} vs last week
           </span>
         </div>
-
-        {focusDriver && (
-          <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${focusDriver.tone} 14%, transparent)`, color: focusDriver.tone }}
-              >
-                <focusDriver.Icon className="h-3.5 w-3.5" />
-              </span>
-              <span
-                className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
-                style={{ color: focusDriver.tone }}
-              >
-                Your focus area
-              </span>
-            </div>
-            <h3
-              className="font-heading font-extrabold text-[16px] leading-tight"
-              style={{ color: focusDriver.tone }}
-            >
-              {focusDriver.title}
-            </h3>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              {focusDriver.description}
-            </p>
-            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
-              {focusScore}/100
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Student distribution */}
@@ -501,92 +507,20 @@ export function ClassroomHealthScore({
             <span className="h-12 w-12 rounded-2xl bg-primary/15 text-primary inline-flex items-center justify-center">
               <Sparkles className="h-5 w-5" />
             </span>
-            {locked ? (
-              <>
-                <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost ready</h3>
-                <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
-                  Complete your first class check-in to begin building your Class Health Score.
-                </p>
-                <Link href="/check-in" className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5">
-                  <span className="sheen" aria-hidden />
-                  <span className="inline-flex items-center gap-1.5">
-                    Start check-in
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </Link>
-              </>
-            ) : (
-              <>
-                <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost there</h3>
-                <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
-                  Your first check-in is complete! We need a few more parents to activate Fumi to unlock
-                  your Class Health Score.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPendingOpen(true)}
-                  className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5"
-                >
-                  <span className="sheen" aria-hidden />
-                  <span className="inline-flex items-center gap-1.5">
-                    View pending responses
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </button>
-              </>
-            )}
+            <h3 className="font-heading font-extrabold text-[19px] leading-tight mt-4">Almost ready</h3>
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
+              Complete your first class check-in to begin building your Class Health Score.
+            </p>
+            <Link href="/check-in" className="cta-premium !h-11 !w-auto px-5 !text-[13px] mt-5">
+              <span className="sheen" aria-hidden />
+              <span className="inline-flex items-center gap-1.5">
+                Start check-in
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
           </div>
         </div>
       )}
-
-      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Pending Fumi responses</DialogTitle>
-            <DialogDescription>
-              {pendingStudents.length} of {roster.length} parents haven&apos;t activated Fumi yet.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="max-h-[45vh] overflow-y-auto -mx-1 px-1 space-y-1.5">
-            {pendingStudents.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold truncate">{s.childName}</p>
-                  <p className="text-[11.5px] text-muted-foreground truncate">
-                    {s.parentName ?? s.parentEmail ?? s.parentPhone ?? "No contact on file"}
-                  </p>
-                </div>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-[0.08em] px-2 py-0.5 rounded-full shrink-0"
-                  style={
-                    s.status === "invited"
-                      ? { background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }
-                      : { background: `color-mix(in srgb, ${RED} 14%, transparent)`, color: RED }
-                  }
-                >
-                  {s.status === "invited" ? "Invited" : "Not invited"}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSendReminders}
-            className="cta-premium !h-11 !w-full !text-[13px]"
-          >
-            <span className="sheen" aria-hidden />
-            <span className="inline-flex items-center gap-1.5">
-              <Send className="h-4 w-4" />
-              Send reminders
-            </span>
-          </button>
-        </DialogContent>
-      </Dialog>
       </div>
     </motion.section>
   );

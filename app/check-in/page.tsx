@@ -26,6 +26,7 @@ import { AppShell } from "@/components/dashboard/AppShell";
 import { CheckInStatusBanner } from "@/components/dashboard/CheckInStatusBanner";
 import { CheckInToolsGrid } from "@/components/dashboard/CheckInToolsGrid";
 import { CheckInToolsTour } from "@/components/onboarding/CheckInToolsTour";
+import { FtueCompleteDialog } from "@/components/onboarding/FtueCompleteDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -191,10 +192,13 @@ function CheckInPage() {
   }, []);
 
   // The FTUE's final step — a purely explanatory walkthrough of this page's
-  // tools. Finishing (or dismissing) it flips the stage to "done" and sends
-  // the teacher back to the dashboard to see everything unlock.
-  const finishTour = () => {
-    toast.success("Your classroom insights are ready!");
+  // tools. Finishing (or dismissing) it flips the stage to "done" — instead
+  // of silently redirecting, show a real "you're done" beat first, and only
+  // head back to the (now-unlocked) dashboard once the teacher dismisses it.
+  const [showComplete, setShowComplete] = useState(false);
+  const finishTour = () => setShowComplete(true);
+  const handleCompleteDone = () => {
+    setShowComplete(false);
     router.push("/dashboard?focus=classroom-health");
   };
 
@@ -392,6 +396,7 @@ function CheckInPage() {
     </div>
 
     <CheckInToolsTour active={ftueStage === "tour"} onDone={finishTour} />
+    <FtueCompleteDialog open={showComplete} onDone={handleCompleteDone} />
 
     <Dialog open={!!reportCheckIn} onOpenChange={(o) => !o && setReportCheckIn(null)}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">

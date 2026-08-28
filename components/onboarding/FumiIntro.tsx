@@ -71,7 +71,12 @@ export function FumiIntro({ onBack, onComplete }: { onBack?: () => void; onCompl
   );
 
   return (
-    <div className="w-full min-h-screen flex flex-col items-center justify-center text-center px-6 py-14">
+    // No min-h-screen here — <main> in app/welcome/page.tsx already reserves
+    // min-h-[calc(100vh-90px)] and centers its child via flex items-center
+    // (same as every other step, e.g. StepWelcome). Adding another 100vh
+    // minimum on top of that double-counts the header's height and forces
+    // the page to scroll regardless of how compact this content is.
+    <div className="w-full flex flex-col items-center text-center px-6 py-4">
       <AnimatePresence mode="wait" custom={direction} initial={false}>
         <motion.div
           key={idx}
@@ -80,36 +85,36 @@ export function FumiIntro({ onBack, onComplete }: { onBack?: () => void; onCompl
           animate={reduce ? { opacity: 1 } : { opacity: 1, x: 0, filter: "blur(0px)" }}
           exit={reduce ? { opacity: 0 } : { opacity: 0, x: -direction * 32, filter: "blur(6px)" }}
           transition={{ duration: 0.45, ease: EASE }}
-          className="w-full max-w-3xl"
+          className="w-full max-w-5xl"
         >
           <FumiIntroVisualPicker visual={screen.visual ?? "mascot"} />
           <h1
             className={cn(
-              "font-heading font-black text-[38px] sm:text-[52px] md:text-[60px] leading-[1.05] tracking-tight",
-              screen.visual === "none" ? "mt-0" : "mt-8",
+              "font-heading font-black text-[28px] sm:text-[36px] md:text-[40px] leading-[1.1] tracking-tight",
+              screen.visual === "none" ? "mt-0" : "mt-4",
             )}
           >
             {screen.title}
           </h1>
-          <p className="mt-6 text-[17px] sm:text-[19px] text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-2.5 text-[15px] sm:text-[16.5px] text-muted-foreground leading-relaxed max-w-2xl mx-auto">
             {screen.body}
           </p>
-          <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 backdrop-blur px-5 py-2.5 text-[13.5px] font-semibold text-foreground/80">
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 backdrop-blur px-4 py-2 text-[12.5px] font-semibold text-foreground/80">
             <Sparkles className="h-4 w-4 text-primary shrink-0" />
             {screen.bottomText}
           </div>
         </motion.div>
       </AnimatePresence>
 
-      <div className="mt-10">{dots}</div>
+      <div className="mt-3">{dots}</div>
 
-      <div className="mt-6 flex items-center justify-center gap-3">
+      <div className="mt-2.5 flex items-center justify-center gap-3">
         {backButton}
-        <button type="button" onClick={next} className="cta-premium !h-13 !w-auto px-9 !text-[16px]">
+        <button type="button" onClick={next} className="cta-premium !h-11 !w-auto px-8 !text-[14px]">
           <span className="sheen" aria-hidden />
           <span className="inline-flex items-center gap-2">
             {screen.cta}
-            <ArrowRight className="h-[18px] w-[18px]" />
+            <ArrowRight className="h-[17px] w-[17px]" />
           </span>
         </button>
       </div>

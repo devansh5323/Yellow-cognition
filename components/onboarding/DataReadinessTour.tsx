@@ -57,23 +57,29 @@ export function DataReadinessTour({
   useLayoutEffect(() => {
     if (!step) return;
     const selector = `[data-tour-target='${step.target}']`;
-    const update = () => {
+    const measure = () => {
       const el = document.querySelector(selector) as HTMLElement | null;
-      if (!el) {
-        setRect(null);
-        return;
-      }
-      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-      requestAnimationFrame(() => {
-        setRect(el.getBoundingClientRect());
-      });
+      setRect(el ? el.getBoundingClientRect() : null);
     };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    const el = document.querySelector(selector) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    measure();
+    // A single requestAnimationFrame right after starting a *smooth* scroll
+    // measures a mid-animation position, not where the element actually
+    // ends up — the spotlight/tooltip would land offset from the real
+    // element (confirmed via a real overlap bug: the tooltip landed partly
+    // on top of the spotlighted card instead of below it). The scroll
+    // listener re-measures live while it's moving; this timeout is one
+    // authoritative measurement once a native smooth scroll has had time to
+    // settle (typical duration, not exact per browser, but comfortably
+    // past it).
+    const settle = window.setTimeout(measure, 450);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
     return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      window.clearTimeout(settle);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
     };
   }, [step]);
 
@@ -162,7 +168,7 @@ export function DataReadinessTour({
               exit={{ opacity: 0, scale: 0.96, y: 6 }}
               transition={{ duration: reduce ? 0 : 0.32, ease: EASE }}
             >
-              <div className="relative auth-card rounded-2xl p-5">
+              <div className="relative rounded-2xl border border-border/70 bg-card shadow-[0_24px_60px_-20px_hsl(230_50%_20%/0.35)] p-5">
                 <span className="auth-card-ring rounded-2xl" aria-hidden />
                 <div className="relative">
                   <div className="flex items-start gap-3">
@@ -218,14 +224,27 @@ export function DataReadinessTour({
   );
 }
 
+/** Places the card below the spotlighted rect when there's room, otherwise
+ * flips it above — a plain "clamp to vh - 240" (the earlier version) can
+ * land the card back on top of a tall/low-on-the-page rect instead of
+ * genuinely avoiding it (confirmed via a real overlap bug against the
+ * Classroom Log tool cards). cardH is an estimate (actual content varies a
+ * little), generous enough that the flip decision stays on the safe side. */
 function computeTooltip(rect: DOMRect | null): { left: number; top: number } {
   if (!rect) return { left: 0, top: 0 };
   const margin = 18;
   const cardW = 320;
+  const cardH = 220;
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
   const cx = rect.left + rect.width / 2;
   const left = Math.max(12, Math.min(cx - cardW / 2, vw - cardW - 12));
-  const top = Math.min(rect.bottom + margin, vh - 240);
+
+  const spaceBelow = vh - rect.bottom;
+  const spaceAbove = rect.top;
+  const top =
+    spaceBelow >= cardH + margin || spaceBelow >= spaceAbove
+      ? Math.min(rect.bottom + margin, vh - 12 - cardH)
+      : Math.max(12, rect.top - margin - cardH);
   return { left, top };
 }

@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
   Brain,
+  ChevronRight,
   ClipboardList,
   Cloud,
   Frown,
@@ -278,10 +279,9 @@ function DriverGroup({
         </div>
       </div>
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="relative flex flex-col gap-2">
         {items.map((item, i) => {
           const itemBand = healthBand(item.score);
-          const isLastOdd = items.length % 2 === 1 && i === items.length - 1;
           return (
             <motion.button
               type="button"
@@ -292,9 +292,8 @@ function DriverGroup({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.3, ease: EASE }}
               className={cn(
-                "group relative w-full text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-3.5 pr-3 py-3 transition-all",
-                onSelect && "hover:border-foreground/15 hover:bg-background/90 hover:shadow-sm cursor-pointer",
-                isLastOdd && "sm:col-span-2",
+                "group relative w-full text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-3 flex items-center gap-3 transition-all",
+                onSelect && "hover:border-foreground/20 hover:bg-background/90 hover:shadow-sm cursor-pointer",
               )}
             >
               <span
@@ -302,37 +301,45 @@ function DriverGroup({
                 aria-hidden
                 style={{ background: item.tone }}
               />
-              <div className="flex items-start justify-between gap-2.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="h-7 w-7 rounded-lg inline-flex items-center justify-center shrink-0"
-                    style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
-                  >
-                    <item.Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </span>
-                  <div className="min-w-0 font-heading font-bold text-[12.5px] leading-tight truncate">
+              <span
+                className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
+              >
+                <item.Icon className="h-4 w-4" strokeWidth={2.2} />
+              </span>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-heading font-bold text-[12.5px] leading-tight truncate">
                     {item.title}
                   </div>
-                </div>
-                <div className="flex items-baseline gap-0.5 shrink-0">
                   <span
-                    className="font-heading font-extrabold text-[16px] tabular-nums leading-none"
-                    style={{ color: item.tone }}
+                    className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+                    style={{ background: `color-mix(in srgb, ${itemBand.tone} 12%, transparent)`, color: itemBand.tone }}
                   >
-                    {item.score}
+                    {itemBand.label}
                   </span>
-                  <span className="text-muted-foreground text-[9px] font-bold">/100</span>
+                </div>
+                <p className="text-[10.5px] text-muted-foreground mt-1 leading-snug truncate">
+                  {item.description}
+                </p>
+                <div className="mt-2 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+                  <motion.span
+                    initial={reduce ? undefined : { scaleX: 0 }}
+                    animate={{ scaleX: item.score / 100 }}
+                    transition={{ duration: 0.5, ease: EASE, delay: 0.04 * i }}
+                    className="block h-full w-full origin-left rounded-full"
+                    style={{ background: item.tone }}
+                  />
                 </div>
               </div>
 
-              <p className="text-[10.5px] text-muted-foreground mt-1.5 leading-snug">{item.description}</p>
-
-              <span
-                className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full w-fit"
-                style={{ background: `color-mix(in srgb, ${itemBand.tone} 12%, transparent)`, color: itemBand.tone }}
-              >
-                {itemBand.label}
-              </span>
+              {onSelect && (
+                <ChevronRight
+                  className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              )}
             </motion.button>
           );
         })}

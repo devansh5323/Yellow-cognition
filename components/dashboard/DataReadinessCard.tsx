@@ -6,7 +6,6 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   GraduationCap,
@@ -21,8 +20,14 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReturningActionHub } from "@/components/dashboard/ReturningActionHub";
 import { DataReadinessTour } from "@/components/onboarding/DataReadinessTour";
-import { getStats, getRoster, type InviteStats, type RosterStudent } from "@/lib/roster";
-import { listCheckInsForTeacher } from "@/lib/checkIn";
+import {
+  getStats,
+  getRoster,
+  sendReminders,
+  getRemindersCooldownUntil,
+  type InviteStats,
+  type RosterStudent,
+} from "@/lib/roster";
 import { getOnboarding, setOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { classHealth } from "@/lib/classHealth";
 import { DRIVER_META, driverScore } from "@/lib/driverMeta";
@@ -99,13 +104,6 @@ export function timeOfDayGreeting(): string {
   return "Good evening";
 }
 
-function relativeDaysAgo(dateStr: string): string {
-  const days = Math.floor((Date.now() - +new Date(dateStr)) / (24 * 60 * 60 * 1000));
-  if (days <= 0) return "today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
-}
-
 function buildStartSteps(): StartStep[] {
   const onboarding = getOnboarding();
   const classroomCount = onboarding.classrooms.length;
@@ -166,6 +164,7 @@ export function DataReadinessCard() {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<InviteStats | null>(null);
   const [roster, setRoster] = useState<RosterStudent[]>([]);
+  const [remindersCooldownUntil, setRemindersCooldownUntil] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [focusPromptOpen, setFocusPromptOpen] = useState(false);
   const [fumiPromptOpen, setFumiPromptOpen] = useState(false);
@@ -178,6 +177,7 @@ export function DataReadinessCard() {
     const refresh = () => {
       setStats(getStats());
       setRoster(getRoster());
+      setRemindersCooldownUntil(getRemindersCooldownUntil());
     };
     refresh();
     window.addEventListener("ah-roster-change", refresh);
@@ -230,15 +230,14 @@ export function DataReadinessCard() {
   // stranding the teacher with no visible way to finish the roster step.
   const hasClassroom = getOnboarding().classrooms.length > 0;
 
-  const lastCheckin = listCheckInsForTeacher(TEACHER_NAME)[0];
   const firstName = TEACHER_NAME.split(" ")[0];
 
-  // Mirrors Class Health Score's own unlock condition: the 3 steps alone
-  // only unlock that segment's "Start check-in" CTA, not the full RTUE —
-  // this card swaps over to the returning-user hub once every student has
-  // actually connected via Fumi too (same gate as showScore there).
-  const allFumiConnected = stats.total > 0 && stats.active === stats.total;
-  const isReturning = stepsAllDone && allFumiConnected;
+  // Mirrors Class Health Score's own unlock condition: once the 3 setup
+  // steps are done, this card swaps over to the returning-user hub — it no
+  // longer additionally waits on every student connecting via Fumi first,
+  // since that's out of the teacher's control (same gate removed from
+  // showScore there).
+  const isReturning = stepsAllDone;
 
   const handleStepAction = (id: StartStepId) => {
     if (id === "classroom") {
@@ -257,6 +256,15 @@ export function DataReadinessCard() {
   };
 
   const fumiActivated = !!getOnboarding().fumiActivated;
+
+  const handleResendInvites = () => {
+    const count = sendReminders();
+    toast.success(
+      count > 0
+        ? `Reminder sent to ${count} parent${count === 1 ? "" : "s"}.`
+        : "Everyone's already connected.",
+    );
+  };
 
   // Sends the Fumi companion link to every parent already linked in the
   // roster, in one shot — this dialog stays open afterward (not a one-step
@@ -281,22 +289,22 @@ export function DataReadinessCard() {
         aria-label="Data readiness"
         data-tour-target="data-readiness"
       >
-        {/* Header — clickable to expand/collapse the body */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-expanded={!collapsed}
-          aria-controls="data-readiness-steps"
-          className="group w-full text-left flex items-center justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        >
-          <div className="min-w-0">
+        {/* Header — title/chevron are clickable to expand/collapse the body */}
+        <div className="group w-full flex items-center justify-between gap-3 flex-wrap -m-1 p-1 rounded-xl transition-colors hover:bg-muted/30">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-controls="data-readiness-steps"
+            className="min-w-0 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
             {isReturning ? (
               <>
                 <div className="premium-eyebrow">
                   <span>{`${timeOfDayGreeting()}, ${firstName} 👋`}</span>
                 </div>
                 <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
-                  Data Readiness & Action Hub
+                  Today&apos;s Priority Actions
                 </h2>
               </>
             ) : (
@@ -304,29 +312,17 @@ export function DataReadinessCard() {
                 Three steps to get started
               </h2>
             )}
-            <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
-              {isReturning
-                ? "Here's what needs your attention today to keep your class insights accurate and up to date."
-                : collapsed
+            {!isReturning && (
+              <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
+                {collapsed
                   ? "Click to view the steps that unlock the full picture."
                   : "Complete the steps below to unlock the full picture across the dashboard."}
-            </p>
-            {isReturning && (
-              <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground mt-3">
-                {lastCheckin ? (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} />
-                    Last check-in: {relativeDaysAgo(lastCheckin.createdAt)}
-                  </>
-                ) : (
-                  "No check-ins logged yet"
-                )}
               </p>
             )}
-          </div>
+          </button>
 
           {isReturning ? (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <div className="text-right">
                 <div className="premium-eyebrow">
                   <span>Class data overview</span>
@@ -336,17 +332,43 @@ export function DataReadinessCard() {
                   <span className="text-muted-foreground/70 text-[14px] font-bold"> of {total} connected</span>
                 </div>
               </div>
-              <span
-                aria-hidden
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover:bg-muted/60 group-hover:text-foreground"
+              {linked < total && (
+                <button
+                  type="button"
+                  onClick={handleResendInvites}
+                  disabled={!!remindersCooldownUntil}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0",
+                    remindersCooldownUntil
+                      ? "text-muted-foreground border-border/70 bg-muted/40 cursor-not-allowed"
+                      : "text-primary border-primary/25 bg-primary/5 hover:bg-primary/10",
+                  )}
+                >
+                  <Send className="h-3 w-3" />
+                  {remindersCooldownUntil ? "Invites sent" : "Resend invites"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-controls="data-readiness-steps"
+                aria-label={collapsed ? "Expand priority actions" : "Collapse priority actions"}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground shrink-0"
               >
                 <ChevronDown
                   className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
                 />
-              </span>
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-controls="data-readiness-steps"
+              className="flex items-center gap-3 shrink-0"
+            >
               <div className="text-right">
                 <div className="flex items-center gap-2 justify-end">
                   <span
@@ -391,9 +413,9 @@ export function DataReadinessCard() {
                   className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")}
                 />
               </span>
-            </div>
+            </button>
           )}
-        </button>
+        </div>
 
         {/* Body — collapsible */}
         <AnimatePresence initial={false}>
@@ -702,7 +724,7 @@ function StartStepCard({
   );
 }
 
-function FocusAreaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function FocusAreaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   // Recomputed each time the dialog opens rather than memoized — cheap
   // (same classHealth()/driverScore() pipeline DriverCards already calls
   // on every render) and always reflects the class's current real data.

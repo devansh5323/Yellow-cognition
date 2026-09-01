@@ -306,6 +306,29 @@ export function studentsByTaskCategory(
     .map((x) => x.s);
 }
 
+/* ─────────────────────────────────────────────────────────
+ * Problem areas → skills — static reference table tying each of the 7
+ * categories to the underlying cognitive skills it draws on.
+ * ───────────────────────────────────────────────────────── */
+
+const TASK_CATEGORY_SKILLS: Record<TaskCategoryKey, string[]> = {
+  initiation: ["Processing speed", "Procedural knowledge", "Self-regulation"],
+  persistence: ["Sustained attention", "Frustration tolerance", "Working memory"],
+  completion: ["Working memory", "Planning", "Monitoring"],
+  consistency: ["Behavioral control", "Monitoring"],
+  planning: ["Planning", "Time sharing", "Working memory"],
+  independence: ["Procedural knowledge", "Self-regulation", "Mental flexibility"],
+  challenge: ["Adaptive thinking", "Frustration tolerance", "Complex problem solving"],
+};
+
+export function taskProblemAreaToSkills(): { key: TaskCategoryKey; label: string; skills: string[] }[] {
+  return CATEGORY_ORDER.map((key) => ({
+    key,
+    label: TASK_CATEGORY_LABEL[key],
+    skills: TASK_CATEGORY_SKILLS[key],
+  }));
+}
+
 /** Returns the strongest and weakest categories for the headline call-out. */
 export function topAndBottomCategory(
   breakdown: TaskCategoryStat[],
@@ -371,7 +394,7 @@ export function taskEngagementInsights(students: Student[] = STUDENTS): TaskInsi
     },
     {
       id: "structure",
-      title: "Tasks may lack step-by-step structure",
+      title: "Tasks may lack structure or step-by-step guidance",
       detail:
         "Multi-step prompts lose ~30% of students by the third step. Add a printed checklist to long tasks.",
       tone: "watch",
@@ -384,7 +407,7 @@ export function taskEngagementInsights(students: Student[] = STUDENTS): TaskInsi
     },
     {
       id: "difficulty",
-      title: "Difficulty level may be inconsistent",
+      title: "Difficulty level may be too high or inconsistent",
       detail: `${inconsistentCount} students show big week-on-week swings. A short opening warm-up calibrates the room.`,
       tone: inconsistentCount > total * 0.3 ? "warning" : "watch",
       iconKey: "scale",
@@ -458,7 +481,7 @@ export function taskEngagementInsights(students: Student[] = STUDENTS): TaskInsi
 }
 
 /* ─────────────────────────────────────────────────────────
- * Yellow Recommends — task engagement strategies
+ * Yellow Recommends — task interventions
  * ───────────────────────────────────────────────────────── */
 
 export type TaskStrategyKind = "Whole Class" | "Small Group" | "Individual" | "Routine";
@@ -475,15 +498,15 @@ export type TaskStrategy = {
 const STRATEGIES: TaskStrategy[] = [
   {
     id: "start-window",
-    title: "Set a 90-second start window with a visible timer",
-    rationale: "Anchors the start of independent work and reduces drift.",
+    title: "Set clear time limits for each step",
+    rationale: "Breaks the task into visible time boxes so momentum doesn't stall mid-way.",
     kind: "Routine",
     durationMins: 0,
     targets: ["initiation", "consistency"],
   },
   {
     id: "countdown",
-    title: "Use a 'start-now' countdown cue between steps",
+    title: "Use 'start now' cues (countdown / timer)",
     rationale: "Cuts the second-step latency on multi-step tasks.",
     kind: "Routine",
     durationMins: 0,
@@ -491,7 +514,7 @@ const STRATEGIES: TaskStrategy[] = [
   },
   {
     id: "checkpoints",
-    title: "Add 3 checkpoints to long tasks",
+    title: "Add check-points within tasks",
     rationale: "Breaks large work into chunks students actually finish.",
     kind: "Whole Class",
     durationMins: 0,
@@ -499,10 +522,10 @@ const STRATEGIES: TaskStrategy[] = [
   },
   {
     id: "quick-start",
-    title: "Open with a 60-second quick-start challenge",
+    title: "2-min 'quick start' challenge",
     rationale: "Warms the room and calibrates difficulty before the main task.",
     kind: "Whole Class",
-    durationMins: 1,
+    durationMins: 2,
     targets: ["initiation", "challenge"],
   },
   {
@@ -606,7 +629,7 @@ function inferPrimaryCategory(s: Student): TaskCategoryKey {
 
 export function studentsNeedingTaskSupport(
   students: Student[] = STUDENTS,
-  limit = 12,
+  limit = 5,
 ): TaskSupport[] {
   const composites = studentComposites(students);
   // Lowest task-pillar scores first.
@@ -645,64 +668,42 @@ export type TaskCheckInQuestion = {
 
 export const TASK_CHECKIN_QUESTIONS: TaskCheckInQuestion[] = [
   {
-    id: "completion",
-    prompt: "What share of students completed independent work this month?",
+    id: "completion-share",
+    prompt: "How many students complete tasks fully?",
     options: [
-      { id: "lt25", label: "Under 25%", weight: -2 },
-      { id: "25to50", label: "25–50%", weight: -1 },
-      { id: "50to75", label: "50–75%", weight: 0 },
-      { id: "gt75", label: "Over 75%", weight: 2 },
+      { id: "most", label: "Most students", weight: 2 },
+      { id: "half", label: "About half", weight: 0 },
+      { id: "few", label: "Few students", weight: -1 },
+      { id: "almost-none", label: "Almost None", weight: -2 },
     ],
   },
   {
-    id: "consistency",
-    prompt: "How consistent was task completion week-to-week?",
+    id: "completion-frequency",
+    prompt: "How often do students complete tasks fully?",
     options: [
-      { id: "swing", label: "Big swings", weight: -2 },
-      { id: "varied", label: "Varied — depends on the task", weight: -1 },
-      { id: "ok", label: "Mostly steady", weight: 1 },
-      { id: "steady", label: "Very steady", weight: 2 },
+      { id: "almost-always", label: "Almost always", weight: 2 },
+      { id: "most-of-time", label: "Most of the time", weight: 1 },
+      { id: "sometimes", label: "Sometimes", weight: 0 },
+      { id: "occasionally", label: "Occasionally", weight: -1 },
+      { id: "never", label: "Never", weight: -2 },
     ],
   },
   {
     id: "independence",
-    prompt: "How independently did students work on assigned tasks?",
+    prompt: "How independently do students work?",
     options: [
-      { id: "high-prompt", label: "Most needed prompting", weight: -2 },
-      { id: "some-prompt", label: "Some needed reminders", weight: -1 },
-      { id: "ok", label: "Most worked on their own", weight: 1 },
-      { id: "very", label: "Strong independence", weight: 2 },
+      { id: "mostly-independent", label: "Mostly independent", weight: 2 },
+      { id: "peer-support", label: "Some support from peers", weight: 0 },
+      { id: "teacher-guidance", label: "Constant guidance from teachers", weight: -2 },
     ],
   },
   {
-    id: "engagement",
-    prompt: "How consistent was engagement during the month?",
+    id: "engagement-consistency",
+    prompt: "How consistent is engagement across the class?",
     options: [
-      { id: "low", label: "Hard to keep them engaged", weight: -2 },
-      { id: "patchy", label: "Patchy — depended on activity", weight: -1 },
-      { id: "ok", label: "Engaged on most days", weight: 1 },
-      { id: "high", label: "Engaged across the month", weight: 2 },
-    ],
-  },
-  {
-    id: "initiation",
-    prompt: "How quickly did the class begin tasks after instructions?",
-    options: [
-      { id: "slow", label: "More than 2 min", weight: -2 },
-      { id: "1to2", label: "1–2 min", weight: -1 },
-      { id: "30to60", label: "30–60 sec", weight: 0 },
-      { id: "lt30", label: "Under 30 sec", weight: 2 },
-    ],
-  },
-  {
-    id: "pulse",
-    prompt: "Quick pulse — how engaged was the class today?",
-    helper: "Single tap. We use this as a 30-day rolling sentiment line.",
-    options: [
-      { id: "great", label: "Great — focused and persistent", weight: 2 },
-      { id: "ok", label: "Engaged with some redirects", weight: 1 },
-      { id: "tough", label: "Tough — many drop-offs", weight: -1 },
-      { id: "exhausting", label: "Exhausting", weight: -2 },
+      { id: "consistent", label: "Consistent", weight: 2 },
+      { id: "fluctuates", label: "Fluctuates", weight: 0 },
+      { id: "highly-inconsistent", label: "Highly inconsistent", weight: -2 },
     ],
   },
 ];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -8,17 +8,12 @@ import {
   Brain,
   ChevronRight,
   ClipboardList,
-  Cloud,
-  Frown,
-  HeartHandshake,
-  HeartPulse,
   Shield,
   Target,
   type LucideIcon,
 } from "lucide-react";
-import { classHealth, pillarScores, type PillarKey } from "@/lib/classHealth";
-import { STUDENTS, type RiskLevel, type Student } from "@/data/mockData";
-import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
+import { classHealth } from "@/lib/classHealth";
+import { WellbeingDriverCards } from "@/components/dashboard/WellbeingDriverCards";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -27,7 +22,6 @@ const BLUE = "hsl(212 90% 58%)";
 const GREEN = "hsl(142 55% 45%)";
 const PURPLE = "hsl(262 60% 62%)";
 const ORANGE = "hsl(28 88% 54%)";
-const INDIGO = "hsl(243 75% 65%)";
 const AMBER = "hsl(38 92% 55%)";
 const RED = "hsl(0 78% 58%)";
 
@@ -54,30 +48,6 @@ function average(items: DriverItem[]): number {
   return Math.round(items.reduce((sum, i) => sum + i.score, 0) / items.length);
 }
 
-const PILLAR_KEYS: PillarKey[] = ["focus", "academic", "task", "behavior"];
-
-function isPillarKey(key: string): key is PillarKey {
-  return (PILLAR_KEYS as string[]).includes(key);
-}
-
-const RISK_RANK: Record<RiskLevel, number> = { "at-risk": 3, high: 2, medium: 1, low: 0 };
-
-/** Cognitive drivers map onto real per-student pillar scores, so the
- * drilldown can show an exact number and sort weakest-first. Wellbeing
- * drivers only have a class-level mock average (no per-student model exists
- * yet), so their drilldown surfaces at-risk students instead of a fabricated
- * per-driver score. */
-function driverDrilldown(key: string): {
-  students: Student[];
-  metricValue?: (s: Student) => string | number;
-} {
-  if (isPillarKey(key)) {
-    const students = [...STUDENTS].sort((a, b) => pillarScores(a)[key] - pillarScores(b)[key]);
-    return { students, metricValue: (s) => pillarScores(s)[key] };
-  }
-  const students = [...STUDENTS].sort((a, b) => RISK_RANK[b.risk] - RISK_RANK[a.risk]);
-  return { students };
-}
 
 export function DriverCards({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
@@ -85,23 +55,20 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
   // Locked (FTUE) passes an empty roster so every pillar score is zero
   // instead of the mock class's simulated history.
   const ch = useMemo(() => classHealth(locked ? [] : undefined), [locked]);
-  const [drillKey, setDrillKey] = useState<string | null>(null);
 
-  // "Behavior and discipline" and "Attention and focus" each have a full
-  // dedicated analytics page — send them there instead of the generic
-  // student-list drilldown the other drivers use (they have no page of
-  // their own to go to).
+  // "Behavior and discipline", "Attention and focus", "Task engagement", and
+  // "Learning readiness" each have a full dedicated analytics page — send
+  // them there. The other drivers don't have a page of their own yet, so
+  // their "View details" is a no-op until that's designed.
   const DEDICATED_PAGE: Partial<Record<string, string>> = {
     behavior: "/behavior",
     focus: "/focus",
+    task: "/task-engagement",
+    academic: "/learning-readiness",
   };
   const handleSelect = (key: string) => {
     const href = DEDICATED_PAGE[key];
-    if (href) {
-      router.push(href);
-      return;
-    }
-    setDrillKey(key);
+    if (href) router.push(href);
   };
 
   const cognitive: DriverItem[] = [
@@ -139,41 +106,6 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
     },
   ];
 
-  // Mirrors StudentWellbeingRow.tsx's demo scores (72/81/64) — this is the
-  // same "hardcoded but plausible" data, just regrouped under Driver Cards'
-  // Student Wellbeing card. Zeroed when locked, same as every other FTUE
-  // segment on this dashboard.
-  const wellbeing: DriverItem[] = [
-    {
-      key: "anxiety",
-      title: "Anxiety and Coping Index",
-      description: "How well your class copes with stress",
-      Icon: Cloud,
-      tone: INDIGO,
-      score: locked ? 0 : 72,
-    },
-    {
-      key: "peer-safety",
-      title: "Peer Safety and Belonging",
-      description: "How inclusive peer interactions are in your class",
-      Icon: HeartHandshake,
-      tone: PURPLE,
-      score: locked ? 0 : 81,
-    },
-    {
-      key: "frustration",
-      title: "Anger and Emotional Regulation",
-      description: "How your class manages strong emotions",
-      Icon: Frown,
-      tone: ORANGE,
-      score: locked ? 0 : 64,
-    },
-  ];
-
-  const allItems = [...cognitive, ...wellbeing];
-  const drillItem = drillKey ? allItems.find((i) => i.key === drillKey) : undefined;
-  const drill = drillKey ? driverDrilldown(drillKey) : null;
-
   return (
     <motion.section
       initial={reduce ? undefined : { opacity: 0, y: 8 }}
@@ -198,31 +130,8 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
           reduce={!!reduce}
           onSelect={locked ? undefined : handleSelect}
         />
-        <DriverGroup
-          title="Student Wellbeing"
-          Icon={HeartPulse}
-          tone={INDIGO}
-          items={wellbeing}
-          reduce={!!reduce}
-          onSelect={locked ? undefined : handleSelect}
-        />
+        <WellbeingDriverCards locked={locked} />
       </div>
-
-      {drillItem && drill && (
-        <StudentDrillDialog
-          open={!!drillKey}
-          onOpenChange={(open) => setDrillKey(open ? drillKey : null)}
-          title={drillItem.title}
-          description={
-            isPillarKey(drillItem.key)
-              ? `${drill.students.length} students, sorted lowest first for ${drillItem.title.toLowerCase()}.`
-              : `${drill.students.length} students to check in on for ${drillItem.title.toLowerCase()}.`
-          }
-          students={drill.students}
-          metricLabel={drill.metricValue ? "/100" : undefined}
-          metricValue={drill.metricValue}
-        />
-      )}
     </motion.section>
   );
 }
@@ -246,7 +155,7 @@ function DriverGroup({
   const band = healthBand(avg);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 md:p-6 flex flex-col gap-4">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-7 flex flex-col gap-5">
       <div
         className="absolute inset-0 pointer-events-none"
         aria-hidden
@@ -279,7 +188,7 @@ function DriverGroup({
         </div>
       </div>
 
-      <div className="relative flex flex-col gap-2">
+      <div className="relative flex flex-col gap-3">
         {items.map((item, i) => {
           const itemBand = healthBand(item.score);
           return (
@@ -292,7 +201,7 @@ function DriverGroup({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.3, ease: EASE }}
               className={cn(
-                "group relative w-full text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-3 flex items-center gap-3 transition-all",
+                "group relative w-full text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-4 flex items-center gap-3.5 transition-all",
                 onSelect && "hover:border-foreground/20 hover:bg-background/90 hover:shadow-sm cursor-pointer",
               )}
             >
@@ -302,10 +211,10 @@ function DriverGroup({
                 style={{ background: item.tone }}
               />
               <span
-                className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+                className="h-10 w-10 rounded-lg inline-flex items-center justify-center shrink-0"
                 style={{ background: `color-mix(in srgb, ${item.tone} 14%, transparent)`, color: item.tone }}
               >
-                <item.Icon className="h-4 w-4" strokeWidth={2.2} />
+                <item.Icon className="h-4.5 w-4.5" strokeWidth={2.2} />
               </span>
 
               <div className="flex-1 min-w-0">
@@ -320,10 +229,10 @@ function DriverGroup({
                     {itemBand.label}
                   </span>
                 </div>
-                <p className="text-[10.5px] text-muted-foreground mt-1 leading-snug truncate">
+                <p className="text-[10.5px] text-muted-foreground mt-1.5 leading-snug truncate">
                   {item.description}
                 </p>
-                <div className="mt-2 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+                <div className="mt-3.5 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
                   <motion.span
                     initial={reduce ? undefined : { scaleX: 0 }}
                     animate={{ scaleX: item.score / 100 }}
@@ -335,10 +244,13 @@ function DriverGroup({
               </div>
 
               {onSelect && (
-                <ChevronRight
-                  className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-hover:translate-x-0.5"
-                  aria-hidden
-                />
+                <span
+                  className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-2 rounded-lg transition-colors"
+                  style={{ color: item.tone, background: `color-mix(in srgb, ${item.tone} 10%, transparent)` }}
+                >
+                  View details
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </span>
               )}
             </motion.button>
           );

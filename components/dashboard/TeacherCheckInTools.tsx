@@ -96,10 +96,9 @@ export function TeacherCheckInTools({
       voiceBased: true,
       statIcon: ClipboardCheck,
       statLabel: `This week: ${stats.behaviorLogsThisWeek} logged`,
-      cta: "Hold to speak",
+      cta: "Log behaviour",
       ctaIcon: Mic,
-      onOpenTool: () =>
-        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "negative" } })),
+      onOpenTool: () => window.dispatchEvent(new CustomEvent("ah-open-yellow-ai-log-behavior")),
     },
     {
       key: "positive-log",
@@ -112,8 +111,7 @@ export function TeacherCheckInTools({
       statLabel: `${stats.positiveLogsThisWeek} positives`,
       cta: "Log positive",
       ctaIcon: Mic,
-      onOpenTool: () =>
-        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "positive" } })),
+      onOpenTool: () => window.dispatchEvent(new CustomEvent("ah-open-yellow-ai-log-positive")),
     },
     {
       key: "intervention-followup",

@@ -13,23 +13,21 @@ import {
   AlertTriangle,
   Tag,
   Plus,
-  StickyNote,
-  Phone,
   Users,
   Filter,
   Sparkles,
   ClipboardCheck,
   Gamepad2,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { STUDENTS, type RiskLevel, type Student } from "@/data/mockData";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { RiskBadge } from "@/components/dashboard/RiskBadge";
 import { CompareDrawer } from "@/components/dashboard/CompareDrawer";
-import { NoteDialog } from "@/components/dashboard/NoteDialog";
-import { ContactParentDialog } from "@/components/dashboard/ContactParentDialog";
 import {
   bulkSetRisk,
   bulkAddTag,
@@ -87,8 +85,6 @@ function StudentsPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [customTag, setCustomTag] = useState("");
-  const [noteStudent, setNoteStudent] = useState<Student | null>(null);
-  const [contactStudent, setContactStudent] = useState<Student | null>(null);
 
   const classrooms = useMemo(() => {
     const set = new Set<string>();
@@ -117,8 +113,12 @@ function StudentsPage() {
     const atRisk = classFiltered.filter((s) => s.risk === "at-risk" || s.risk === "high").length;
     const onTrack = classFiltered.filter((s) => s.risk === "low").length;
     const assessments = classFiltered.reduce((acc, s) => acc + s.sessions.length, 0);
-    const games = classFiltered.reduce((acc, s) => acc + s.gamesPlayed, 0);
-    return { total, atRisk, onTrack, assessments, games };
+    const gameMinutes = classFiltered.reduce(
+      (acc, s) =>
+        acc + s.sessions.filter((ses) => ses.type === "Neurogame").reduce((a, ses) => a + ses.duration, 0),
+      0,
+    );
+    return { total, atRisk, onTrack, assessments, gameMinutes };
   }, [classFiltered]);
 
   const filtered = useMemo(() => {
@@ -230,8 +230,8 @@ function StudentsPage() {
         <KpiCard
           icon={Gamepad2}
           label="Neurogames"
-          value={kpiStats.games}
-          meta="played"
+          value={kpiStats.gameMinutes}
+          meta="mins played"
           tone="warning"
         />
       </motion.section>
@@ -401,9 +401,22 @@ function StudentsPage() {
               <tr className="text-left">
                 <th className="p-3 w-10"></th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Student</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Classroom</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">PFI</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Attention</th>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 cursor-default">
+                          Focus Score
+                          <Info className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-[11px] leading-snug normal-case">
+                        A 0–100 score reflecting how focused and engaged this student has been in
+                        recent sessions.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Trend</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Games</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Status</th>
@@ -415,7 +428,6 @@ function StudentsPage() {
               {filtered.map((s) => {
                 const delta = s.pfi - s.pfiPrevCheckIn;
                 const completion = Math.round((s.gamesPlayed / s.gamesAssigned) * 100);
-                const ai = attentionIndex(s);
                 const isSelected = selected.has(s.id);
                 const disabled = !isSelected && selected.size >= MAX_COMPARE;
                 const tags = s.interventionTags;
@@ -467,14 +479,8 @@ function StudentsPage() {
                         </div>
                       </Link>
                     </td>
-                    <td className="p-3 text-muted-foreground">
-                      {s.grade} · {s.section}
-                    </td>
                     <td className="p-3">
-                      <MetricBar value={s.pfi} tone="primary" />
-                    </td>
-                    <td className="p-3">
-                      <MetricBar value={ai} tone="accent" />
+                      <span className="font-heading font-extrabold tabular-nums">{s.pfi}</span>
                     </td>
                     <td className="p-3">
                       <span
@@ -523,30 +529,6 @@ function StudentsPage() {
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 rounded-lg"
-                          title="Add note"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNoteStudent(s);
-                          }}
-                        >
-                          <StickyNote className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 rounded-lg"
-                          title="Contact parent"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setContactStudent(s);
-                          }}
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                        </Button>
                         <Link
                           href={`/students/${s.id}?tab=profile`}
                           className="group/v inline-flex items-center gap-0.5 text-primary text-[11.5px] font-semibold ml-1"
@@ -591,9 +573,6 @@ function StudentsPage() {
         }
         onClear={clearSelection}
       />
-
-      <NoteDialog student={noteStudent} open={!!noteStudent} onOpenChange={(o) => !o && setNoteStudent(null)} />
-      <ContactParentDialog student={contactStudent} open={!!contactStudent} onOpenChange={(o) => !o && setContactStudent(null)} />
     </motion.div>
   );
 }
@@ -636,24 +615,6 @@ function KpiCard({
         {meta && (
           <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{meta}</div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MetricBar({ value, tone }: { value: number; tone: "primary" | "accent" }) {
-  const gradient =
-    tone === "primary"
-      ? "from-[hsl(142_55%_45%)] via-[hsl(175_55%_48%)] to-[hsl(200_60%_55%)]"
-      : "from-[hsl(260_55%_65%)] via-[hsl(230_55%_65%)] to-[hsl(200_60%_60%)]";
-  return (
-    <div className="flex items-center gap-2">
-      <span className="font-heading font-extrabold w-7 tabular-nums">{value}</span>
-      <div className="w-20 h-1.5 bg-muted/70 rounded-full overflow-hidden">
-        <div
-          className={cn("h-full rounded-full bg-gradient-to-r", gradient)}
-          style={{ width: `${value}%` }}
-        />
       </div>
     </div>
   );

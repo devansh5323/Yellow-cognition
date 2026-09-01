@@ -100,8 +100,7 @@ export function CheckInToolsGrid() {
       statLabel: `This week: ${stats.behaviorLogsThisWeek} logged`,
       cta: "Log behaviour",
       CtaIcon: Mic,
-      onOpenTool: () =>
-        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "negative" } })),
+      onOpenTool: () => window.dispatchEvent(new CustomEvent("ah-open-yellow-ai-log-behavior")),
     },
     {
       key: "positive-log",
@@ -115,8 +114,7 @@ export function CheckInToolsGrid() {
       statLabel: `${stats.positiveLogsThisWeek} positives this week`,
       cta: "Log positive",
       CtaIcon: Mic,
-      onOpenTool: () =>
-        window.dispatchEvent(new CustomEvent("ah-open-behaviour-note", { detail: { mode: "positive" } })),
+      onOpenTool: () => window.dispatchEvent(new CustomEvent("ah-open-yellow-ai-log-positive")),
     },
     {
       key: "intervention-followup",

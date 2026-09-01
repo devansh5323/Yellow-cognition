@@ -162,7 +162,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-type RecordState = "idle" | "recording" | "saving" | "saved" | "insights";
+type RecordState = "idle" | "recording" | "saving" | "generating" | "insights";
 
 function CheckInPage() {
   const router = useRouter();
@@ -241,6 +241,11 @@ function CheckInPage() {
   const [elapsed, setElapsed] = useState(0);
   const [reportCheckIn, setReportCheckIn] = useState<ClassCheckIn | null>(null);
   const intervalRef = useRef<number | null>(null);
+  // Bumped whenever the card moves off "generating" early (e.g. the teacher
+  // taps "Record another class" instead of waiting) so the still-pending
+  // generating→insights timer from the *previous* recording becomes a no-op
+  // instead of yanking the card back to "insights" mid-way through the next one.
+  const generationTokenRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -304,13 +309,22 @@ function CheckInPage() {
       saveCheckIn(payload);
       markTaskDone("first-checkin");
       setHistoryTick((t) => t + 1);
-      setRecState("saved");
+      setRecState("generating");
 
-      window.setTimeout(() => setRecState("insights"), 1300);
+      // Simulates the backend's real insight-generation turnaround. The
+      // "Record another class" CTA on this state means a teacher never has
+      // to sit and wait for it — the check-in is already saved above, so
+      // insights simply finish in the background and land in Recent
+      // recordings whenever this timer (or a future real API) resolves.
+      const token = ++generationTokenRef.current;
+      window.setTimeout(() => {
+        if (generationTokenRef.current === token) setRecState("insights");
+      }, 4000);
     }, 900);
   };
 
   const recordAnother = () => {
+    generationTokenRef.current++;
     setRecState("idle");
     setElapsed(0);
   };
@@ -640,29 +654,42 @@ function RecordCard({
           </motion.div>
         )}
 
-        {recState === "saved" && (
+        {recState === "generating" && (
           <motion.div
-            key="saved"
+            key="generating"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: EASE }}
-            className="w-full flex flex-col items-center gap-3 text-center"
+            className="w-full flex flex-col items-center gap-4 text-center"
           >
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-[11.5px] font-bold">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Recording saved
+            </span>
+
             <motion.span
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.4, ease: EASE }}
-              className="h-14 w-14 rounded-full bg-primary/15 text-primary inline-flex items-center justify-center"
+              className="relative h-14 w-14 rounded-full bg-primary/15 text-primary inline-flex items-center justify-center"
             >
-              <CheckCircle2 className="h-8 w-8" />
+              <Loader2 className="h-7 w-7 animate-spin" />
             </motion.span>
-            <div>
-              <p className="font-heading font-extrabold text-[18px]">Recording saved.</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">
-                Yellow is reviewing it now&hellip;
+
+            <div className="max-w-sm">
+              <p className="font-heading font-extrabold text-[18px] leading-snug">
+                Yellow is generating insights
+              </p>
+              <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
+                We&apos;re analysing this recording and will have insights ready shortly. Feel free
+                to carry on — this will be waiting in your recent recordings.
               </p>
             </div>
+
+            <Button variant="outline" onClick={onRecordAnother} className="mt-1">
+              Record another class
+            </Button>
           </motion.div>
         )}
 

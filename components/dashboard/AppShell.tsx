@@ -37,7 +37,6 @@ import { BrandLogo } from "@/components/dashboard/BrandLogo";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { PageTransition } from "@/components/dashboard/PageTransition";
 import { YellowAIWidget } from "@/components/dashboard/YellowAIWidget";
-import { QuickBehaviourNote } from "@/components/dashboard/QuickBehaviourNote";
 import { RecordBehaviorForm } from "@/components/dashboard/RecordBehaviorForm";
 import { LogPositiveBehaviorForm } from "@/components/dashboard/LogPositiveBehaviorForm";
 import { InterventionFollowUpForm } from "@/components/dashboard/InterventionFollowUpForm";
@@ -531,7 +530,6 @@ export function AppShell({
 
       <CommandPalette />
       <YellowAIWidget />
-      <QuickBehaviourNote />
       <RecordBehaviorForm />
       <LogPositiveBehaviorForm />
       <InterventionFollowUpForm />

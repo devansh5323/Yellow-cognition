@@ -86,7 +86,7 @@ export function MonthlyTaskCheckIn() {
               <p className="mt-1 text-[12.5px] text-muted-foreground max-w-xl">
                 {submitted
                   ? "Your monthly read powers the trends and recommendations above. Come back next month to refresh."
-                  : "6 quick MCQs — under a minute. Captures task-engagement signal that gameplay alone can't see."}
+                  : "4 quick MCQs — under a minute. Captures task-engagement signal that gameplay alone can't see."}
               </p>
             </div>
           </div>

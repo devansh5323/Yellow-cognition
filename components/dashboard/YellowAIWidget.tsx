@@ -17,6 +17,7 @@ import {
   ChevronDown,
   AlertTriangle,
   ExternalLink,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { addNote } from "@/lib/studentMutations";
+import { logBehaviorEvent, logPositiveEvent } from "@/lib/checkInTools";
 import { type Student } from "@/data/mockData";
 import {
   extractNote,
@@ -59,12 +61,41 @@ type Message =
       draft: ExtractedNote;
       sourceStudentId?: string;
       saved?: { studentId: string; noteId: string };
+    }
+  | {
+      id: string;
+      role: "ai";
+      kind: "choice";
+      text: string;
+      resolved?: "voice" | "form";
     };
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 const GREETING =
   "Hi! I'm Yellow AI. Tap the mic or type what you noticed about a student — I'll turn it into a clean note for their profile.";
+
+// Set while the "Log behaviour" / "Log positive" cards are driving a
+// scripted student → mode question sequence, so free-form chat
+// (FAB/keyboard-opened) stays untouched.
+type GuidedStep = "askStudent" | "askMode" | null;
+type GuidedKind = "behavior" | "positive" | null;
+
+const GUIDED_COPY: Record<
+  Exclude<GuidedKind, null>,
+  { askStudent: string; formLabel: string; openEvent: string }
+> = {
+  behavior: {
+    askStudent: "Let's log a behaviour note. Which student is this about?",
+    formLabel: "structured behaviour form",
+    openEvent: "ah-open-behavior-form",
+  },
+  positive: {
+    askStudent: "Let's log a positive note. Which student is this about?",
+    formLabel: "positive behaviour form",
+    openEvent: "ah-open-positive-form",
+  },
+};
 
 let messageCounter = 0;
 const nextId = () => `m_${Date.now().toString(36)}_${++messageCounter}`;
@@ -78,6 +109,8 @@ export function YellowAIWidget() {
   const [messages, setMessages] = useState<Message[]>([
     { id: nextId(), role: "ai", kind: "text", text: GREETING },
   ]);
+  const [guidedStep, setGuidedStep] = useState<GuidedStep>(null);
+  const [guidedKind, setGuidedKind] = useState<GuidedKind>(null);
 
   const reduce = useReducedMotion();
   const router = useRouter();
@@ -127,6 +160,29 @@ export function YellowAIWidget() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // "Log behaviour" / "Log positive" (dashboard cards) open Yellow AI
+  // straight into a scripted question sequence — which student, then voice
+  // or form — instead of the general free-form greeting.
+  useEffect(() => {
+    const startGuidedFlow = (kind: Exclude<GuidedKind, null>) => {
+      setSelectedStudent(null);
+      setDraftText("");
+      setGuidedKind(kind);
+      setGuidedStep("askStudent");
+      setMessages([{ id: nextId(), role: "ai", kind: "text", text: GUIDED_COPY[kind].askStudent }]);
+      setPickerOpen(true);
+      setOpen(true);
+    };
+    const onOpenBehaviorFlow = () => startGuidedFlow("behavior");
+    const onOpenPositiveFlow = () => startGuidedFlow("positive");
+    window.addEventListener("ah-open-yellow-ai-log-behavior", onOpenBehaviorFlow);
+    window.addEventListener("ah-open-yellow-ai-log-positive", onOpenPositiveFlow);
+    return () => {
+      window.removeEventListener("ah-open-yellow-ai-log-behavior", onOpenBehaviorFlow);
+      window.removeEventListener("ah-open-yellow-ai-log-positive", onOpenPositiveFlow);
+    };
+  }, []);
+
   function handleMicToggle() {
     if (!speech.isSupported) {
       toast.error("Voice dictation not supported in this browser", {
@@ -175,7 +231,14 @@ export function YellowAIWidget() {
       category: finalDraft.category,
       body: finalDraft.body,
       sharedWithParent: false,
+      tag: guidedKind === "positive" ? "Positive" : undefined,
     });
+    // Guided saves (Log behaviour / Log positive) also count toward the
+    // dashboard cards' "This week: N logged" stats — same counters the old
+    // structured dialogs fed, via the same lib/checkInTools.ts functions.
+    if (guidedKind === "positive") logPositiveEvent(target.id);
+    else if (guidedKind === "behavior") logBehaviorEvent(target.id);
+
     const noteId = `n_${Date.now().toString(36)}`;
     setMessages((prev) =>
       prev.map((m) =>
@@ -192,6 +255,49 @@ export function YellowAIWidget() {
   function openStudentProfile(studentId: string) {
     setOpen(false);
     router.push(`/students/${studentId}?tab=profile`);
+  }
+
+  function handleChooseMode(messageId: string, mode: "voice" | "form", student: Student) {
+    const kind = guidedKind ?? "behavior";
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.role === "ai" && m.kind === "choice" ? { ...m, resolved: mode } : m,
+      ),
+    );
+    setGuidedStep(null);
+
+    if (mode === "form") {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: "ai",
+          kind: "text",
+          text: `Opening the ${GUIDED_COPY[kind].formLabel} for ${student.name.split(" ")[0]}.`,
+        },
+      ]);
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent(GUIDED_COPY[kind].openEvent, { detail: { studentId: student.id } }),
+        );
+        setOpen(false);
+      }, 600);
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nextId(),
+        role: "ai",
+        kind: "text",
+        text:
+          kind === "positive"
+            ? "Great — tap the mic below and tell me what you noticed, or type it out."
+            : "Great — tap the mic below and tell me what happened, or type it out.",
+      },
+    ]);
+    composerRef.current?.focus();
   }
 
   const studentResults = useMemo(() => searchStudents(pickerQuery, 8), [pickerQuery]);
@@ -332,7 +438,7 @@ export function YellowAIWidget() {
                         <Search className="h-[14px] w-[14px]" />
                       </span>
                       <span className="text-[12.5px] text-muted-foreground flex-1 text-left">
-                        Pick a student — or just say "Add note for…"
+                        Pick a student — or just say &quot;Add note for…&quot;
                       </span>
                     </>
                   )}
@@ -369,7 +475,7 @@ export function YellowAIWidget() {
                           <ul className="py-1">
                             {studentResults.length === 0 ? (
                               <li className="px-3 py-4 text-center text-[12px] text-muted-foreground">
-                                No students match "{pickerQuery}"
+                                No students match &quot;{pickerQuery}&quot;
                               </li>
                             ) : (
                               studentResults.map((s) => {
@@ -381,7 +487,21 @@ export function YellowAIWidget() {
                                         setSelectedStudent(s);
                                         setPickerOpen(false);
                                         setPickerQuery("");
-                                        composerRef.current?.focus();
+                                        if (guidedStep === "askStudent") {
+                                          setGuidedStep("askMode");
+                                          setMessages((prev) => [
+                                            ...prev,
+                                            { id: nextId(), role: "user", text: s.name },
+                                            {
+                                              id: nextId(),
+                                              role: "ai",
+                                              kind: "choice",
+                                              text: `Got it — logging for ${s.name.split(" ")[0]}. Would you like to record your voice, or fill out a form instead?`,
+                                            },
+                                          ]);
+                                        } else {
+                                          composerRef.current?.focus();
+                                        }
                                       }}
                                       className={cn(
                                         "w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted/60 transition-colors",
@@ -435,6 +555,7 @@ export function YellowAIWidget() {
                       onSave={handleSaveDraft}
                       onOpenProfile={openStudentProfile}
                       onRequestPickStudent={() => setPickerOpen(true)}
+                      onChooseMode={handleChooseMode}
                       contextStudent={selectedStudent}
                     />
                   ))}
@@ -546,6 +667,7 @@ function MessageRow({
   onSave,
   onOpenProfile,
   onRequestPickStudent,
+  onChooseMode,
   contextStudent,
 }: {
   message: Message;
@@ -553,6 +675,7 @@ function MessageRow({
   onSave: (id: string, draft: ExtractedNote, student: Student) => void;
   onOpenProfile: (studentId: string) => void;
   onRequestPickStudent: () => void;
+  onChooseMode: (id: string, mode: "voice" | "form", student: Student) => void;
   contextStudent: Student | null;
 }) {
   const enter = reduce
@@ -589,6 +712,43 @@ function MessageRow({
       <motion.div {...enter} className="flex items-start gap-2">
         <BrandDot />
         <div className="yai-bubble yai-bubble--ai max-w-[88%]">{message.text}</div>
+      </motion.div>
+    );
+  }
+
+  if (message.kind === "choice") {
+    return (
+      <motion.div {...enter} className="flex items-start gap-2">
+        <BrandDot />
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="yai-bubble yai-bubble--ai max-w-[88%]">{message.text}</div>
+          {!message.resolved ? (
+            contextStudent && (
+              <div className="flex items-center gap-2 flex-wrap pl-1">
+                <button
+                  type="button"
+                  onClick={() => onChooseMode(message.id, "voice", contextStudent)}
+                  className="yai-chip inline-flex items-center gap-1.5"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  Record voice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChooseMode(message.id, "form", contextStudent)}
+                  className="yai-chip inline-flex items-center gap-1.5"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Fill out a form
+                </button>
+              </div>
+            )
+          ) : (
+            <div className="text-[11px] text-muted-foreground pl-1">
+              {message.resolved === "voice" ? "Recording voice note…" : "Opening structured form…"}
+            </div>
+          )}
+        </div>
       </motion.div>
     );
   }
@@ -745,7 +905,7 @@ function DraftCard({
         ) : (
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11.5px] text-muted-foreground">
-              I couldn't tell who this is for.
+              I couldn&apos;t tell who this is for.
             </div>
             <button
               onClick={onRequestPickStudent}

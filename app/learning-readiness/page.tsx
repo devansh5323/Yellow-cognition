@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarRange, ChevronRight, Users } from "lucide-react";
+import { CalendarRange, ChevronRight, ShieldCheck, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import {
   Select,
@@ -13,33 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TaskEngagementSnapshot } from "@/components/dashboard/TaskEngagementSnapshot";
-import { TaskBreakdown } from "@/components/dashboard/TaskBreakdown";
-import { TaskProblemAreasToSkills } from "@/components/dashboard/TaskProblemAreasToSkills";
-import { MonthlyTaskCheckIn } from "@/components/dashboard/MonthlyTaskCheckIn";
-import { TaskInsights } from "@/components/dashboard/TaskInsights";
-import { TaskRecommendsStrip } from "@/components/dashboard/TaskRecommendsStrip";
-import { TaskTrendTracking } from "@/components/dashboard/TaskTrendTracking";
-import { TaskSupportTable } from "@/components/dashboard/TaskSupportTable";
-import {
-  classTaskBreakdown,
-  classTaskSnapshot,
-  pickTaskStrategies,
-  studentsNeedingTaskSupport,
-  taskEngagementInsights,
-} from "@/lib/classTask";
+import { LearningReadinessSnapshot } from "@/components/dashboard/LearningReadinessSnapshot";
+import { LearningReadinessAreas } from "@/components/dashboard/LearningReadinessAreas";
+import { LearningSkillComposition } from "@/components/dashboard/LearningSkillComposition";
+import { LearningAreasToSkills } from "@/components/dashboard/LearningAreasToSkills";
+import { classReadinessSnapshot } from "@/lib/classLearning";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 export default function Page() {
-  return <TaskEngagementRoute />;
+  return <LearningReadinessRoute />;
 }
 
 const CLASSES = ["Class 5B", "Class 5A", "Class 4A", "Class 3A"] as const;
 const PERIODS = ["This Month", "Last Month", "This Term"] as const;
 
-function TaskEngagementRoute() {
+function LearningReadinessRoute() {
   const [classroom, setClassroom] = useState<(typeof CLASSES)[number]>("Class 5B");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>("This Month");
 
@@ -62,19 +52,15 @@ function TaskEngagementRoute() {
 
   return (
     <AppShell topbarFilters={topbarFilters}>
-      <TaskEngagementPage classroom={classroom} />
+      <LearningReadinessPage classroom={classroom} />
     </AppShell>
   );
 }
 
-function TaskEngagementPage({ classroom }: { classroom: string }) {
+function LearningReadinessPage({ classroom }: { classroom: string }) {
   const reduce = useReducedMotion();
 
-  const snapshot = useMemo(() => classTaskSnapshot(), []);
-  const breakdown = useMemo(() => classTaskBreakdown(), []);
-  const insights = useMemo(() => taskEngagementInsights(), []);
-  const strategies = useMemo(() => pickTaskStrategies(breakdown, 4), [breakdown]);
-  const supportRoster = useMemo(() => studentsNeedingTaskSupport(), []);
+  const snapshot = useMemo(() => classReadinessSnapshot(), []);
 
   return (
     <div className="relative">
@@ -93,40 +79,32 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
               Dashboard
             </Link>
             <ChevronRight className="h-3 w-3 opacity-60" />
-            <span className="text-foreground">Task engagement</span>
+            <span className="text-foreground">Learning Readiness</span>
           </nav>
           <h1 className="font-heading font-black text-[24px] md:text-[28px] leading-tight mt-1">
-            Task engagement & persistence
+            Class Learning Readiness
           </h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            How {classroom} is starting, sticking with, and finishing assigned work — plus what to
-            try next.
+            A class-level view of skill development patterns from {classroom}&apos;s Attention Hero
+            gameplay.
           </p>
         </header>
 
-        {/* Component 1: Task engagement snapshot */}
-        <TaskEngagementSnapshot snapshot={snapshot} />
+        <LearningReadinessSnapshot snapshot={snapshot} />
 
-        {/* Component 2: Task engagement breakdown (7 categories) */}
-        <TaskBreakdown stats={breakdown} />
+        <LearningReadinessAreas areas={snapshot.areas} />
 
-        {/* Component 3: Problem areas → skills reference table */}
-        <TaskProblemAreasToSkills />
+        <LearningSkillComposition />
 
-        {/* Component 4: Monthly check-in */}
-        <MonthlyTaskCheckIn />
+        <LearningAreasToSkills />
 
-        {/* Component 5: Task engagement insights */}
-        <TaskInsights insights={insights} />
-
-        {/* Component 6: Yellow Recommends (task interventions) */}
-        <TaskRecommendsStrip strategies={strategies} />
-
-        {/* Component 7: Task trend tracking */}
-        <TaskTrendTracking snapshot={snapshot} />
-
-        {/* Component 8: Students needing task support */}
-        <TaskSupportTable items={supportRoster} />
+        <div className="flex items-start gap-2.5 rounded-2xl border border-border/60 bg-muted/30 px-4 py-3.5">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={2.2} />
+          <p className="text-[11.5px] text-muted-foreground leading-snug">
+            Learning readiness insights are generated from Attention Hero gameplay and are intended
+            to guide support, not to replace classroom observation or academic assessment.
+          </p>
+        </div>
       </motion.div>
     </div>
   );

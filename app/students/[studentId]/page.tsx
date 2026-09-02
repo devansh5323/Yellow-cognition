@@ -27,7 +27,6 @@ import {
   ChevronLeft,
   Mail,
   Phone,
-  FileText,
   Award,
   Sparkles,
   Clock,
@@ -38,6 +37,7 @@ import {
   X,
   ShieldCheck,
   Share2,
+  Pencil,
   Globe2,
   GraduationCap,
   CalendarDays,
@@ -49,8 +49,10 @@ import {
   Languages,
   Gamepad2,
   ArrowRight,
+  History,
+  Send,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -73,8 +75,16 @@ import {
   removeTag,
   setRisk,
   removeNote,
+  logContact,
   PRESET_TAGS,
 } from "@/lib/studentMutations";
+import {
+  getBehaviorLogEntriesForStudent,
+  getBehaviorLogCountThisWeekForStudent,
+  getPositiveLogCountThisWeekForStudent,
+} from "@/lib/checkInTools";
+import { getFollowUpRecordsForStudent, type FollowUpRecord } from "@/lib/interventionFollowUps";
+import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { NoteDialog } from "@/components/dashboard/NoteDialog";
 import { ContactParentDialog } from "@/components/dashboard/ContactParentDialog";
 import { toast } from "sonner";
@@ -171,6 +181,36 @@ function StudentPage({ student }: { student: Student }) {
   const [customTag, setCustomTag] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [nudgeEditing, setNudgeEditing] = useState(false);
+  const [nudgeTouched, setNudgeTouched] = useState(false);
+  const [subjectDraft, setSubjectDraft] = useState("");
+  const [bodyDraft, setBodyDraft] = useState("");
+
+  // Behaviour logs and intervention follow-ups live in their own
+  // localStorage stores (not the studentMutations overrides useStudentOverrides
+  // already subscribes to), so refresh them off their own change events —
+  // same pattern TeacherCheckInTools.tsx uses.
+  const [behaviorLogs, setBehaviorLogs] = useState(() => getBehaviorLogEntriesForStudent(student.id));
+  const [followUps, setFollowUps] = useState<FollowUpRecord[]>(() => getFollowUpRecordsForStudent(student.id));
+  const [positiveThisWeek, setPositiveThisWeek] = useState(() => getPositiveLogCountThisWeekForStudent(student.id));
+  const [behaviorThisWeek, setBehaviorThisWeek] = useState(() => getBehaviorLogCountThisWeekForStudent(student.id));
+  useEffect(() => {
+    const refresh = () => {
+      setBehaviorLogs(getBehaviorLogEntriesForStudent(student.id));
+      setFollowUps(getFollowUpRecordsForStudent(student.id));
+      setPositiveThisWeek(getPositiveLogCountThisWeekForStudent(student.id));
+      setBehaviorThisWeek(getBehaviorLogCountThisWeekForStudent(student.id));
+    };
+    refresh();
+    window.addEventListener("ah-behavior-log-change", refresh);
+    window.addEventListener("ah-followup-change", refresh);
+    window.addEventListener("ah-positive-log-change", refresh);
+    return () => {
+      window.removeEventListener("ah-behavior-log-change", refresh);
+      window.removeEventListener("ah-followup-change", refresh);
+      window.removeEventListener("ah-positive-log-change", refresh);
+    };
+  }, [student.id]);
 
   const idx = parseInt(student.id.replace(/\D/g, ""), 10) || 1;
   const studentCode = `AH-2026-${String(idx).padStart(3, "0")}`;
@@ -208,6 +248,54 @@ function StudentPage({ student }: { student: Student }) {
       setRisk(student.id, "high");
       toast.success("Marked as Needs help");
     }
+  }
+
+  const neuroSessions = student.sessions.filter((s) => s.type === "Neurogame");
+  const neuroCount = neuroSessions.length;
+  const neuroAvgScore = neuroCount
+    ? Math.round(neuroSessions.reduce((a, s) => a + s.score, 0) / neuroCount)
+    : 0;
+  const neuroAvgCompletion = neuroCount
+    ? Math.round(neuroSessions.reduce((a, s) => a + s.completion, 0) / neuroCount)
+    : 0;
+  const neuroMinutes = neuroSessions.reduce((a, s) => a + s.duration, 0);
+
+  const studentFirstName = student.name.split(" ")[0];
+  const nudgeSubject = `A quick update on ${studentFirstName}`;
+  const nudgeBody =
+    delta >= 0
+      ? `Hi ${student.parent.name},\n\n${studentFirstName}'s focus score is now ${student.pfi} (up ${delta} pts since the last check-in)${
+          positiveThisWeek > 0
+            ? `, with ${positiveThisWeek} positive note${positiveThisWeek === 1 ? "" : "s"} logged this week`
+            : ""
+        }. Keep up the great momentum at home!\n\nBest,\n${TEACHER_NAME}`
+      : `Hi ${student.parent.name},\n\n${studentFirstName}'s focus score has dipped to ${student.pfi} (down ${Math.abs(delta)} pts since the last check-in)${
+          behaviorThisWeek > 0
+            ? `, with ${behaviorThisWeek} behaviour note${behaviorThisWeek === 1 ? "" : "s"} logged this week`
+            : ""
+        }. I'd love to find 10 minutes to talk through what's going on and how we can support ${studentFirstName} together.\n\nBest,\n${TEACHER_NAME}`;
+
+  // Once the teacher edits the draft, keep their wording even if the
+  // underlying signals (delta, log counts) change on a later render.
+  const effectiveSubject = nudgeTouched ? subjectDraft : nudgeSubject;
+  const effectiveBody = nudgeTouched ? bodyDraft : nudgeBody;
+
+  function handleEditNudge() {
+    setSubjectDraft(effectiveSubject);
+    setBodyDraft(effectiveBody);
+    setNudgeTouched(true);
+    setNudgeEditing(true);
+  }
+
+  function handleResetNudge() {
+    setSubjectDraft(nudgeSubject);
+    setBodyDraft(nudgeBody);
+  }
+
+  function handleSendNudge() {
+    logContact(student.id, { channel: "email", template: effectiveBody });
+    window.location.href = `mailto:${student.parent.email}?subject=${encodeURIComponent(effectiveSubject)}&body=${encodeURIComponent(effectiveBody)}`;
+    toast.success(`Nudge email opened for ${student.parent.name}`);
   }
 
   return (
@@ -612,25 +700,164 @@ function StudentPage({ student }: { student: Student }) {
               )}
             </PanelCard>
 
-            <div className="md:col-span-2 premium-surface sheen-hover rounded-[18px] p-5 flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[hsl(260_55%_72%)] to-[hsl(200_60%_60%)] text-white flex items-center justify-center shadow-[0_8px_20px_-10px_hsl(260_50%_45%/0.55)]">
-                  <FileText className="h-5 w-5" />
+            <PanelCard
+              title="Behaviour log history"
+              subtitle={`${behaviorLogs.length} logged all-time`}
+            >
+              {behaviorLogs.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No behaviour logs yet.</p>
+              ) : (
+                <ul className="space-y-1.5 text-[13px] max-h-64 overflow-y-auto pr-1">
+                  {behaviorLogs.map((e, i) => (
+                    <li
+                      key={`${e.at}-${i}`}
+                      className="flex items-center justify-between gap-2 border-b border-border/60 pb-1.5 last:border-0"
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <History className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{e.antecedent ?? "Behaviour note logged"}</span>
+                      </span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        {new Date(e.at).toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelCard>
+
+            <PanelCard
+              title="Intervention follow-ups"
+              subtitle={`${followUps.length} logged all-time`}
+            >
+              {followUps.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No follow-ups logged yet.</p>
+              ) : (
+                <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {followUps.map((f) => (
+                    <li key={f.id} className="rounded-xl border border-border/70 bg-card/70 backdrop-blur p-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
+                          {f.reason}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            f.outcome === "Improved"
+                              ? "bg-primary/12 text-primary border-primary/25"
+                              : f.outcome === "Got worse"
+                              ? "bg-destructive/12 text-destructive border-destructive/25"
+                              : "bg-warning/20 text-warning-foreground dark:text-warning border-warning/40",
+                          )}
+                        >
+                          {f.outcome}
+                        </span>
+                      </div>
+                      <p className="text-[13px] mt-1.5 leading-relaxed">{f.support}</p>
+                      <p className="text-[11.5px] text-muted-foreground mt-1">
+                        {f.implementation} · Next: {f.nextStep}
+                      </p>
+                      <div className="text-[10.5px] text-muted-foreground mt-1">
+                        {new Date(f.createdAt).toLocaleString()}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelCard>
+
+            <PanelCard
+              title="Neuroplay report"
+              subtitle={
+                neuroCount > 0
+                  ? `${neuroCount} sessions · ${neuroMinutes} mins played`
+                  : "No neurogame sessions yet"
+              }
+              className="md:col-span-2"
+              headerRight={
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 rounded-lg"
+                    onClick={() => toast.success("Shared with parent")}
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Share with parent
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    onClick={() => toast.info("Report download coming soon")}
+                  >
+                    Download
+                  </Button>
                 </div>
-                <div>
-                  <div className="font-heading font-extrabold text-[14.5px]">Neuroplay report</div>
-                  <div className="text-[11.5px] text-muted-foreground">Latest assessment · 12 pages · PDF</div>
+              }
+            >
+              {neuroCount === 0 ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {studentFirstName} hasn&apos;t played any neurogames yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat label="Sessions played" value={neuroCount} />
+                  <Stat label="Avg score" value={neuroAvgScore} />
+                  <Stat label="Avg completion" value={`${neuroAvgCompletion}%`} />
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="gap-1.5 rounded-lg" onClick={() => toast.success("Shared with parent")}>
-                  <Share2 className="h-4 w-4" /> Share with parent
+              )}
+            </PanelCard>
+
+            <PanelCard
+              title="Parent nudge email"
+              subtitle="Pre-filled from this student's recent signals — edit before sending"
+              className="md:col-span-2"
+              headerRight={
+                !nudgeEditing ? (
+                  <Button size="sm" variant="outline" className="h-7 gap-1 rounded-lg" onClick={handleEditNudge}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 rounded-lg" onClick={handleResetNudge}>
+                    Reset to suggested
+                  </Button>
+                )
+              }
+            >
+              {nudgeEditing ? (
+                <div className="space-y-2">
+                  <input
+                    value={subjectDraft}
+                    onChange={(e) => setSubjectDraft(e.target.value)}
+                    className="w-full rounded-lg border border-border/70 bg-card/70 backdrop-blur px-3 py-2 text-[12.5px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <textarea
+                    value={bodyDraft}
+                    onChange={(e) => setBodyDraft(e.target.value)}
+                    rows={7}
+                    className="w-full rounded-xl border border-border/70 bg-card/70 backdrop-blur p-3.5 text-[13px] leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border/70 bg-card/70 backdrop-blur p-3.5">
+                  <div className="text-[12.5px] font-semibold">{effectiveSubject}</div>
+                  <p className="text-[13px] text-muted-foreground mt-1.5 whitespace-pre-line leading-relaxed">
+                    {effectiveBody}
+                  </p>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                {nudgeEditing && (
+                  <Button size="sm" variant="outline" className="rounded-lg" onClick={() => setNudgeEditing(false)}>
+                    Done editing
+                  </Button>
+                )}
+                <Button size="sm" className="gap-1.5 rounded-lg" onClick={handleSendNudge}>
+                  <Send className="h-3.5 w-3.5" /> Send nudge
                 </Button>
-                <Button variant="outline" className="rounded-lg">
-                  Download
-                </Button>
               </div>
-            </div>
+            </PanelCard>
           </div>
         </TabsContent>
 

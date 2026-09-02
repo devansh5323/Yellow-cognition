@@ -89,6 +89,14 @@ export function getBehaviorLogCountThisWeekForStudent(studentId: string): number
   return readLog(BEHAVIOR_KEY).filter((e) => isThisWeek(e.at) && e.studentId === studentId).length;
 }
 
+/** This student's full behaviour-log history, newest first — for the
+ * student profile's "Behaviour log history" panel. */
+export function getBehaviorLogEntriesForStudent(studentId: string): LoggedEvent[] {
+  return readLog(BEHAVIOR_KEY)
+    .filter((e) => e.studentId === studentId)
+    .sort((a, b) => +new Date(b.at) - +new Date(a.at));
+}
+
 export function getPositiveLogCountThisWeekForStudent(studentId: string): number {
   return readLog(POSITIVE_KEY).filter((e) => isThisWeek(e.at) && e.studentId === studentId).length;
 }

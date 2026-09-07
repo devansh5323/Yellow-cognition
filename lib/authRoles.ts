@@ -19,6 +19,11 @@ export type RoleOption = {
   title: string;
   /** Who it's for — rendered as "For {audience}" with audience highlighted. */
   audience: string;
+  /** The person's actual role, singular (e.g. "Teacher") — distinct from
+   * `title`, which names the workspace/destination (e.g. "My Classroom").
+   * Used anywhere a CTA says "Continue as ___" so it names the role the
+   * user is signing in as, not the dashboard they're headed to. */
+  roleLabel: string;
   Icon: LucideIcon;
   tone: string;
 };
@@ -28,6 +33,7 @@ export const ROLES: RoleOption[] = [
     key: "teacher",
     title: "My Classroom",
     audience: "teachers",
+    roleLabel: "Teacher",
     Icon: GraduationCap,
     tone: "hsl(142 55% 45%)",
   },
@@ -35,6 +41,7 @@ export const ROLES: RoleOption[] = [
     key: "principal",
     title: "School Overview",
     audience: "principals and school leaders",
+    roleLabel: "Principal",
     Icon: Building2,
     tone: "hsl(212 90% 58%)",
   },
@@ -42,6 +49,7 @@ export const ROLES: RoleOption[] = [
     key: "educator",
     title: "Student Support",
     audience: "special educators / 504 coordinators",
+    roleLabel: "Special Educator",
     Icon: Users,
     tone: "hsl(262 60% 62%)",
   },
@@ -49,6 +57,7 @@ export const ROLES: RoleOption[] = [
     key: "district",
     title: "District Overview",
     audience: "district leaders",
+    roleLabel: "District Leader",
     Icon: Landmark,
     tone: "hsl(28 88% 54%)",
   },
@@ -56,6 +65,7 @@ export const ROLES: RoleOption[] = [
     key: "sel",
     title: "SEL Hub",
     audience: "SEL coordinators",
+    roleLabel: "SEL Coordinator",
     Icon: HeartHandshake,
     tone: "hsl(330 65% 62%)",
   },

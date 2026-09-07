@@ -132,39 +132,35 @@ function WellbeingCard({
     >
       <span className="absolute inset-y-0 left-0 w-[3px]" aria-hidden style={{ background: driver.hue }} />
 
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span
-            className="h-10 w-10 rounded-lg inline-flex items-center justify-center shrink-0"
-            style={{ background: `color-mix(in srgb, ${driver.hue} 14%, transparent)`, color: driver.hue }}
-          >
-            <Icon className="h-4.5 w-4.5" strokeWidth={2.2} />
-          </span>
-          <div className="min-w-0">
-            <div className="font-heading font-bold text-[13px] leading-tight truncate">{driver.label}</div>
-            <p className="text-[10.5px] text-muted-foreground mt-0.5 truncate">{driver.description}</p>
-          </div>
-        </div>
+      <div className="flex items-start gap-3">
         <span
-          className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
-          style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
+          className="h-10 w-10 rounded-lg inline-flex items-center justify-center shrink-0"
+          style={{ background: `color-mix(in srgb, ${driver.hue} 14%, transparent)`, color: driver.hue }}
         >
-          {WELLBEING_STATUS_LABEL[driver.status]}
+          <Icon className="h-4.5 w-4.5" strokeWidth={2.2} />
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="font-heading font-bold text-[13px] leading-tight truncate min-w-0">{driver.label}</div>
+            <span
+              className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+              style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
+            >
+              {WELLBEING_STATUS_LABEL[driver.status]}
+            </span>
+          </div>
+          <p className="text-[10.5px] text-muted-foreground mt-0.5 truncate">{driver.description}</p>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-3">
-        <span className="font-heading font-extrabold text-[20px] tabular-nums leading-none shrink-0" style={{ color: driver.hue }}>
-          {driver.score}
-          <span className="text-muted-foreground text-[10.5px] font-bold">/100</span>
-        </span>
         <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
           <motion.span
             initial={reduce ? undefined : { scaleX: 0 }}
             animate={{ scaleX: driver.score / 100 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.04 * index }}
             className="block h-full w-full origin-left rounded-full"
-            style={{ background: driver.hue }}
+            style={{ background: statusTone }}
           />
         </div>
         {delta !== 0 && (

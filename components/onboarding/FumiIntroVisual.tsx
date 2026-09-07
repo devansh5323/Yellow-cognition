@@ -13,10 +13,13 @@ const EASE = [0.2, 0.7, 0.2, 1] as const;
 // the teacher's own onboarding flow.
 const FUMI_WEBSITE_URL = "https://fumi-website-zeta.vercel.app/";
 
-/** The "Meet Fumi" screen's centerpiece — the real brand lockup, a preview
- * of what a parent sees in the real Fumi app (illustrative, not a literal
- * product screenshot — see FumiGrowthOverviewMock's own note), and a real
- * link out to the Fumi marketing site. */
+/** The "Meet Fumi" screen's centerpiece — real brand lockup (which already
+ * carries the mascot mark), a preview of what a parent sees in the real
+ * Fumi app (illustrative, not a literal product screenshot — see
+ * FumiGrowthOverviewMock's own note), and a real link out to the Fumi
+ * marketing site. The screen's own title/body/bottomText (rendered by
+ * FumiIntro.tsx below this) carry the heading copy — no separate heading
+ * lives in here, so it isn't duplicated. */
 function FumiCentricVisual() {
   const reduce = useReducedMotion();
   return (
@@ -25,7 +28,7 @@ function FumiCentricVisual() {
         initial={reduce ? undefined : { opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: EASE }}
-        className="relative h-14 sm:h-[68px] w-auto"
+        className="relative h-11 sm:h-12 w-auto"
       >
         <Image
           src="/fumi-logo-full.png"

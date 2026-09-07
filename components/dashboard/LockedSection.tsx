@@ -22,6 +22,7 @@ export function LockedSection({
   locked = true,
   onAction,
   actionLabel = "Take me there",
+  tourTarget,
   children,
 }: {
   label?: string;
@@ -29,13 +30,18 @@ export function LockedSection({
   locked?: boolean;
   onAction?: () => void;
   actionLabel?: string;
+  /** Optional `data-tour-target` value so a guided walkthrough can spotlight
+   * this locked segment itself (e.g. the SEL dashboard's tour pointing at
+   * Tiered Support until a group is set up) — only meaningful while locked,
+   * since the unlocked branch renders no wrapper element to tag. */
+  tourTarget?: string;
   children: React.ReactNode;
 }) {
   const reduce = useReducedMotion();
   if (!locked) return <>{children}</>;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden">
+    <div className="relative rounded-2xl overflow-hidden" data-tour-target={tourTarget}>
       <div className="pointer-events-none select-none blur-[0.75px] opacity-80 saturate-95">
         {children}
       </div>

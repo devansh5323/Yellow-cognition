@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { AssignedSelProgramBanner } from "@/components/dashboard/AssignedSelProgramBanner";
 import { ClassroomSetupPrompt } from "@/components/onboarding/ClassroomSetupPrompt";
+import { ClassroomReadyDialog } from "@/components/onboarding/ClassroomReadyDialog";
 import { DataReadinessCard } from "@/components/dashboard/DataReadinessCard";
 import { ClassroomHealthScore } from "@/components/dashboard/ClassroomHealthScore";
 import { DriverCards } from "@/components/dashboard/DriverCards";
@@ -71,24 +72,49 @@ function DashboardPage() {
     }
   }, [router]);
 
+  // Both refs (not state) since they're read/written from inside an effect
+  // closure that only ever runs once (deps: [router]) and would otherwise
+  // see a stale snapshot of any state variable it captured.
+  const stageRef = useRef<FtueStage>(stage);
+  const celebratingRef = useRef(false);
+  const [showClassroomReady, setShowClassroomReady] = useState(false);
+
   // Redirect into the Classroom Log walkthrough whenever this page is
-  // showing while stage is "tour" — both on a live transition (finishing
-  // the 3rd setup card while already here) AND on a fresh landing that's
-  // already mid-tour (e.g. a reload, or coming back before finishing it).
+  // showing while stage is "tour". Two cases, handled differently:
+  //  - A LIVE transition (finishing the 3rd setup card while already here)
+  //    — show a "your first class is set up" beat first (ClassroomReadyDialog)
+  //    rather than yanking the teacher straight out of the still-open
+  //    "Send invite" dialog into a whole new page.
+  //  - A fresh landing that's already mid-tour (e.g. a reload, or coming
+  //    back before finishing it) — no live moment to celebrate, so redirect
+  //    immediately, same as before.
   // The "tour" → "done" transition only ever happens on /check-in, handled
-  // by the redirect above instead.
+  // by the redirect above instead. celebratingRef guards against a second
+  // ah-onboarding-change firing (from some unrelated setOnboarding call)
+  // while the celebration dialog is still up from the first one.
   useEffect(() => {
     const refresh = () => {
       const next = computeFtueStage();
-      if (next === "tour") {
-        router.push("/check-in");
+      if (next === "tour" && !celebratingRef.current) {
+        if (stageRef.current !== "tour") {
+          celebratingRef.current = true;
+          setShowClassroomReady(true);
+        } else {
+          router.push("/check-in");
+        }
       }
+      stageRef.current = next;
       setStage(next);
     };
     refresh();
     window.addEventListener("ah-onboarding-change", refresh);
     return () => window.removeEventListener("ah-onboarding-change", refresh);
   }, [router]);
+
+  const goToClassroomLog = () => {
+    setShowClassroomReady(false);
+    router.push("/check-in");
+  };
 
   const handleTakeMeThere = () => {
     const target = nextActionTarget(stage);
@@ -161,6 +187,8 @@ function DashboardPage() {
           <StudentDrilldownRow locked={stage !== "done"} />
         </LockedSection>
       </motion.div>
+
+      <ClassroomReadyDialog open={showClassroomReady} onContinue={goToClassroomLog} />
     </div>
   );
 }

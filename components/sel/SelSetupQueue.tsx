@@ -131,6 +131,9 @@ export function SelSetupQueue({ stage, pulses }: { stage: SelFtueStage; pulses: 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 * i, duration: 0.3, ease: EASE }}
               className="flex items-stretch gap-0 rounded-xl border border-border bg-background overflow-hidden"
+              data-tour-target={
+                item.key === "pulse" ? "sel-queue-pulse" : item.key === "program" ? "sel-queue-program" : undefined
+              }
             >
               <span className="w-1 shrink-0" style={{ background: tone }} aria-hidden />
               <div className="flex-1 min-w-0 flex items-center gap-3 p-3.5">

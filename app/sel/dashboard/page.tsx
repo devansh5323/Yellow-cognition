@@ -8,6 +8,7 @@ import { SelAppShell } from "@/components/sel/SelAppShell";
 import { SelActionHub } from "@/components/sel/SelActionHub";
 import { SelSetupQueue } from "@/components/sel/SelSetupQueue";
 import { SelMonitorFocusCard } from "@/components/sel/SelMonitorFocusCard";
+import { SelDashboardTour } from "@/components/sel/SelDashboardTour";
 import { SchoolSnapshot } from "@/components/sel/SchoolSnapshot";
 import { SchoolClimateCard } from "@/components/sel/SchoolClimateCard";
 import { ImplementationRateCard } from "@/components/sel/ImplementationRateCard";
@@ -72,8 +73,18 @@ function SelDashboard() {
   // causes a real hydration mismatch: the server always renders "monitor",
   // so a client whose real stage differs mismatches on first paint.)
   const [stage, setStage] = useState<SelFtueStage>("monitor");
+  // The tour's "step just completed" toast compares each render's stage
+  // index against the previous one — mounting it before the real stage is
+  // known would let the SSR-safe "monitor" default read as the previous
+  // index, firing a false completion toast the instant hydration jumps
+  // straight to a later real stage. Gating its mount on this flag (rather
+  // than passing the tour a not-yet-real stage) avoids that.
+  const [stageHydrated, setStageHydrated] = useState(false);
   useEffect(() => {
-    const refresh = () => setStage(computeSelFtueStage());
+    const refresh = () => {
+      setStage(computeSelFtueStage());
+      setStageHydrated(true);
+    };
     refresh();
     window.addEventListener("ah-sel-onboarding-change", refresh);
     window.addEventListener("ah-sel-pulse-change", refresh);
@@ -232,6 +243,7 @@ function SelDashboard() {
         hint="Unlocks once targeted support groups are being tracked."
         locked={stage !== "done"}
         onAction={handleTakeMeThere}
+        tourTarget="sel-group-lock"
       >
         <TierSupportCard tiers={tiers} />
       </LockedSection>
@@ -254,6 +266,8 @@ function SelDashboard() {
       <SelTrendsCard pulses={pulses} />
 
       <SelMilestoneDialog open={showMilestone} onDismiss={dismissMilestone} />
+
+      {stageHydrated && <SelDashboardTour stage={stage} />}
     </motion.div>
   );
 }

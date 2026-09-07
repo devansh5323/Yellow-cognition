@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { classHealth } from "@/lib/classHealth";
 import { WellbeingDriverCards } from "@/components/dashboard/WellbeingDriverCards";
+import { WELLBEING_STATUS_TONE, WELLBEING_STATUS_LABEL, wellbeingStatusFromScore } from "@/lib/classWellbeing";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -22,8 +23,6 @@ const BLUE = "hsl(212 90% 58%)";
 const GREEN = "hsl(142 55% 45%)";
 const PURPLE = "hsl(262 60% 62%)";
 const ORANGE = "hsl(28 88% 54%)";
-const AMBER = "hsl(38 92% 55%)";
-const RED = "hsl(0 78% 58%)";
 
 type DriverItem = {
   key: string;
@@ -34,13 +33,15 @@ type DriverItem = {
   score: number;
 };
 
-/** A driver's own tone identifies *which* driver it is (kept stable); this
- * separate health read says how it's currently doing — same green/amber/red
- * language used everywhere else on the dashboard. */
+/** A driver's own tone identifies *which* driver it is (kept stable, used
+ * for its icon/accent stripe); this separate health read says how it's
+ * currently doing — the same Strong/Stable/Watch/Needs Support palette
+ * (WELLBEING_STATUS_TONE) used by the Student Wellbeing driver cards and
+ * the Classroom Health "Student Distribution" bar, rather than this
+ * file's own (slightly different, only-3-tier) band. */
 function healthBand(score: number): { tone: string; label: string } {
-  if (score >= 80) return { tone: GREEN, label: "Strong" };
-  if (score >= 60) return { tone: AMBER, label: "Moderate" };
-  return { tone: RED, label: "Needs attention" };
+  const status = wellbeingStatusFromScore(score);
+  return { tone: WELLBEING_STATUS_TONE[status], label: WELLBEING_STATUS_LABEL[status] };
 }
 
 function average(items: DriverItem[]): number {
@@ -218,8 +219,8 @@ function DriverGroup({
               </span>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-heading font-bold text-[12.5px] leading-tight truncate">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="font-heading font-bold text-[12.5px] leading-tight truncate min-w-0">
                     {item.title}
                   </div>
                   <span
@@ -238,7 +239,7 @@ function DriverGroup({
                     animate={{ scaleX: item.score / 100 }}
                     transition={{ duration: 0.5, ease: EASE, delay: 0.04 * i }}
                     className="block h-full w-full origin-left rounded-full"
-                    style={{ background: item.tone }}
+                    style={{ background: itemBand.tone }}
                   />
                 </div>
               </div>

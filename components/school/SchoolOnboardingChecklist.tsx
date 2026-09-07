@@ -26,7 +26,7 @@ import {
 } from "@/lib/schoolOnboarding";
 import { cn } from "@/lib/utils";
 
-type TaskDef = {
+export type TaskDef = {
   id: SchoolActivationTaskId;
   title: string;
   blurb: string;
@@ -36,7 +36,9 @@ type TaskDef = {
   to: "/school/teachers" | "/school/reports" | "/school/settings";
 };
 
-const TASKS: TaskDef[] = [
+// Exported so SchoolDashboardTour can spotlight the exact same 5 tasks with
+// the exact same copy/tone/destination — one definition, two surfaces.
+export const SCHOOL_ACTIVATION_TASKS: TaskDef[] = [
   {
     id: "invite-teachers",
     title: "Invite your first 3 teachers",
@@ -90,6 +92,16 @@ export function SchoolOnboardingChecklist() {
   const [state, setState] = useState<SchoolOnboardingState | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const reduce = useReducedMotion();
+
+  // SchoolDashboardTour needs a task row actually present in the DOM to
+  // spotlight it — asks this card to re-expand rather than reaching into
+  // its state directly, same event-based cross-component nudge pattern
+  // used elsewhere in this app.
+  useEffect(() => {
+    const expand = () => setCollapsed(false);
+    window.addEventListener("ah-school-checklist-expand", expand);
+    return () => window.removeEventListener("ah-school-checklist-expand", expand);
+  }, []);
 
   useEffect(() => {
     const refresh = () => setState(getSchoolOnboarding());
@@ -175,10 +187,10 @@ export function SchoolOnboardingChecklist() {
           >
             <div className="px-5 sm:px-6 pb-5 sm:pb-6">
               <ul className="grid gap-2 sm:grid-cols-2">
-                {TASKS.map((t) => {
+                {SCHOOL_ACTIVATION_TASKS.map((t) => {
                   const done = !!state.tasks[t.id];
                   return (
-                    <li key={t.id}>
+                    <li key={t.id} data-tour-target={`school-task-${t.id}`}>
                       <Link
                         href={t.to}
                         onClick={() => markSchoolTaskDone(t.id)}

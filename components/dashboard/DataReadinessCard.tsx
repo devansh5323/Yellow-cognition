@@ -29,8 +29,7 @@ import {
   type RosterStudent,
 } from "@/lib/roster";
 import { getOnboarding, setOnboarding, type OnboardingGoal } from "@/lib/onboarding";
-import { classHealth } from "@/lib/classHealth";
-import { DRIVER_META, driverScore } from "@/lib/driverMeta";
+import { DRIVER_META } from "@/lib/driverMeta";
 import { cn } from "@/lib/utils";
 
 export const TEACHER_NAME = "Maya Khan";
@@ -80,21 +79,11 @@ const FOCUS_ORDER: OnboardingGoal[] = [
   "frustration",
 ];
 
-/** "Yellow recommends" — the real weakest-scoring area across this class's
- * actual pillar data (same driverScore()/classHealth() pipeline DriverCards
- * already uses), not an arbitrarily picked developer favorite. */
+/** "Yellow recommends" — always "Attention and focus", the area most
+ * teachers should prioritize first regardless of this class's specific
+ * pillar scores. */
 function recommendedFocusArea(): OnboardingGoal {
-  const { pillars } = classHealth();
-  let best = FOCUS_ORDER[0];
-  let bestScore = Infinity;
-  for (const id of FOCUS_ORDER) {
-    const score = driverScore(id, pillars);
-    if (score < bestScore) {
-      bestScore = score;
-      best = id;
-    }
-  }
-  return best;
+  return "focus";
 }
 
 export function timeOfDayGreeting(): string {
@@ -267,9 +256,12 @@ export function DataReadinessCard() {
   };
 
   // Sends the Fumi companion link to every parent already linked in the
-  // roster, in one shot — this dialog stays open afterward (not a one-step
-  // close-and-toast like the other two steps) so the teacher can see who
-  // it went to.
+  // roster. Closes this dialog once activation completes — previously it
+  // stayed open so the teacher could see the updated invite status, but
+  // that's now superseded by app/dashboard/page.tsx's own "your first
+  // class is set up" celebration screen, which is what should be on top
+  // once this, the 3rd and final setup step, is done — not this dialog
+  // and that one stacked on top of each other.
   const sendFumiInvite = () => {
     setOnboarding({ fumiActivated: true });
     toast.success(
@@ -277,6 +269,7 @@ export function DataReadinessCard() {
         ? `Fumi invite sent to ${roster.length} parent${roster.length === 1 ? "" : "s"}.`
         : "Fumi activated! Your classroom companion is now on.",
     );
+    setFumiPromptOpen(false);
   };
 
   return (
@@ -381,7 +374,7 @@ export function DataReadinessCard() {
                     className="text-[10.5px] font-bold px-2 py-1 rounded-full"
                     style={{ background: `color-mix(in srgb, ${heroTone} 14%, transparent)`, color: heroTone }}
                   >
-                    {stepsAllDone ? "Students connected" : "Class setup completed"}
+                    {stepsAllDone ? "Students connected" : "Setup progress"}
                   </span>
                 </div>
                 <div className="mt-2 h-1.5 w-32 rounded-full bg-muted/40 overflow-hidden ml-auto">
@@ -440,7 +433,7 @@ export function DataReadinessCard() {
                 <ReturningActionHub stats={stats} />
               ) : (
                 <div className="mt-4">
-                  <div className="flex flex-col md:flex-row items-stretch gap-2.5">
+                  <div className="flex flex-col md:flex-row items-stretch gap-4">
                     {steps.map((step, i) => (
                       <Fragment key={step.id}>
                         <StartStepCard
@@ -636,7 +629,7 @@ function StartStepCard({
       transition={{ delay: 0.05 * index, duration: 0.3, ease: EASE }}
       data-tour-target={`step-${step.id}`}
       className={cn(
-        "flex-1 min-w-0 rounded-2xl border bg-background p-4 flex flex-col gap-3 transition-colors duration-300",
+        "flex-1 min-w-0 rounded-[22px] border bg-background p-6 flex flex-col gap-4 transition-colors duration-300",
         active ? "border-flicker" : "border-border",
       )}
       style={{
@@ -646,27 +639,27 @@ function StartStepCard({
           : undefined),
       }}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3.5">
         <span
-          className="relative h-11 w-11 rounded-xl inline-flex items-center justify-center shrink-0"
+          className="relative h-14 w-14 rounded-2xl inline-flex items-center justify-center shrink-0"
           style={{ background: `color-mix(in srgb, ${iconTone} 14%, transparent)`, color: iconTone }}
         >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          <Icon className="h-6 w-6" strokeWidth={2.2} />
           <span
             className={cn(
-              "absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-card border border-border inline-flex items-center justify-center text-[10px] font-bold",
+              "absolute -top-2 -right-2 h-6 w-6 rounded-full bg-card border border-border inline-flex items-center justify-center text-[11.5px] font-bold",
               step.done ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
             )}
             style={step.done ? { color: GREEN } : undefined}
             aria-hidden
           >
-            {step.done ? <Check className="h-3 w-3" strokeWidth={3} /> : index + 1}
+            {step.done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : index + 1}
           </span>
         </span>
         <div className="flex-1 min-w-0">
           <h4
             className={cn(
-              "font-heading font-extrabold text-[13.5px] leading-tight inline-flex items-center gap-1.5",
+              "font-heading font-extrabold text-[16.5px] leading-tight inline-flex items-center gap-1.5",
               step.done && "line-through decoration-2 text-muted-foreground",
             )}
             style={step.done ? { textDecorationColor: `color-mix(in srgb, ${GREEN} 60%, transparent)` } : undefined}
@@ -674,19 +667,19 @@ function StartStepCard({
             {step.id === "fumi" && (
               // Placeholder for a future link to the Fumi info/marketing
               // page — no href yet, just the affordance.
-              <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-label="Learn more about Fumi" />
+              <Info className="h-4 w-4 text-muted-foreground shrink-0" aria-label="Learn more about Fumi" />
             )}
             {step.title}
           </h4>
-          <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">{step.description}</p>
+          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">{step.description}</p>
         </div>
       </div>
 
       <span
-        className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-1 rounded-full w-fit"
+        className="inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1.5 rounded-full w-fit"
         style={{ background: `color-mix(in srgb, ${iconTone} 10%, transparent)`, color: iconTone }}
       >
-        {step.done && <Check className="h-3 w-3" strokeWidth={3} />}
+        {step.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
         {step.status}
       </span>
 
@@ -701,7 +694,7 @@ function StartStepCard({
         }}
         disabled={doneLocked}
         className={cn(
-          "mt-auto flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[12.5px] font-bold transition-colors",
+          "mt-auto flex items-center justify-center gap-1.5 rounded-xl h-12 px-4 text-[14px] font-bold transition-colors",
           disabled && "cursor-default",
           step.done && !disabled && "border border-border bg-transparent",
         )}
@@ -715,9 +708,9 @@ function StartStepCard({
       >
         {step.cta}
         {step.done && step.lockedWhenDone ? (
-          <Check className="h-3.5 w-3.5" />
+          <Check className="h-4 w-4" />
         ) : (
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-4 w-4" />
         )}
       </button>
     </motion.article>
@@ -725,9 +718,6 @@ function StartStepCard({
 }
 
 export function FocusAreaDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  // Recomputed each time the dialog opens rather than memoized — cheap
-  // (same classHealth()/driverScore() pipeline DriverCards already calls
-  // on every render) and always reflects the class's current real data.
   const recommended = recommendedFocusArea();
   const recommendedMeta = DRIVER_META[recommended];
 
@@ -777,7 +767,7 @@ export function FocusAreaDialog({ open, onOpenChange }: { open: boolean; onOpenC
               {recommendedMeta.title}
             </div>
             <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
-              This is where your class&apos;s current data shows the most room to grow.
+              The best place for most teachers to start.
             </p>
           </div>
           <button

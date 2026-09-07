@@ -23,6 +23,7 @@ import {
 } from "@/lib/classHealth";
 import { getOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { DRIVER_META, driverScore } from "@/lib/driverMeta";
+import { WELLBEING_STATUS_TONE, wellbeingStatusFromScore } from "@/lib/classWellbeing";
 import { FocusAreaDialog } from "@/components/dashboard/DataReadinessCard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -64,11 +65,17 @@ const SCORE_BAND_TONE: Record<ScoreBand, string> = {
 };
 
 // Fixed demo distribution — mirrors the reference design's student breakdown.
+// Tones come from WELLBEING_STATUS_TONE (the same Strong/Stable/Watch/Needs
+// Support palette the Student Wellbeing driver cards use) rather than this
+// file's own GREEN/BLUE/AMBER/RED — those feed the overall score band's
+// color elsewhere on this card and are a noticeably different (more
+// saturated) blue in particular, so reusing them here would recolor this
+// bar close to, but subtly off from, the driver cards' actual palette.
 const DISTRIBUTION = [
-  { key: "improving", label: "Strong Regulation", tone: GREEN, count: 7 },
-  { key: "on-track", label: "Stable Behaviour", tone: BLUE, count: 15 },
-  { key: "watch", label: "Watch", tone: AMBER, count: 5 },
-  { key: "needs-support", label: "Needs Support", tone: RED, count: 3 },
+  { key: "improving", label: "Strong Regulation", tone: WELLBEING_STATUS_TONE.strong, count: 7 },
+  { key: "on-track", label: "Stable Behaviour", tone: WELLBEING_STATUS_TONE.stable, count: 15 },
+  { key: "watch", label: "Watch", tone: WELLBEING_STATUS_TONE.watch, count: 5 },
+  { key: "needs-support", label: "Needs Support", tone: WELLBEING_STATUS_TONE.support, count: 3 },
 ] as const;
 
 /** One honest line about the picked focus area, ranked against every other
@@ -291,7 +298,7 @@ export function ClassroomHealthScore({
                       animate={{ scaleX: focusScore / 100 }}
                       transition={{ duration: 0.5, ease: EASE }}
                       className="block h-full w-full origin-left rounded-full"
-                      style={{ background: focusDriver.tone }}
+                      style={{ background: WELLBEING_STATUS_TONE[wellbeingStatusFromScore(focusScore)] }}
                     />
                   </div>
                 </div>

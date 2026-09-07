@@ -14,14 +14,14 @@ import {
   Palette,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SchoolAppShell } from "@/components/school/SchoolAppShell";
-import { markSchoolTaskDone } from "@/lib/schoolOnboarding";
+import { AlertsCard } from "@/components/school/AlertsCard";
+import { ParentCommsCard } from "@/components/school/ParentCommsCard";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -178,155 +178,6 @@ function AppearanceCard() {
           </div>
         </div>
         <Switch checked={darkMode} onCheckedChange={toggleDarkMode} />
-      </div>
-    </CardShell>
-  );
-}
-
-function AlertsCard() {
-  const [pfi, setPfi] = useState([60]);
-  const [inactivity, setInactivity] = useState([7]);
-  const [classCheckIn, setClassCheckIn] = useState([2]);
-
-  const save = () => {
-    markSchoolTaskDone("set-thresholds");
-    toast.success("Alert thresholds saved");
-  };
-
-  return (
-    <CardShell>
-      <Header
-        Icon={Bell}
-        title="Alert thresholds"
-        subtitle="When Yellow should surface a student, class, or teacher"
-      />
-      <div className="grid lg:grid-cols-3 gap-3.5">
-        <ThresholdTile
-          label="Flag students when PFI is below"
-          value={pfi[0]}
-          onChange={(v) => setPfi([v])}
-          min={0}
-          max={100}
-          suffix=""
-        />
-        <ThresholdTile
-          label="Mark students inactive after"
-          value={inactivity[0]}
-          onChange={(v) => setInactivity([v])}
-          min={1}
-          max={21}
-          suffix=" days"
-        />
-        <ThresholdTile
-          label="Nudge teachers if no check-in for"
-          value={classCheckIn[0]}
-          onChange={(v) => setClassCheckIn([v])}
-          min={1}
-          max={14}
-          suffix=" days"
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button
-          onClick={save}
-          className="rounded-xl h-10 px-5 shadow-[0_8px_20px_-10px_hsl(142_55%_35%/0.55)]"
-        >
-          <Save className="h-4 w-4 mr-1.5" /> Save thresholds
-        </Button>
-      </div>
-    </CardShell>
-  );
-}
-
-function ThresholdTile({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  suffix,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  suffix: string;
-}) {
-  return (
-    <div className="rounded-xl p-4 border border-border/60 bg-card/40">
-      <div className="flex items-center justify-between gap-3">
-        <Label className="text-[12.5px] font-semibold leading-snug">{label}</Label>
-        <span className="font-heading font-extrabold text-primary tabular-nums text-[15px]">
-          {value}
-          {suffix}
-        </span>
-      </div>
-      <Slider
-        value={[value]}
-        onValueChange={(v) => onChange(v[0])}
-        min={min}
-        max={max}
-        step={1}
-        className="mt-3"
-      />
-    </div>
-  );
-}
-
-function ParentCommsCard() {
-  const [welcomeOn, setWelcomeOn] = useState(true);
-  const [monthlyOn, setMonthlyOn] = useState(true);
-  const [atRiskOn, setAtRiskOn] = useState(false);
-  const [optOut, setOptOut] = useState(true);
-  const [sender, setSender] = useState("Riverside Academy");
-
-  const save = () => {
-    markSchoolTaskDone("configure-parent-comms");
-    toast.success("Parent communications updated");
-  };
-
-  return (
-    <CardShell>
-      <Header
-        Icon={MessageCircle}
-        title="Parent communications"
-        subtitle="Branding, cadence, and opt-out rules for messages we send to families"
-      />
-      <Field label="Sender name" value={sender} onChange={setSender} />
-      <div className="grid lg:grid-cols-2 gap-2">
-        <ToggleRow
-          label="Welcome flow when a parent activates"
-          hint="Auto-sends 3-email onboarding"
-          checked={welcomeOn}
-          onChange={setWelcomeOn}
-        />
-        <ToggleRow
-          label="Monthly child summary"
-          hint="End of month · highlights + ask"
-          checked={monthlyOn}
-          onChange={setMonthlyOn}
-        />
-        <ToggleRow
-          label="Real-time at-risk alert"
-          hint="Sent when a child crosses your threshold (admin-controlled)"
-          checked={atRiskOn}
-          onChange={setAtRiskOn}
-        />
-        <ToggleRow
-          label="Allow parents to opt-out"
-          hint="One-click unsubscribe in every email"
-          checked={optOut}
-          onChange={setOptOut}
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button
-          onClick={save}
-          className="rounded-xl h-10 px-5 shadow-[0_8px_20px_-10px_hsl(142_55%_35%/0.55)]"
-        >
-          <Save className="h-4 w-4 mr-1.5" /> Save communications
-        </Button>
       </div>
     </CardShell>
   );

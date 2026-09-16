@@ -6,7 +6,6 @@ import { Phone, MessageCircle, Mail, Copy } from "lucide-react";
 import { logContact, getOverrides, useStudentOverrides } from "@/lib/studentMutations";
 import type { Student } from "@/data/mockData";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface Props {
   student: Student | null;
@@ -14,6 +13,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+/** Real students only carry a `parentName` string — no email/phone channel
+ * exists to actually place a call or open an email/WhatsApp draft, so this
+ * dialog no longer offers "Call"/"WhatsApp"/"Email" launch actions. It still
+ * lets a teacher log that a conversation happened (and copy a suggested
+ * script), since that's independent of having a stored contact address. */
 export function ContactParentDialog({ student, open, onOpenChange }: Props) {
   // Subscribe so the contact log refreshes after a new entry.
   useStudentOverrides(student?.id);
@@ -21,18 +25,17 @@ export function ContactParentDialog({ student, open, onOpenChange }: Props) {
   if (!student) return null;
 
   const firstName = student.name.split(" ")[0];
-  const phoneDigits = student.parent.phone.replace(/\D/g, "");
   const templates = [
     `Strong month — ${firstName} improved focus in this month's check-in. Great work at home!`,
     `Would love a quick chat about ${firstName}'s progress. When works for you?`,
-    `Heads up: ${firstName}'s focus has dipped since last check-in. Let's talk.`,
+    `Checking in: ${firstName}'s recent check-in showed a dip. Let's talk.`,
   ];
-  const log = student ? getOverrides(student.id).contacts : [];
+  const log = getOverrides(student.id).contacts;
 
   function track(channel: "call" | "whatsapp" | "email") {
     if (!student) return;
     logContact(student.id, { channel });
-    toast.success(`${channel === "call" ? "Call" : channel === "whatsapp" ? "WhatsApp" : "Email"} opened for ${student.parent.name}`);
+    toast.success(`Logged a ${channel === "call" ? "call" : channel === "whatsapp" ? "message" : "email"} with ${student.parentName}`);
   }
 
   function copyTemplate(t: string) {
@@ -48,37 +51,25 @@ export function ContactParentDialog({ student, open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="sr-only">Contact parent of {student.name}</DialogTitle>
           <div>
-            <h3 className="font-heading font-bold text-base">{student.parent.name}</h3>
-            <p className="text-xs text-muted-foreground">Mother / Father · {firstName}'s parent</p>
+            <h3 className="font-heading font-bold text-base">{student.parentName}</h3>
+            <p className="text-xs text-muted-foreground">{firstName}&apos;s parent</p>
           </div>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2">
-            <ChannelCard
-              href={`tel:${phoneDigits}`}
-              onClick={() => track("call")}
-              icon={<Phone className="h-5 w-5"/>}
-              label="Call"
-              sub={student.parent.phone}
-              tone="primary"
-            />
-            <ChannelCard
-              href={`https://wa.me/${phoneDigits}`}
-              onClick={() => track("whatsapp")}
-              icon={<MessageCircle className="h-5 w-5"/>}
-              label="WhatsApp"
-              sub="Open chat"
-              tone="success"
-            />
-            <ChannelCard
-              href={`mailto:${student.parent.email}?subject=Update on ${student.name}`}
-              onClick={() => track("email")}
-              icon={<Mail className="h-5 w-5"/>}
-              label="Email"
-              sub={student.parent.email}
-              tone="accent"
-            />
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+              Log a conversation
+            </div>
+            <p className="text-[11.5px] text-muted-foreground mb-2">
+              No email or phone number is on file for {student.parentName} yet — these just record
+              that an outreach happened.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <ChannelButton icon={<Phone className="h-5 w-5" />} label="Call" onClick={() => track("call")} />
+              <ChannelButton icon={<MessageCircle className="h-5 w-5" />} label="Message" onClick={() => track("whatsapp")} />
+              <ChannelButton icon={<Mail className="h-5 w-5" />} label="Email" onClick={() => track("email")} />
+            </div>
           </div>
 
           <div>
@@ -120,26 +111,15 @@ export function ContactParentDialog({ student, open, onOpenChange }: Props) {
   );
 }
 
-function ChannelCard({ href, onClick, icon, label, sub, tone }: {
-  href: string; onClick: () => void; icon: React.ReactNode; label: string; sub: string;
-  tone: "primary" | "success" | "accent";
-}) {
-  const toneClasses = {
-    primary: "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15",
-    success: "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15",
-    accent: "bg-accent/60 text-accent-foreground border-accent hover:bg-accent",
-  }[tone];
+function ChannelButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel="noreferrer"
+    <button
+      type="button"
       onClick={onClick}
-      className={cn("flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition-colors", toneClasses)}
+      className="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition-colors bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
     >
       {icon}
       <div className="font-semibold text-sm">{label}</div>
-      <div className="text-[10px] opacity-80 truncate w-full">{sub}</div>
-    </a>
+    </button>
   );
 }

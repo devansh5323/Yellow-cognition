@@ -15,6 +15,7 @@ import {
 import { classHealth } from "@/lib/classHealth";
 import { WellbeingDriverCards } from "@/components/dashboard/WellbeingDriverCards";
 import { WELLBEING_STATUS_TONE, WELLBEING_STATUS_LABEL, wellbeingStatusFromScore } from "@/lib/classWellbeing";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -30,7 +31,7 @@ type DriverItem = {
   description: string;
   Icon: LucideIcon;
   tone: string;
-  score: number;
+  score: number | null;
 };
 
 /** A driver's own tone identifies *which* driver it is (kept stable, used
@@ -44,9 +45,10 @@ function healthBand(score: number): { tone: string; label: string } {
   return { tone: WELLBEING_STATUS_TONE[status], label: WELLBEING_STATUS_LABEL[status] };
 }
 
-function average(items: DriverItem[]): number {
-  if (items.length === 0) return 0;
-  return Math.round(items.reduce((sum, i) => sum + i.score, 0) / items.length);
+function average(items: DriverItem[]): number | null {
+  const scored = items.filter((i): i is DriverItem & { score: number } => i.score != null);
+  if (scored.length === 0) return null;
+  return Math.round(scored.reduce((sum, i) => sum + i.score, 0) / scored.length);
 }
 
 
@@ -153,7 +155,7 @@ function DriverGroup({
   onSelect?: (key: string) => void;
 }) {
   const avg = average(items);
-  const band = healthBand(avg);
+  const band = avg != null ? healthBand(avg) : null;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-7 flex flex-col gap-5">
@@ -173,25 +175,31 @@ function DriverGroup({
           <h3 className="font-heading font-extrabold text-[16px] leading-tight">{title}</h3>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span
-            className="font-heading font-extrabold text-[22px] tabular-nums leading-none"
-            style={{ color: tone }}
-          >
-            {avg}
-            <span className="text-muted-foreground text-[12px] font-bold">/100</span>
-          </span>
-          <span
-            className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
-            style={{ background: `color-mix(in srgb, ${band.tone} 14%, transparent)`, color: band.tone }}
-          >
-            {band.label}
-          </span>
+          {avg != null && band ? (
+            <>
+              <span
+                className="font-heading font-extrabold text-[22px] tabular-nums leading-none"
+                style={{ color: tone }}
+              >
+                {avg}
+                <span className="text-muted-foreground text-[12px] font-bold">/100</span>
+              </span>
+              <span
+                className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
+                style={{ background: `color-mix(in srgb, ${band.tone} 14%, transparent)`, color: band.tone }}
+              >
+                {band.label}
+              </span>
+            </>
+          ) : (
+            <NotEnoughData />
+          )}
         </div>
       </div>
 
       <div className="relative flex flex-col gap-3">
         {items.map((item, i) => {
-          const itemBand = healthBand(item.score);
+          const itemBand = item.score != null ? healthBand(item.score) : null;
           return (
             <motion.button
               type="button"
@@ -223,25 +231,31 @@ function DriverGroup({
                   <div className="font-heading font-bold text-[12.5px] leading-tight truncate min-w-0">
                     {item.title}
                   </div>
-                  <span
-                    className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
-                    style={{ background: `color-mix(in srgb, ${itemBand.tone} 12%, transparent)`, color: itemBand.tone }}
-                  >
-                    {itemBand.label}
-                  </span>
+                  {itemBand && (
+                    <span
+                      className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+                      style={{ background: `color-mix(in srgb, ${itemBand.tone} 12%, transparent)`, color: itemBand.tone }}
+                    >
+                      {itemBand.label}
+                    </span>
+                  )}
                 </div>
                 <p className="text-[10.5px] text-muted-foreground mt-1.5 leading-snug truncate">
                   {item.description}
                 </p>
-                <div className="mt-3.5 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
-                  <motion.span
-                    initial={reduce ? undefined : { scaleX: 0 }}
-                    animate={{ scaleX: item.score / 100 }}
-                    transition={{ duration: 0.5, ease: EASE, delay: 0.04 * i }}
-                    className="block h-full w-full origin-left rounded-full"
-                    style={{ background: itemBand.tone }}
-                  />
-                </div>
+                {item.score != null && itemBand ? (
+                  <div className="mt-3.5 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+                    <motion.span
+                      initial={reduce ? undefined : { scaleX: 0 }}
+                      animate={{ scaleX: item.score / 100 }}
+                      transition={{ duration: 0.5, ease: EASE, delay: 0.04 * i }}
+                      className="block h-full w-full origin-left rounded-full"
+                      style={{ background: itemBand.tone }}
+                    />
+                  </div>
+                ) : (
+                  <NotEnoughData className="mt-3.5" />
+                )}
               </div>
 
               {onSelect && (

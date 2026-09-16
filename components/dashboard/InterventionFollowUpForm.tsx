@@ -45,7 +45,8 @@ import {
   type NextStep,
   type PendingFollowUp,
 } from "@/lib/interventionFollowUps";
-import { STUDENTS, type RiskReason } from "@/data/mockData";
+import { STUDENTS } from "@/data/mockData";
+import type { RiskReason } from "@/lib/interventionFollowUps";
 
 type OpenDetail = { studentId?: string; reason?: RiskReason };
 

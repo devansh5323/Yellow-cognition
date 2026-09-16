@@ -1,16 +1,25 @@
 // SEL Needs Explorer — Tool 2. The analytical engine: "where does the
 // school need SEL support?" drilling School → Grade → Classroom → Student.
 //
-// Two of the 9 SEL_COMPETENCIES already have a real, per-student signal
-// via classBehavior.ts's driver breakdown (the same real attention/behaviour
-// data every other dashboard in this app is built on) — that's what lets
-// this drill all the way to an individual student. The rest either fall
-// back to the Pulse tool's grade-level seed data (bottoms out at Grade,
-// honestly — no classroom/student split exists for those) or have no real
-// backing at all yet and are marked unavailable rather than padded with a
-// number. "Student group" has no real grouping model anywhere in this app
-// (Tier 2/3 caseload groupings belong to the Special Ed role, not a
-// general SEL cohort concept) — omitted rather than fabricated.
+// Two of the 9 SEL_COMPETENCIES were designed to draw a real, per-student
+// signal from classBehavior.ts's driver breakdown — but that breakdown
+// currently has zero real signal for any of the 16 real students (see
+// classBehavior.ts's header), so those two report exactly like every other
+// competency without live data: unavailable, not fabricated. The rest
+// either fall back to the Pulse tool's grade-level seed data (bottoms out
+// at Grade, honestly — no classroom/student split exists for those) or
+// have no real backing at all yet and are marked unavailable rather than
+// padded with a number. "Student group" has no real grouping model
+// anywhere in this app (Tier 2/3 caseload groupings belong to the Special
+// Ed role, not a general SEL cohort concept) — omitted rather than
+// fabricated.
+//
+// The real roster (data/realStudents.ts) carries no grade/section/coach
+// fields at all — only `ageGroup`. "Grade" and "Classroom" below are both
+// sourced from `ageGroup` (the only real grouping field that exists), and
+// "Teacher" has no real substitute (`.coach` was a round-robin stand-in on
+// the old mock roster with no real equivalent), so it reports no options
+// rather than a fabricated teacher list.
 
 import { STUDENTS, type Grade, type Student } from "@/data/mockData";
 import { classDisruptionBreakdown, DISRUPTION_LABEL, type DisruptionKey } from "@/lib/classBehavior";
@@ -59,33 +68,39 @@ function healthScore(competency: SelCompetency, rawScore: number): number {
   return competency === "Conflict" ? 100 - rawScore : rawScore;
 }
 
+/** No classroom/section split exists on the real roster — a "classroom" is
+ * just the student's real ageGroup, same as a "grade" below. Kept as a
+ * distinct function (rather than inlining `s.ageGroup`) so callers reading
+ * "classroom" still get a real, if currently coarse, grouping instead of a
+ * fabricated section letter. */
 export function classroomKey(student: Student): string {
-  return `${student.grade.replace(/\D/g, "")}${student.section}`;
+  return student.ageGroup;
 }
 
 export function needsGradeOptions(): Grade[] {
-  return Array.from(new Set(STUDENTS.map((s) => s.grade))).sort() as Grade[];
+  return Array.from(new Set(STUDENTS.map((s) => s.ageGroup))).sort() as Grade[];
 }
 
 export function needsClassroomOptions(grade?: Grade | null): string[] {
-  const pool = grade ? STUDENTS.filter((s) => s.grade === grade) : STUDENTS;
+  const pool = grade ? STUDENTS.filter((s) => s.ageGroup === grade) : STUDENTS;
   return Array.from(new Set(pool.map(classroomKey))).sort();
 }
 
-/** Real staff names already attached to student records (`coach`) — a
- * round-robin assignment, not a genuine teacher-of-record link, but the
- * closest honest substitute since no Teacher field exists on Student. */
+/** No teacher-of-record field exists on the real roster at all (the old
+ * mock roster's `.coach` was a round-robin stand-in, not a genuine link,
+ * and there's no real replacement) — reports no options rather than
+ * fabricating a teacher list. */
 export function needsTeacherOptions(): string[] {
-  return Array.from(new Set(STUDENTS.map((s) => s.coach))).sort();
+  return [];
 }
 
 export type NeedsScope = { grade?: Grade | null; classroom?: string | null; teacher?: string | null };
 
 export function studentsForScope(scope: NeedsScope): Student[] {
   return STUDENTS.filter((s) => {
-    if (scope.grade && s.grade !== scope.grade) return false;
+    if (scope.grade && s.ageGroup !== scope.grade) return false;
     if (scope.classroom && classroomKey(s) !== scope.classroom) return false;
-    if (scope.teacher && s.coach !== scope.teacher) return false;
+    if (scope.teacher) return false; // no real teacher-of-record data exists yet
     return true;
   });
 }
@@ -106,7 +121,7 @@ export function competencyStatusFor(competency: SelCompetency, scope: NeedsScope
     const students = studentsForScope(scope);
     if (students.length === 0) return unavailable;
     const stat = classDisruptionBreakdown(students).find((d) => d.key === driverKey);
-    if (!stat) return unavailable;
+    if (!stat || !stat.hasData || stat.score == null) return unavailable;
     return { competency, available: true, score: stat.score, band: bandFromHealthScore(stat.score), source: "behavior" };
   }
 
@@ -139,7 +154,7 @@ export function competencyTrendFor(competency: SelCompetency, scope: NeedsScope)
     const students = studentsForScope(scope);
     if (students.length === 0) return "flat";
     const stat = classDisruptionBreakdown(students).find((d) => d.key === driverKey);
-    if (!stat) return "flat";
+    if (!stat || !stat.hasData || stat.weeklyChange == null) return "flat";
     if (stat.weeklyChange > 1) return "up";
     if (stat.weeklyChange < -1) return "down";
     return "flat";
@@ -166,7 +181,8 @@ export function studentFlagFor(competency: SelCompetency, student: Student): boo
   const driverKey = COMPETENCY_DRIVER[competency];
   if (!driverKey) return null;
   const stat = classDisruptionBreakdown([student]).find((d) => d.key === driverKey);
-  return stat ? stat.studentCount > 0 : null;
+  if (!stat || !stat.hasData) return null;
+  return stat.studentCount > 0;
 }
 
 /** One classroom's average health score across whichever competencies are

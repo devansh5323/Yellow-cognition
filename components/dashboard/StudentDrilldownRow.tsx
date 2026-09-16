@@ -4,23 +4,16 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronRight, Users } from "lucide-react";
-import { studentComposites, type StudentStatus } from "@/lib/classHealth";
+import { studentComposites } from "@/lib/classHealth";
+import { SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
+import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
+import { SCORE_BANDS } from "@/lib/classHealth";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const STATUS_TONE: Record<StudentStatus, string> = {
-  improving: "hsl(142 55% 45%)",
-  "on-track": "hsl(212 90% 58%)",
-  watch: "hsl(38 92% 55%)",
-  "needs-support": "hsl(0 78% 58%)",
-};
-
-const STATUS_LABEL: Record<StudentStatus, string> = {
-  improving: "Improving",
-  "on-track": "On track",
-  watch: "Watch",
-  "needs-support": "Needs support",
-};
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(
+  SCORE_BANDS.map((b) => [b.band, b.tag]),
+);
 
 /** Quick jump-off points into a student's full profile — separate from the
  * returning-hub's ad hoc conference/flag links, this is the dashboard's own
@@ -66,19 +59,14 @@ export function StudentDrilldownRow({ locked = false }: { locked?: boolean }) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {shown.map((c) => {
-              const tone = STATUS_TONE[c.status];
+              const tone = SCORE_BAND_TONE[c.status];
               return (
                 <Link
                   key={c.student.id}
                   href={`/students/${c.student.id}`}
                   className="rounded-xl border border-border/60 bg-background p-3 flex items-center gap-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
                 >
-                  <span
-                    className="h-8 w-8 rounded-full inline-flex items-center justify-center text-[11px] font-bold shrink-0"
-                    style={{ background: c.student.avatarColor, color: "white" }}
-                  >
-                    {c.student.initials}
-                  </span>
+                  <StudentAvatar student={c.student} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[12px] font-bold truncate">{c.student.name}</div>
                     <div className="text-[10px] font-bold" style={{ color: tone }}>

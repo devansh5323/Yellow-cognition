@@ -1,7 +1,23 @@
-// School-level mock data for the admin dashboard demo.
-// Stable, deterministic — no random per-render changes.
+// School-level data for the admin dashboard.
+// This school is exactly what the real data covers: one teacher (Maya Khan,
+// the same identity used on the teacher dashboard), one class, the 16 real
+// students from data/realStudents.ts. There is no second teacher or second
+// classroom to compare against — every "across grades" / "across teachers"
+// comparison function below has been simplified to reflect that honestly
+// (a single real row, or an empty/no-data result) rather than fabricating
+// more schools worth of classrooms. Two of the four core drivers (Attention
+// & Focus, Behaviour & Discipline) have zero real signal for this roster —
+// see lib/classHealth.ts — so they surface as `null` here too, the same
+// "not enough data yet" convention used on the teacher dashboard, instead of
+// a fabricated number. No week-over-week history exists at school scale
+// either, so every trend/delta field below is `0`/flat rather than a
+// plausible-looking fake swing.
 
-import { scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
+import { STUDENTS } from "@/data/mockData";
+import { classHealth, scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
+import { getClassCheckInsThisWeek } from "@/lib/checkInTools";
+import { getStats } from "@/lib/roster";
+import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 
 export type TeacherStatus = "active" | "dormant" | "invited" | "pending";
 
@@ -21,9 +37,9 @@ export type SchoolTeacher = {
   invitedDaysAgo?: number;
 };
 
-/** The 4 core drivers shared with the teacher dashboard, computed per class —
- * used to build the school-wide School Health Score and classroom distribution. */
-export type ClassDrivers = Record<PillarKey, number>;
+/** The 4 core drivers shared with the teacher dashboard. `null` where the
+ * real roster has zero signal for that driver (see lib/classHealth.ts). */
+export type ClassDrivers = Record<PillarKey, number | null>;
 
 export type SchoolClassRow = {
   id: string;
@@ -55,80 +71,12 @@ export type SchoolKpis = {
   monthlyCheckInsTotal: number;
   parentActivationPct: number;
   parentActivationTrend: number;
-  /** Every classroom any teacher owns, connected or not (includes invited/pending teachers' declared classes). */
   totalClassrooms: number;
-  /** Classrooms whose teacher has an active account, i.e. actually exist in the roster. */
   classroomsConnected: number;
-  /** Classrooms with atRisk students whose teacher HAS checked in this period —
-   * a proxy for "being actively followed up on," since no per-student
-   * follow-up log exists at school scale (unlike the single-teacher demo). */
   followUpsCompleted: number;
-  /** Classrooms with atRisk students whose teacher has NOT checked in —
-   * the complementary proxy for "still needs a follow-up review." */
   followUpsDue: number;
-  /** Composite of 3 real coverage ratios: classroom connection, teacher
-   * activity, and check-in completion — not a fabricated single number. */
   dataReadinessPct: number;
 };
-
-const FIRST_NAMES = [
-  "Maya",
-  "Arjun",
-  "Priya",
-  "Ravi",
-  "Anjali",
-  "Vikram",
-  "Neha",
-  "Karan",
-  "Aditi",
-  "Rohit",
-  "Sara",
-  "Aman",
-  "Divya",
-  "Ishan",
-  "Rhea",
-  "Kabir",
-  "Zara",
-  "Nikhil",
-  "Tara",
-  "Dev",
-  "Mira",
-  "Yash",
-];
-const LAST_NAMES = [
-  "Sharma",
-  "Kapoor",
-  "Reddy",
-  "Iyer",
-  "Khan",
-  "Patel",
-  "Mehta",
-  "Singh",
-  "Das",
-  "Rao",
-  "Verma",
-  "Joshi",
-  "Nair",
-  "Desai",
-  "Bose",
-  "Chopra",
-];
-const SUBJECTS = [
-  "Math",
-  "ELA",
-  "Science",
-  "Social Studies",
-  "Art",
-  "Music",
-  "PE",
-  "World Language",
-];
-const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8"];
-const SECTIONS = ["A", "B", "C"];
-
-function pick<T>(arr: T[], seed: number): T {
-  return arr[seed % arr.length];
-}
 
 function initialsOf(name: string): string {
   return name
@@ -139,127 +87,87 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
+// The one real class this school has — everything below is built from this
+// single source rather than a per-teacher/per-class generator.
 function buildTeachers(): SchoolTeacher[] {
-  const out: SchoolTeacher[] = [];
-  const total = 18;
-  for (let i = 0; i < total; i++) {
-    const name = `${pick(FIRST_NAMES, i * 7 + 1)} ${pick(LAST_NAMES, i * 11 + 3)}`;
-    const subject = pick(SUBJECTS, i * 3);
-    const grade = pick(GRADES, i * 2 + 1);
-    const section = pick(SECTIONS, i + 1);
-    const classes = [`Grade ${grade} · ${section}`];
-    if (i % 4 === 0) {
-      const g2 = pick(GRADES, i * 5 + 2);
-      classes.push(`Grade ${g2} · ${pick(SECTIONS, i + 2)}`);
-    }
-    const studentCount = 18 + ((i * 7) % 12);
-    const avgPfi = 58 + ((i * 13) % 28);
-    const pfiTrend = ((i * 5) % 11) - 5;
-    let status: TeacherStatus = "active";
-    if (i === 2 || i === 8 || i === 13) status = "dormant";
-    else if (i === 4 || i === 11) status = "invited";
-    else if (i === 17) status = "pending";
-
-    out.push({
-      id: `t_${i + 1}`,
-      name,
-      email: `${name.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
-      initials: initialsOf(name),
-      subject,
-      classes,
-      studentCount,
-      avgPfi,
-      pfiTrend,
-      status,
-      lastActiveDays: status === "active" ? i % 3 : status === "dormant" ? 9 + (i % 8) : undefined,
-      joinedDaysAgo: status === "active" || status === "dormant" ? 30 + i * 4 : undefined,
-      invitedDaysAgo: status === "invited" ? 2 + (i % 5) : status === "pending" ? 8 : undefined,
-    });
-  }
-  return out;
+  const ch = classHealth();
+  const checkedIn = getClassCheckInsThisWeek(TEACHER_NAME) > 0;
+  return [
+    {
+      id: "t_1",
+      name: TEACHER_NAME,
+      email: `${TEACHER_NAME.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
+      initials: initialsOf(TEACHER_NAME),
+      subject: "Homeroom",
+      classes: ["Bishop Cottons — Combined Roster"],
+      studentCount: STUDENTS.length,
+      avgPfi: ch.score,
+      pfiTrend: 0,
+      status: "active",
+      lastActiveDays: checkedIn ? 0 : undefined,
+      joinedDaysAgo: 0,
+    },
+  ];
 }
 
 function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
-  const out: SchoolClassRow[] = [];
-  let id = 0;
-  teachers.forEach((t) => {
-    if (t.status === "invited" || t.status === "pending") return;
-    t.classes.forEach((cl) => {
-      const [, gradeRaw, section] = cl.match(/Grade ([^\s]+) · ([A-Z])/) ?? [];
-      const grade = gradeRaw ?? "3";
-      const sec = section ?? "A";
-      const size = t.studentCount + ((id * 3) % 5) - 2;
-      const avgPfi = Math.max(40, Math.min(94, t.avgPfi + ((id * 7) % 9) - 4));
-      const trend = ((id * 5) % 11) - 5;
-      const atRisk = Math.max(0, Math.round(size * (0.12 + ((id * 3) % 7) / 100) - (id % 2)));
-      const monthlyCheckIn = id % 4 !== 0;
-      const engagementPct = 60 + ((id * 11) % 32);
-      // A per-class jitter distinct from avgPfi's own jitter, so the 4 drivers
-      // read as related-but-independent signals rather than the same number
-      // relabeled 4 times.
-      const jitter = (salt: number) => ((id * (11 + salt * 4)) % 21) - 10;
-      const clampDriver = (v: number) => Math.max(20, Math.min(98, Math.round(v)));
-      const drivers: ClassDrivers = {
-        focus: clampDriver(avgPfi + jitter(1)),
-        academic: clampDriver(avgPfi - 3 + jitter(2)),
-        behavior: clampDriver(avgPfi + 6 - atRisk * 1.2 + jitter(3)),
-        task: clampDriver(engagementPct + jitter(4)),
-      };
-      out.push({
-        id: `c_${++id}`,
-        name: cl,
-        grade,
-        section: sec,
-        teacherId: t.id,
-        teacherName: t.name,
-        size,
-        avgPfi,
-        pfiTrend: trend,
-        atRisk,
-        monthlyCheckIn,
-        engagementPct,
-        drivers,
-      });
-    });
-  });
-  return out;
+  const t = teachers[0];
+  const ch = classHealth();
+  const checkedIn = getClassCheckInsThisWeek(TEACHER_NAME) > 0;
+  const atRisk = ch.distribution["needs-support"] + ch.distribution.watch;
+
+  const drivers: ClassDrivers = {
+    focus: ch.pillars.focus,
+    academic: ch.pillars.academic,
+    behavior: ch.pillars.behavior,
+    task: ch.pillars.task,
+  };
+
+  return [
+    {
+      id: "c_1",
+      name: t.classes[0],
+      grade: "Combined",
+      section: "—",
+      teacherId: t.id,
+      teacherName: t.name,
+      size: STUDENTS.length,
+      avgPfi: ch.score,
+      pfiTrend: 0,
+      atRisk,
+      monthlyCheckIn: checkedIn,
+      engagementPct: ch.pillars.task ?? 0,
+      drivers,
+    },
+  ];
 }
 
 function computeKpis(teachers: SchoolTeacher[], classes: SchoolClassRow[]): SchoolKpis {
-  const active = teachers.filter((t) => t.status === "active").length;
-  const invited = teachers.filter((t) => t.status === "invited").length;
-  const pending = teachers.filter((t) => t.status === "pending").length;
-  const totalStudents = classes.reduce((acc, c) => acc + c.size, 0);
-  const atRiskCount = classes.reduce((acc, c) => acc + c.atRisk, 0);
-  const sumPfi = classes.reduce((acc, c) => acc + c.avgPfi * c.size, 0);
-  const avgSchoolPfi = totalStudents > 0 ? Math.round(sumPfi / totalStudents) : 0;
-  const monthlyCheckInsDone = classes.filter((c) => c.monthlyCheckIn).length;
-  const totalClassrooms = teachers.reduce((acc, t) => acc + t.classes.length, 0);
-  const classroomsConnected = classes.length;
-  const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
-  const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
-  const connectionRatio = totalClassrooms > 0 ? classroomsConnected / totalClassrooms : 0;
-  const activityRatio = teachers.length > 0 ? active / teachers.length : 0;
-  const checkInRatio = classes.length > 0 ? monthlyCheckInsDone / classes.length : 0;
+  const c = classes[0];
+  const invite = getStats();
+  const parentActivationPct = invite.total > 0 ? Math.round((invite.active / invite.total) * 100) : 0;
+  const followUpsCompleted = c.atRisk > 0 && c.monthlyCheckIn ? 1 : 0;
+  const followUpsDue = c.atRisk > 0 && !c.monthlyCheckIn ? 1 : 0;
   const dataReadinessPct = Math.round(
-    ((connectionRatio + activityRatio + checkInRatio) / 3) * 100,
+    ((1 /* connected */ + 1 /* active */ + (c.monthlyCheckIn ? 1 : 0)) / 3) * 100,
   );
+
   return {
-    totalStudents,
+    totalStudents: c.size,
     totalTeachers: teachers.length,
-    activeTeachers: active,
-    invitedTeachers: invited,
-    pendingTeachers: pending,
-    avgSchoolPfi,
-    avgPfiTrend: 4,
-    atRiskCount,
-    atRiskPct: totalStudents > 0 ? Math.round((atRiskCount / totalStudents) * 100) : 0,
-    monthlyCheckInsDone,
-    monthlyCheckInsTotal: classes.length,
-    parentActivationPct: 64,
-    parentActivationTrend: 7,
-    totalClassrooms,
-    classroomsConnected,
+    activeTeachers: 1,
+    invitedTeachers: 0,
+    pendingTeachers: 0,
+    avgSchoolPfi: c.avgPfi,
+    avgPfiTrend: 0,
+    atRiskCount: c.atRisk,
+    atRiskPct: c.size > 0 ? Math.round((c.atRisk / c.size) * 100) : 0,
+    monthlyCheckInsDone: c.monthlyCheckIn ? 1 : 0,
+    monthlyCheckInsTotal: 1,
+    parentActivationPct,
+    parentActivationTrend: 0,
+    totalClassrooms: 1,
+    classroomsConnected: 1,
     followUpsCompleted,
     followUpsDue,
     dataReadinessPct,
@@ -280,22 +188,12 @@ export function getSchoolKpis(): SchoolKpis {
   return KPIS;
 }
 
-// Intra-day attention curve — 8 points across the school day, used as a
-// secondary signal alongside the monthly check-in. Hour-of-day, not cadence.
-export function schoolDailyAttention(): { hour: string; attention: number }[] {
-  const HOURS = ["8am", "9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm"];
-  const PFI = [62, 71, 78, 81, 74, 67, 70, 65];
-  return HOURS.map((h, i) => ({ hour: h, attention: PFI[i] }));
-}
-
+/** One teacher, one class — there's nothing to rank a "leaderboard" against.
+ * Kept as `top`/`needsSupport` for consumer compatibility, but only ever
+ * populated with the single real teacher, never duplicated into both. */
 export const TEACHER_LEADERBOARD = (() => {
-  const ranked = [...TEACHERS]
-    .filter((t) => t.status === "active" || t.status === "dormant")
-    .sort((a, b) => b.avgPfi - a.avgPfi);
-  return {
-    top: ranked.slice(0, 5),
-    needsSupport: ranked.slice(-5).reverse(),
-  };
+  const [t] = TEACHERS;
+  return { top: t ? [t] : [], needsSupport: [] as SchoolTeacher[] };
 })();
 
 export type SchoolEventKind = "celebration" | "alert" | "info";
@@ -320,79 +218,57 @@ export type SchoolRecentEvent = {
   cta?: { label: string; to: SchoolEventCtaTarget };
 };
 
-export const SCHOOL_RECENT_EVENTS: SchoolRecentEvent[] = [
-  {
-    id: "e5",
-    kind: "alert",
-    severity: "critical",
-    title: "Class 3 readiness dropped 8 pts",
-    body: "Grade 3 · 28 students — focus and task initiation softened over the last two weeks.",
-    time: "2d ago",
-    recommend: {
-      title: "Add a 3-min focus warm-up before core blocks",
-      reason:
-        "Short focus drills lift task initiation by ~14% in similar Grade 3 cohorts within two weeks.",
-    },
-    cta: { label: "View class", to: "/school/classes" },
-  },
-  {
-    id: "e2",
-    kind: "alert",
-    severity: "warning",
-    title: "3 classes haven't run this month's check-in",
-    body: "Grades 6B, 7A, 8C are due — auto-nudge sent to teachers.",
-    time: "Today",
-    recommend: {
-      title: "Pair the nudge with a 5-min co-plan slot",
-      reason:
-        "Lead teachers in these sections reported scheduling friction; a co-plan slot recovers ~12 mins/class in week one.",
-    },
-    cta: { label: "Open class list", to: "/school/classes" },
-  },
-  {
-    id: "e6",
-    kind: "alert",
-    severity: "warning",
-    title: "Disruption events up 18% in Science blocks",
-    body: "Grade 6–8 Science · transitions between lab segments absorbing teaching time.",
-    time: "Yesterday",
-    recommend: {
-      title: "Cue lab transitions with a visible 60-sec timer",
-      reason:
-        "Visible timers cut transition loss by ~30% across the cohorts running them this term.",
-    },
-    cta: { label: "Coach teachers", to: "/school/teachers" },
-  },
-  {
-    id: "e1",
-    kind: "celebration",
-    title: "Grade 4 · Section B led the school this month",
-    body: "Highest sustained focus in this month's check-in.",
-    time: "1h ago",
-    cta: { label: "View class", to: "/school/classes" },
-  },
-  {
-    id: "e4",
-    kind: "celebration",
-    title: "Parent activation crossed 60%",
-    body: "238 of 376 families now active in the Yellow app.",
-    time: "2d ago",
-  },
-  {
-    id: "e3",
-    kind: "info",
-    title: "Monthly all-staff digest scheduled",
-    body: "Goes out at month-end to 18 teachers and 2 admins.",
-    time: "Yesterday",
-  },
-];
+/** Built from the one real class's real numbers — no invented events about
+ * classrooms or families that don't exist. */
+function buildSchoolRecentEvents(): SchoolRecentEvent[] {
+  const c = CLASSES[0];
+  const kpis = KPIS;
+  const events: SchoolRecentEvent[] = [];
+
+  if (c.atRisk > 0 && !c.monthlyCheckIn) {
+    events.push({
+      id: "e-followup-due",
+      kind: "alert",
+      severity: "warning",
+      title: `${c.atRisk} student${c.atRisk === 1 ? "" : "s"} awaiting a follow-up check-in`,
+      body: `${c.name} hasn't logged this period's check-in yet.`,
+      time: "This week",
+      cta: { label: "Open class list", to: "/school/classes" },
+    });
+  }
+
+  if (kpis.parentActivationPct > 0) {
+    events.push({
+      id: "e-parent-activation",
+      kind: "info",
+      title: `${kpis.parentActivationPct}% parent activation`,
+      body: `${getStats().active} of ${getStats().total} families connected in the Yellow app.`,
+      time: "Today",
+    });
+  }
+
+  const status = scoreBand(c.avgPfi);
+  if (status === "excellent" || status === "stable") {
+    events.push({
+      id: "e-health-good",
+      kind: "celebration",
+      title: `${c.name} is ${status === "excellent" ? "excelling" : "stable"} this period`,
+      body: `Class health score: ${c.avgPfi}/100.`,
+      time: "This week",
+      cta: { label: "View class", to: "/school/classes" },
+    });
+  }
+
+  return events;
+}
+
+export const SCHOOL_RECENT_EVENTS: SchoolRecentEvent[] = buildSchoolRecentEvents();
 
 /* ─────────────────────────────────────────────────────────
- * School Health Score — the principal's north-star metric.
- * Summarises the same 4 core drivers as the teacher dashboard
- * (Attention & Focus, Learning Readiness, Behaviour & Discipline,
- * Task Engagement) plus 2 school-wide-only drivers (Positive Behaviour,
- * Intervention Response), aggregated across every classroom.
+ * School Health Score — the principal's north-star metric. Same 4 core
+ * drivers as the teacher dashboard, plus 2 school-only drivers (Positive
+ * Behaviour, Intervention Response). With one class, this is just that
+ * class's own real numbers rolled up — no cross-classroom averaging.
  * ───────────────────────────────────────────────────────── */
 
 export type SchoolDriverKey = PillarKey | "positiveBehavior" | "interventionResponse";
@@ -415,21 +291,22 @@ export const SCHOOL_DRIVER_LABEL: Record<SchoolDriverKey, string> = {
   interventionResponse: "Intervention Response",
 };
 
-// Small fixed week-over-week deltas — the same "hardcoded but plausible"
-// convention already used for avgPfiTrend/parentActivationTrend above, since
-// no real per-driver history is tracked at school scale yet.
-const SCHOOL_DRIVER_DELTA: Record<SchoolDriverKey, number> = {
-  focus: 2,
-  academic: 1,
-  behavior: 3,
-  task: -2,
-  positiveBehavior: 4,
-  interventionResponse: 1,
-};
+function avg(nums: number[]): number | null {
+  if (nums.length === 0) return null;
+  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+/** Weighted average of a per-class numeric pick, skipping classes where the
+ * picked value is null. Returns null if every class has no data for it. */
+function weightedAvgFor(classes: SchoolClassRow[], pick: (c: SchoolClassRow) => number | null): number | null {
+  const rows = classes.map((c) => ({ v: pick(c), size: c.size })).filter((r): r is { v: number; size: number } => r.v != null);
+  const totalSize = rows.reduce((acc, r) => acc + r.size, 0);
+  if (totalSize === 0) return null;
+  return Math.round(rows.reduce((acc, r) => acc + r.v * r.size, 0) / totalSize);
+}
 
 // Same 30/30/20/20 weighting as the teacher dashboard's Classroom Health
-// Score, applied per class so "classroom distribution" tiers stay consistent
-// with what a teacher would see for their own class.
+// Score, renormalized over whichever pillars actually have real data.
 const CLASS_COMPOSITE_WEIGHTS: Record<PillarKey, number> = {
   academic: 0.3,
   focus: 0.3,
@@ -437,24 +314,14 @@ const CLASS_COMPOSITE_WEIGHTS: Record<PillarKey, number> = {
   task: 0.2,
 };
 
-function formatGradeList(grades: string[]): string {
-  if (grades.length === 0) return "";
-  if (grades.length === 1) return `Grade ${grades[0]}`;
-  return `Grades ${grades.slice(0, -1).join(", ")} and ${grades[grades.length - 1]}`;
-}
-
-function weightedAvgFor(classes: SchoolClassRow[], pick: (c: SchoolClassRow) => number): number {
-  const totalSize = classes.reduce((acc, c) => acc + c.size, 0) || 1;
-  return Math.round(classes.reduce((acc, c) => acc + pick(c) * c.size, 0) / totalSize);
-}
-
-export function classComposite(drivers: ClassDrivers): number {
-  return Math.round(
-    drivers.academic * CLASS_COMPOSITE_WEIGHTS.academic +
-      drivers.focus * CLASS_COMPOSITE_WEIGHTS.focus +
-      drivers.behavior * CLASS_COMPOSITE_WEIGHTS.behavior +
-      drivers.task * CLASS_COMPOSITE_WEIGHTS.task,
+export function classComposite(drivers: ClassDrivers): number | null {
+  const present = (Object.entries(drivers) as [PillarKey, number | null][]).filter(
+    (e): e is [PillarKey, number] => e[1] != null,
   );
+  if (present.length === 0) return null;
+  const weightSum = present.reduce((sum, [k]) => sum + CLASS_COMPOSITE_WEIGHTS[k], 0);
+  const weighted = present.reduce((sum, [k, v]) => sum + v * CLASS_COMPOSITE_WEIGHTS[k], 0);
+  return Math.round(weighted / weightSum);
 }
 
 export type ClassroomTier = "strong" | "solid" | "watch" | "needs-support" | "intensive";
@@ -463,34 +330,17 @@ type ClassroomTierDef = { tier: ClassroomTier; label: string; min: number; meani
 
 const CLASSROOM_TIERS: ClassroomTierDef[] = [
   { tier: "strong", label: "Strong Support", min: 85, meaning: "High functioning with minimal concerns." },
-  {
-    tier: "solid",
-    label: "Solid Support",
-    min: 70,
-    meaning: "Generally functioning well with minor areas to monitor.",
-  },
+  { tier: "solid", label: "Solid Support", min: 70, meaning: "Generally functioning well with minor areas to monitor." },
   { tier: "watch", label: "Watch", min: 55, meaning: "Some concerns emerging; monitor closely." },
-  {
-    tier: "needs-support",
-    label: "Needs Support",
-    min: 40,
-    meaning: "Multiple concerns impacting student outcomes.",
-  },
-  {
-    tier: "intensive",
-    label: "Intensive Support",
-    min: 0,
-    meaning: "Significant concerns requiring immediate support.",
-  },
+  { tier: "needs-support", label: "Needs Support", min: 40, meaning: "Multiple concerns impacting student outcomes." },
+  { tier: "intensive", label: "Intensive Support", min: 0, meaning: "Significant concerns requiring immediate support." },
 ];
 
-export function classroomTierFor(score: number): ClassroomTierDef {
+export function classroomTierFor(score: number | null): ClassroomTierDef {
+  if (score == null) return CLASSROOM_TIERS[CLASSROOM_TIERS.length - 1];
   return CLASSROOM_TIERS.find((t) => score >= t.min) ?? CLASSROOM_TIERS[CLASSROOM_TIERS.length - 1];
 }
 
-// Same 5 underlying tiers as CLASSROOM_TIERS above, relabeled for the Grade &
-// Classroom Overview segment to match its own PRD language — the boundaries
-// and counts stay identical so both segments describe the same classrooms.
 export const SUPPORT_STATUS_LABEL: Record<ClassroomTier, string> = {
   strong: "Performing Strongly",
   solid: "Stable",
@@ -502,7 +352,7 @@ export const SUPPORT_STATUS_LABEL: Record<ClassroomTier, string> = {
 export type SchoolDriverScore = {
   key: SchoolDriverKey;
   label: string;
-  score: number;
+  score: number | null;
   delta: number;
 };
 
@@ -520,59 +370,51 @@ export type SchoolHealthOverview = {
   status: ScoreBand;
   interpretation: string;
   drivers: SchoolDriverScore[];
-  strongest: SchoolDriverScore;
-  weakest: SchoolDriverScore;
+  strongest: SchoolDriverScore | null;
+  weakest: SchoolDriverScore | null;
   distribution: ClassroomDistributionBand[];
 };
 
+/** `grade` is accepted for API compatibility with the old multi-grade
+ * model but has no effect — there's only one class, so filtering by grade
+ * either matches it or (for an unknown grade) returns nothing. */
 export function schoolHealthOverview(grade?: string | null): SchoolHealthOverview {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
 
   const perClassKeys: PillarKey[] = ["focus", "academic", "behavior", "task"];
-  const driverScoreByKey = {} as Record<SchoolDriverKey, number>;
+  const driverScoreByKey = {} as Record<SchoolDriverKey, number | null>;
   perClassKeys.forEach((key) => {
     driverScoreByKey[key] = weightedAvgFor(classes, (c) => c.drivers[key]);
   });
 
-  // Recomputed from the (possibly grade-filtered) class list directly rather
-  // than getSchoolKpis(), which is always whole-school — identical result to
-  // the old kpis-based calc when no grade filter is applied.
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
   const interventionTotal = followUpsCompleted + followUpsDue;
   driverScoreByKey.interventionResponse =
     interventionTotal > 0 ? Math.round((followUpsCompleted / interventionTotal) * 100) : 100;
-  // No dedicated positive-behaviour log exists at school scale yet — proxy
-  // from the same class-level signals as "behavior," offset slightly since
-  // celebrating positives tends to run a little ahead of discipline scores.
-  driverScoreByKey.positiveBehavior = Math.min(98, driverScoreByKey.behavior + 5);
+  // No real positive-behaviour signal exists independent of the (currently
+  // null) behaviour driver — stays null rather than a fabricated proxy.
+  driverScoreByKey.positiveBehavior = driverScoreByKey.behavior != null ? Math.min(98, driverScoreByKey.behavior + 5) : null;
 
   const drivers: SchoolDriverScore[] = SCHOOL_DRIVER_ORDER.map((key) => ({
     key,
     label: SCHOOL_DRIVER_LABEL[key],
     score: driverScoreByKey[key],
-    delta: SCHOOL_DRIVER_DELTA[key],
+    delta: 0,
   }));
 
-  const score = Math.round(drivers.reduce((acc, d) => acc + d.score, 0) / drivers.length);
-  const delta = Math.round(drivers.reduce((acc, d) => acc + d.delta, 0) / drivers.length);
+  const withScore = drivers.filter((d): d is SchoolDriverScore & { score: number } => d.score != null);
+  const score = avg(withScore.map((d) => d.score)) ?? 0;
+  const delta = 0;
   const status = scoreBand(score);
 
-  const ranked = [...drivers].sort((a, b) => b.score - a.score);
-  const strongest = ranked[0];
-  const weakest = ranked[ranked.length - 1];
+  const ranked = [...withScore].sort((a, b) => b.score - a.score);
+  const strongest = ranked[0] ?? null;
+  const weakest = ranked[ranked.length - 1] ?? null;
 
-  let interpretation = "All drivers are performing consistently across grades.";
-  if (weakest.key === "positiveBehavior" || weakest.key === "interventionResponse") {
-    interpretation = `Most grades are functioning well. ${weakest.label} needs school-wide attention.`;
-  } else {
-    const weakKey = weakest.key as PillarKey;
-    const strugglingGrades = Array.from(
-      new Set(classes.filter((c) => c.drivers[weakKey] < 65).map((c) => c.grade)),
-    ).sort();
-    if (strugglingGrades.length > 0) {
-      interpretation = `Most grades are functioning well. ${weakest.label} requires attention in ${formatGradeList(strugglingGrades)}.`;
-    }
+  let interpretation = "This driver picture is steady this period.";
+  if (weakest) {
+    interpretation = `${weakest.label} is the area most worth a closer look right now.`;
   }
 
   const tierCounts = new Map<ClassroomTier, number>();
@@ -587,7 +429,7 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
       label: t.label,
       meaning: t.meaning,
       count,
-      pct: Math.round((count / classes.length) * 100),
+      pct: classes.length > 0 ? Math.round((count / classes.length) * 100) : 0,
     };
   });
 
@@ -595,45 +437,31 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
 }
 
 /* ─────────────────────────────────────────────────────────
- * School Health Driver Cards — one card per core driver,
- * each with its own status, weekly change, and the specific
- * classrooms/grades behind that pattern.
+ * School Health Driver Cards — one card per core driver.
  * ───────────────────────────────────────────────────────── */
 
-// Below "stable" (65+) counts as needing attention, matching SCORE_BANDS.
 const DRIVER_ATTENTION_CUTOFF = 65;
 
 const DRIVER_GOOD_PATTERN: Record<PillarKey, string> = {
-  focus: "Most students are showing strong focus with minimal distractions across the school.",
-  academic: "Most classrooms are ready for learning with consistent routines and materials in place.",
-  behavior: "Positive behaviour is strong and expectations are consistently followed school-wide.",
+  focus: "Most students are showing strong focus with minimal distractions.",
+  academic: "Learning readiness is strong, with consistent routines and materials in place.",
+  behavior: "Positive behaviour is strong and expectations are consistently followed.",
   task: "Most students are completing tasks on time with consistent follow-through.",
 };
 
-const DRIVER_CONTEXT_SUFFIX: Record<PillarKey, string> = {
-  focus: "during instruction",
-  academic: "in daily routines",
-  behavior: "across the school day",
-  task: "during independent tasks",
-};
-
-function driverNeedsAttentionPattern(key: PillarKey, count: number): string {
-  const n = count === 1 ? "One classroom" : `${count} classrooms`;
+function driverNeedsAttentionPattern(key: PillarKey): string {
   switch (key) {
     case "focus":
-      return `${n} showed reduced focus and more frequent distractions compared to last week.`;
+      return "Reduced focus and more frequent distractions compared to last period.";
     case "academic":
-      return `${n} showed gaps in learning readiness compared to last week.`;
+      return "Gaps in learning readiness compared to last period.";
     case "behavior":
-      return `${n} showed more frequent behaviour concerns compared to last week.`;
+      return "More frequent behaviour concerns compared to last period.";
     case "task":
-      return `${n} showed increased delayed or incomplete work compared to last week.`;
+      return "Increased delayed or incomplete work compared to last period.";
   }
 }
 
-// Shared coverage tiering — >=80% real submission rate reads as "High,"
-// >=50% as "Moderate," else "Low." Same benchmark family as the 60%-is-healthy
-// bar used elsewhere in this file (SchoolLeadershipActionHub).
 export function coverageLabelFor(pct: number): "High coverage" | "Moderate coverage" | "Low coverage" {
   if (pct >= 80) return "High coverage";
   if (pct >= 50) return "Moderate coverage";
@@ -643,8 +471,8 @@ export function coverageLabelFor(pct: number): "High coverage" | "Moderate cover
 export type SchoolDriverCard = {
   key: PillarKey;
   label: string;
-  score: number;
-  status: ScoreBand;
+  score: number | null;
+  status: ScoreBand | null;
   delta: number;
   classroomsContributing: number;
   needAttentionCount: number;
@@ -661,9 +489,6 @@ export function schoolDriverCards(grade?: string | null): SchoolDriverCard[] {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
   const CORE_KEYS: PillarKey[] = ["focus", "academic", "behavior", "task"];
 
-  // Real per-class coverage signal — whether the classroom's data for this
-  // period was actually submitted. It's class-wide, not per-driver, so it's
-  // shared across all 4 cards rather than fabricating 4 different numbers.
   const coverageTotal = classes.length;
   const coverageUsed = classes.filter((c) => c.monthlyCheckIn).length;
   const coveragePct = coverageTotal > 0 ? Math.round((coverageUsed / coverageTotal) * 100) : 0;
@@ -671,32 +496,30 @@ export function schoolDriverCards(grade?: string | null): SchoolDriverCard[] {
 
   return CORE_KEYS.map((key) => {
     const score = weightedAvgFor(classes, (c) => c.drivers[key]);
-    const status = scoreBand(score);
-    const delta = SCHOOL_DRIVER_DELTA[key];
+    const status = score != null ? scoreBand(score) : null;
     const isGood = status === "excellent" || status === "stable";
 
-    const needy = classes.filter((c) => c.drivers[key] < DRIVER_ATTENTION_CUTOFF);
+    const needy = classes.filter((c) => c.drivers[key] != null && (c.drivers[key] as number) < DRIVER_ATTENTION_CUTOFF);
     const needAttentionCount = needy.length;
 
-    let mostVisibleIn = "Consistent across all grades";
-    if (isGood) {
-      const sorted = [...classes].sort((a, b) => b.drivers[key] - a.drivers[key]);
-      const topGrades = Array.from(new Set(sorted.slice(0, Math.max(2, Math.ceil(classes.length * 0.2))).map((c) => c.grade))).sort();
-      if (topGrades.length > 0) mostVisibleIn = formatGradeList(topGrades.slice(0, 2));
-    } else if (needy.length > 0) {
-      const weakGrades = Array.from(new Set(needy.map((c) => c.grade))).sort();
-      mostVisibleIn = `${formatGradeList(weakGrades.slice(0, 2))} ${DRIVER_CONTEXT_SUFFIX[key]}`;
-    }
+    const mostVisibleIn =
+      score == null
+        ? "Not enough data yet"
+        : isGood
+          ? "Consistent this period"
+          : needy.length > 0
+            ? `Showing up in ${needy.length === 1 ? "this class" : `${needy.length} classes`}`
+            : "Consistent across the school";
 
     return {
       key,
       label: SCHOOL_DRIVER_LABEL[key],
       score,
       status,
-      delta,
+      delta: 0,
       classroomsContributing: classes.length,
       needAttentionCount,
-      pattern: isGood ? DRIVER_GOOD_PATTERN[key] : driverNeedsAttentionPattern(key, needAttentionCount),
+      pattern: score == null ? "Not enough data yet for this driver." : isGood ? DRIVER_GOOD_PATTERN[key] : driverNeedsAttentionPattern(key),
       mostVisibleIn,
       coverageUsed,
       coverageTotal,
@@ -708,11 +531,8 @@ export function schoolDriverCards(grade?: string | null): SchoolDriverCard[] {
 }
 
 /* ─────────────────────────────────────────────────────────
- * School Health pillar metrics — 3 top-level summaries (Student Well-being,
- * Classroom Performance Index, Teacher Efficiency) shown above the 4 core
- * driver cards. Each reuses real per-class signals already computed above,
- * just aggregated differently, plus a real coverage figure (how much of the
- * relevant population actually has current-period data).
+ * School Health pillar metrics — Student Well-being, Classroom Performance
+ * Index, Teacher Efficiency.
  * ───────────────────────────────────────────────────────── */
 
 export type SchoolPillarKey = "studentWellbeing" | "classroomPerformance" | "teacherEfficiency";
@@ -723,20 +543,9 @@ export const SCHOOL_PILLAR_LABEL: Record<SchoolPillarKey, string> = {
   teacherEfficiency: "Teacher Efficiency",
 };
 
-// Hardcoded but plausible week-over-week deltas — same convention as
-// SCHOOL_DRIVER_DELTA, since no real pillar-history is tracked yet.
-// studentWellbeing/teacherEfficiency reuse the existing positiveBehavior/
-// interventionResponse deltas since they're the same underlying signal.
-const SCHOOL_PILLAR_DELTA: Record<SchoolPillarKey, number> = {
-  studentWellbeing: SCHOOL_DRIVER_DELTA.positiveBehavior,
-  classroomPerformance: 2,
-  teacherEfficiency: SCHOOL_DRIVER_DELTA.interventionResponse,
-};
-
 // "Classroom Performance Index" = academic + focus + task, weighted toward
-// learning readiness — a different blend than the 30/30/20/20 composite used
-// for classroom tiering, deliberately excluding behavior since that's
-// captured by Student Well-being instead.
+// learning readiness. Renormalized at read time over whichever of these
+// actually have real data (see schoolPillarMetrics below).
 const CLASSROOM_PERFORMANCE_WEIGHTS: Record<"academic" | "focus" | "task", number> = {
   academic: 0.4,
   focus: 0.3,
@@ -746,8 +555,8 @@ const CLASSROOM_PERFORMANCE_WEIGHTS: Record<"academic" | "focus" | "task", numbe
 export type SchoolPillarMetric = {
   key: SchoolPillarKey;
   label: string;
-  score: number;
-  status: ScoreBand;
+  score: number | null;
+  status: ScoreBand | null;
   delta: number;
   coverageUsed: number;
   coverageTotal: number;
@@ -761,14 +570,23 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
   const kpis = getSchoolKpis();
 
   const behaviorScore = weightedAvgFor(classes, (c) => c.drivers.behavior);
-  // Same "no dedicated positive-behaviour log yet" proxy as schoolHealthOverview.
-  const studentWellbeingScore = Math.min(98, behaviorScore + 5);
+  const studentWellbeingScore = behaviorScore != null ? Math.min(98, behaviorScore + 5) : null;
 
-  const classroomPerformanceScore = Math.round(
-    weightedAvgFor(classes, (c) => c.drivers.academic) * CLASSROOM_PERFORMANCE_WEIGHTS.academic +
-      weightedAvgFor(classes, (c) => c.drivers.focus) * CLASSROOM_PERFORMANCE_WEIGHTS.focus +
-      weightedAvgFor(classes, (c) => c.drivers.task) * CLASSROOM_PERFORMANCE_WEIGHTS.task,
-  );
+  const academicScore = weightedAvgFor(classes, (c) => c.drivers.academic);
+  const focusScore = weightedAvgFor(classes, (c) => c.drivers.focus);
+  const taskScore = weightedAvgFor(classes, (c) => c.drivers.task);
+  const perfEntries = (
+    [
+      ["academic", academicScore],
+      ["focus", focusScore],
+      ["task", taskScore],
+    ] as [keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, number | null][]
+  ).filter((e): e is [keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, number] => e[1] != null);
+  const perfWeightSum = perfEntries.reduce((s, [k]) => s + CLASSROOM_PERFORMANCE_WEIGHTS[k], 0);
+  const classroomPerformanceScore =
+    perfEntries.length > 0
+      ? Math.round(perfEntries.reduce((s, [k, v]) => s + v * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfWeightSum)
+      : null;
 
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
@@ -781,21 +599,11 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
   const classroomCoveragePct =
     classroomCoverageTotal > 0 ? Math.round((classroomCoverageUsed / classroomCoverageTotal) * 100) : 0;
 
-  // Teacher coverage: whole-school uses the real activeTeachers/totalTeachers
-  // KPI directly; a grade filter narrows to the unique teachers actually
-  // teaching a class in that grade, and how many of them have checked in.
-  let teacherCoverageUsed = kpis.activeTeachers;
-  let teacherCoverageTotal = kpis.totalTeachers;
-  if (grade) {
-    const teacherIds = new Set(classes.map((c) => c.teacherId));
-    const checkedInTeacherIds = new Set(classes.filter((c) => c.monthlyCheckIn).map((c) => c.teacherId));
-    teacherCoverageTotal = teacherIds.size;
-    teacherCoverageUsed = Array.from(teacherIds).filter((id) => checkedInTeacherIds.has(id)).length;
-  }
-  const teacherCoveragePct =
-    teacherCoverageTotal > 0 ? Math.round((teacherCoverageUsed / teacherCoverageTotal) * 100) : 0;
+  const teacherCoverageUsed = kpis.activeTeachers;
+  const teacherCoverageTotal = kpis.totalTeachers;
+  const teacherCoveragePct = teacherCoverageTotal > 0 ? Math.round((teacherCoverageUsed / teacherCoverageTotal) * 100) : 0;
 
-  const scoreByKey: Record<SchoolPillarKey, number> = {
+  const scoreByKey: Record<SchoolPillarKey, number | null> = {
     studentWellbeing: studentWellbeingScore,
     classroomPerformance: classroomPerformanceScore,
     teacherEfficiency: teacherEfficiencyScore,
@@ -809,12 +617,13 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
 
   return (["studentWellbeing", "classroomPerformance", "teacherEfficiency"] as SchoolPillarKey[]).map((key) => {
     const coverage = coverageByKey[key];
+    const score = scoreByKey[key];
     return {
       key,
       label: SCHOOL_PILLAR_LABEL[key],
-      score: scoreByKey[key],
-      status: scoreBand(scoreByKey[key]),
-      delta: SCHOOL_PILLAR_DELTA[key],
+      score,
+      status: score != null ? scoreBand(score) : null,
+      delta: 0,
       coverageUsed: coverage.used,
       coverageTotal: coverage.total,
       coveragePct: coverage.pct,
@@ -832,28 +641,15 @@ export type SchoolHealthCoverage = {
   dataReadinessPct: number;
 };
 
-/** Backs the "Coverage" panel on the main School Health Score card — reuses
- * the same real check-in/teacher-activity signals as the pillar metrics
- * above, just bundled together for the summary card. */
 export function schoolHealthCoverage(grade?: string | null): SchoolHealthCoverage {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
   const kpis = getSchoolKpis();
 
   const classroomsTotal = classes.length;
   const classroomsUsed = classes.filter((c) => c.monthlyCheckIn).length;
+  const teachersUsed = kpis.activeTeachers;
+  const teachersTotal = kpis.totalTeachers;
 
-  let teachersUsed = kpis.activeTeachers;
-  let teachersTotal = kpis.totalTeachers;
-  if (grade) {
-    const teacherIds = new Set(classes.map((c) => c.teacherId));
-    const checkedInTeacherIds = new Set(classes.filter((c) => c.monthlyCheckIn).map((c) => c.teacherId));
-    teachersTotal = teacherIds.size;
-    teachersUsed = Array.from(teacherIds).filter((id) => checkedInTeacherIds.has(id)).length;
-  }
-
-  // Whole-school data readiness is the real composite KPI (connection +
-  // activity + check-in ratios); a grade filter narrows to just that grade's
-  // real check-in ratio, since connection/activity aren't grade-scopable.
   const dataReadinessPct = grade
     ? classroomsTotal > 0
       ? Math.round((classroomsUsed / classroomsTotal) * 100)
@@ -873,103 +669,48 @@ export type SupportFocusRow = {
   ctaHref: SchoolEventCtaTarget;
 };
 
-/** For each of the 3 pillars, finds the single worst-scoring grade currently
- * below the attention cutoff (if any) — the closest honest equivalent to a
- * curated "Support Focus" list, since no case-management log exists to pull
- * a real triage queue from. */
+/** With a single class, "which grade needs support" collapses to "does this
+ * one class need support" — at most one row per pillar, only when that
+ * pillar has real data below the attention cutoff. */
 export function schoolSupportFocus(grade?: string | null): SupportFocusRow[] {
+  const metrics = schoolPillarMetrics(grade);
   const classes = getSchoolClasses();
-  const grades = (grade ? [grade] : GRADE_ORDER.filter((g) => classes.some((c) => c.grade === g)));
   const rows: SupportFocusRow[] = [];
 
-  // Student Well-being — worst grade by behavior-driven well-being proxy.
-  const wellbeingByGrade = grades
-    .map((g) => {
-      const inGrade = classes.filter((c) => c.grade === g);
-      const score = Math.min(98, weightedAvgFor(inGrade, (c) => c.drivers.behavior) + 5);
-      return { grade: g, score, count: inGrade.length };
-    })
-    .filter((r) => r.score < DRIVER_ATTENTION_CUTOFF)
-    .sort((a, b) => a.score - b.score);
-  if (wellbeingByGrade[0]) {
-    const r = wellbeingByGrade[0];
+  const wellbeing = metrics.find((m) => m.key === "studentWellbeing");
+  if (wellbeing?.score != null && wellbeing.score < DRIVER_ATTENTION_CUTOFF) {
     rows.push({
-      grade: r.grade,
-      gradeLabel: `Grade ${r.grade}`,
+      grade: classes[0]?.grade ?? "",
+      gradeLabel: classes[0]?.name ?? "Your class",
       pillar: "studentWellbeing",
       area: SCHOOL_PILLAR_LABEL.studentWellbeing,
-      details: `Behaviour and well-being signals softening across ${r.count} classroom${r.count === 1 ? "" : "s"}.`,
+      details: "Behaviour and well-being signals softening this period.",
       ctaLabel: "View class details",
       ctaHref: "/school/classes",
     });
   }
 
-  // Classroom Performance Index — worst grade, with the specific weak
-  // sub-driver named (academic/focus/task) for a concrete detail line.
-  const performanceByGrade = grades
-    .map((g) => {
-      const inGrade = classes.filter((c) => c.grade === g);
-      const academic = weightedAvgFor(inGrade, (c) => c.drivers.academic);
-      const focus = weightedAvgFor(inGrade, (c) => c.drivers.focus);
-      const task = weightedAvgFor(inGrade, (c) => c.drivers.task);
-      const score = Math.round(
-        academic * CLASSROOM_PERFORMANCE_WEIGHTS.academic +
-          focus * CLASSROOM_PERFORMANCE_WEIGHTS.focus +
-          task * CLASSROOM_PERFORMANCE_WEIGHTS.task,
-      );
-      const entries: Array<["academic" | "focus" | "task", number]> = [
-        ["academic", academic],
-        ["focus", focus],
-        ["task", task],
-      ];
-      const weakest = entries.sort((a, b) => a[1] - b[1])[0][0];
-      return { grade: g, score, count: inGrade.length, weakest };
-    })
-    .filter((r) => r.score < DRIVER_ATTENTION_CUTOFF)
-    .sort((a, b) => a.score - b.score);
-  if (performanceByGrade[0]) {
-    const r = performanceByGrade[0];
-    const detailByDriver: Record<"academic" | "focus" | "task", string> = {
-      academic: `Learning readiness gaps across ${r.count} classroom${r.count === 1 ? "" : "s"}.`,
-      focus: `Reduced focus and attention across ${r.count} classroom${r.count === 1 ? "" : "s"}.`,
-      task: `Task engagement decline across ${r.count} classroom${r.count === 1 ? "" : "s"}.`,
-    };
+  const performance = metrics.find((m) => m.key === "classroomPerformance");
+  if (performance?.score != null && performance.score < DRIVER_ATTENTION_CUTOFF) {
     rows.push({
-      grade: r.grade,
-      gradeLabel: `Grade ${r.grade}`,
+      grade: classes[0]?.grade ?? "",
+      gradeLabel: classes[0]?.name ?? "Your class",
       pillar: "classroomPerformance",
       area: SCHOOL_PILLAR_LABEL.classroomPerformance,
-      details: detailByDriver[r.weakest],
+      details: "Learning readiness and task engagement are below the healthy range.",
       ctaLabel: "View class details",
       ctaHref: "/school/classes",
     });
   }
 
-  // Teacher Efficiency — worst grade by teacher follow-up completion, named
-  // by how many of that grade's teachers have an overdue follow-up.
-  const efficiencyByGrade = grades
-    .map((g) => {
-      const inGrade = classes.filter((c) => c.grade === g);
-      const teacherIds = new Set(inGrade.map((c) => c.teacherId));
-      const laggingTeacherIds = new Set(
-        inGrade.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).map((c) => c.teacherId),
-      );
-      const completed = inGrade.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
-      const due = inGrade.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
-      const total = completed + due;
-      const score = total > 0 ? Math.round((completed / total) * 100) : 100;
-      return { grade: g, score, laggingCount: laggingTeacherIds.size, teacherCount: teacherIds.size };
-    })
-    .filter((r) => r.score < DRIVER_ATTENTION_CUTOFF && r.laggingCount > 0)
-    .sort((a, b) => a.score - b.score);
-  if (efficiencyByGrade[0]) {
-    const r = efficiencyByGrade[0];
+  const efficiency = metrics.find((m) => m.key === "teacherEfficiency");
+  if (efficiency?.score != null && efficiency.score < DRIVER_ATTENTION_CUTOFF) {
     rows.push({
-      grade: r.grade,
-      gradeLabel: `Grade ${r.grade}`,
+      grade: classes[0]?.grade ?? "",
+      gradeLabel: classes[0]?.name ?? "Your class",
       pillar: "teacherEfficiency",
       area: SCHOOL_PILLAR_LABEL.teacherEfficiency,
-      details: `${r.laggingCount} teacher${r.laggingCount === 1 ? "" : "s"} may need additional support.`,
+      details: "A follow-up check-in is overdue.",
       ctaLabel: "View teachers",
       ctaHref: "/school/teachers",
     });
@@ -980,63 +721,41 @@ export function schoolSupportFocus(grade?: string | null): SupportFocusRow[] {
 
 export type SchoolHealthTrendPoint = {
   weekLabel: string;
-  studentWellbeing: number;
-  classroomPerformance: number;
-  teacherEfficiency: number;
+  studentWellbeing: number | null;
+  classroomPerformance: number | null;
+  teacherEfficiency: number | null;
 };
 
-// No real week-over-week history is tracked at school scale yet — this
-// backfills a plausible 5-week series ending exactly at today's real score,
-// stepping backward by a fraction of the same real weekly delta each week.
-// Same "hardcoded but plausible" convention as SCHOOL_DRIVER_DELTA/TIER_DELTA.
-function backfillTrend(current: number, weeklyDelta: number, weeks: number): number[] {
-  const series = [current];
-  let value = current;
-  for (let i = 1; i < weeks; i++) {
-    value = Math.max(0, Math.min(100, Math.round(value - weeklyDelta * (0.5 + (i % 3) * 0.2))));
-    series.unshift(value);
-  }
-  return series;
-}
-
-const TREND_WEEK_LABELS = ["Jun 30 – Jul 6", "Jul 7 – Jul 13", "Jul 14 – Jul 20", "Jul 21 – Jul 27", "Jul 28 – Aug 3"];
+// No real week-over-week history is tracked at school scale — every point
+// is the same real current value (flat), not a fabricated swing.
+const TREND_WEEK_LABELS = ["Week 1", "Week 2", "Week 3", "Week 4", "This Week"];
 
 export function schoolHealthTrend(grade?: string | null): SchoolHealthTrendPoint[] {
   const metrics = schoolPillarMetrics(grade);
   const byKey = Object.fromEntries(metrics.map((m) => [m.key, m])) as Record<SchoolPillarKey, SchoolPillarMetric>;
-  const weeks = TREND_WEEK_LABELS.length;
 
-  const wellbeingSeries = backfillTrend(byKey.studentWellbeing.score, byKey.studentWellbeing.delta, weeks);
-  const performanceSeries = backfillTrend(byKey.classroomPerformance.score, byKey.classroomPerformance.delta, weeks);
-  const efficiencySeries = backfillTrend(byKey.teacherEfficiency.score, byKey.teacherEfficiency.delta, weeks);
-
-  return TREND_WEEK_LABELS.map((weekLabel, i) => ({
+  return TREND_WEEK_LABELS.map((weekLabel) => ({
     weekLabel,
-    studentWellbeing: wellbeingSeries[i],
-    classroomPerformance: performanceSeries[i],
-    teacherEfficiency: efficiencySeries[i],
+    studentWellbeing: byKey.studentWellbeing.score,
+    classroomPerformance: byKey.classroomPerformance.score,
+    teacherEfficiency: byKey.teacherEfficiency.score,
   }));
 }
 
 /* ─────────────────────────────────────────────────────────
- * Grade & Classroom Overview — lets the principal compare how
- * different grades are functioning, one row per grade.
+ * Grade & Classroom Overview — one row per grade. With a single class,
+ * this is a one-row table naming this class's real numbers.
  * ───────────────────────────────────────────────────────── */
-
-const GRADE_ORDER = ["K", "1", "2", "3", "4", "5", "6", "7", "8"];
 
 export type GradeOverviewRow = {
   grade: string;
   gradeLabel: string;
   healthScore: number;
   status: ScoreBand;
-  /** Weighted average of each class's real pfiTrend — an actual week-over-week signal, not fabricated. */
   delta: number;
-  strongestDriver: PillarKey;
+  strongestDriver: PillarKey | null;
   areaNeedingAttention: PillarKey | null;
-  /** Classrooms in the "Monitor" tier — the closest real mapping to a Tier 2 caseload. */
   tier2Count: number;
-  /** Classrooms in "Support Recommended" or "Immediate Review" — the closest real mapping to a Tier 3 caseload. */
   tier3Count: number;
   dataReadinessPct: number;
   classroomsContributing: number;
@@ -1047,51 +766,44 @@ export type GradeOverviewRow = {
 export function gradeOverviewRows(): GradeOverviewRow[] {
   const classes = getSchoolClasses();
   const CORE_KEYS: PillarKey[] = ["focus", "academic", "behavior", "task"];
-  const grades = GRADE_ORDER.filter((g) => classes.some((c) => c.grade === g));
 
-  return grades.map((grade) => {
-    const classesInGrade = classes.filter((c) => c.grade === grade);
-    const totalSize = classesInGrade.reduce((acc, c) => acc + c.size, 0) || 1;
+  return classes.length === 0
+    ? []
+    : (() => {
+        const c = classes[0];
+        const healthScore = classComposite(c.drivers) ?? c.avgPfi;
+        const status = scoreBand(healthScore);
 
-    const healthScore = weightedAvgFor(classesInGrade, (c) => classComposite(c.drivers));
-    const status = scoreBand(healthScore);
-    const delta = Math.round(
-      classesInGrade.reduce((acc, c) => acc + c.pfiTrend * c.size, 0) / totalSize,
-    );
+        const driverScores = CORE_KEYS.map((key) => ({ key, score: c.drivers[key] })).filter(
+          (d): d is { key: PillarKey; score: number } => d.score != null,
+        );
+        const ranked = [...driverScores].sort((a, b) => b.score - a.score);
+        const strongestDriver = ranked[0]?.key ?? null;
+        const weakest = ranked[ranked.length - 1];
+        const areaNeedingAttention = weakest && weakest.score < DRIVER_ATTENTION_CUTOFF ? weakest.key : null;
 
-    const driverScores = CORE_KEYS.map((key) => ({
-      key,
-      score: weightedAvgFor(classesInGrade, (c) => c.drivers[key]),
-    }));
-    const ranked = [...driverScores].sort((a, b) => b.score - a.score);
-    const strongestDriver = ranked[0].key;
-    const weakest = ranked[ranked.length - 1];
-    const areaNeedingAttention = weakest.score < DRIVER_ATTENTION_CUTOFF ? weakest.key : null;
+        const tier = classroomTierFor(classComposite(c.drivers)).tier;
+        const tier2Count = tier === "watch" ? 1 : 0;
+        const tier3Count = tier === "needs-support" || tier === "intensive" ? 1 : 0;
 
-    const tiers = classesInGrade.map((c) => classroomTierFor(classComposite(c.drivers)).tier);
-    const tier2Count = tiers.filter((t) => t === "watch").length;
-    const tier3Count = tiers.filter((t) => t === "needs-support" || t === "intensive").length;
-
-    const dataReadinessPct = Math.round(
-      (classesInGrade.filter((c) => c.monthlyCheckIn).length / classesInGrade.length) * 100,
-    );
-
-    return {
-      grade,
-      gradeLabel: `Grade ${grade}`,
-      healthScore,
-      status,
-      delta,
-      strongestDriver,
-      areaNeedingAttention,
-      tier2Count,
-      tier3Count,
-      dataReadinessPct,
-      classroomsContributing: classesInGrade.length,
-      supportTier: classroomTierFor(healthScore).tier,
-      classIds: classesInGrade.map((c) => c.id),
-    };
-  });
+        return [
+          {
+            grade: c.grade,
+            gradeLabel: c.name,
+            healthScore,
+            status,
+            delta: 0,
+            strongestDriver,
+            areaNeedingAttention,
+            tier2Count,
+            tier3Count,
+            dataReadinessPct: c.monthlyCheckIn ? 100 : 0,
+            classroomsContributing: 1,
+            supportTier: tier,
+            classIds: [c.id],
+          },
+        ];
+      })();
 }
 
 export const SUGGESTED_ACTIONS_BY_DRIVER: Record<PillarKey, string[]> = {
@@ -1126,29 +838,14 @@ export type GradeWeeklyInsight = {
   suggestedActions: string[];
 };
 
-/** The grade with the sharpest real decline this week that also has a driver
- * below the attention cutoff — null if nothing is currently declining. */
+// No real week-over-week delta exists, so there's nothing "declining" to
+// report — this always returns null now rather than fabricating a trend.
 export function gradeWeeklyInsight(): GradeWeeklyInsight | null {
-  const rows = gradeOverviewRows();
-  const declining = rows
-    .filter((r) => r.delta < 0 && r.areaNeedingAttention)
-    .sort((a, b) => a.delta - b.delta);
-  const worst = declining[0];
-  if (!worst || !worst.areaNeedingAttention) return null;
-
-  return {
-    grade: worst.grade,
-    gradeLabel: worst.gradeLabel,
-    delta: worst.delta,
-    driver: worst.areaNeedingAttention,
-    flaggedCount: worst.tier2Count + worst.tier3Count,
-    suggestedActions: SUGGESTED_ACTIONS_BY_DRIVER[worst.areaNeedingAttention],
-  };
+  return null;
 }
 
 /* ─────────────────────────────────────────────────────────
- * Tier Support Distribution — whether the school's targeted (Tier 2) and
- * intensive (Tier 3) support system is functioning effectively.
+ * Tier Support Distribution.
  * ───────────────────────────────────────────────────────── */
 
 export type TierKey = "tier1" | "tier2" | "tier3";
@@ -1171,20 +868,16 @@ export const TIER_COLOR: Record<TierKey, string> = {
   tier3: "hsl(0 78% 55%)",
 };
 
-// Hardcoded but plausible week-over-week deltas — same convention as
-// SCHOOL_DRIVER_DELTA above, since no real tier-history is tracked yet.
+// No real week-over-week tier history exists — flat (0) rather than a
+// plausible-looking fake swing.
 export const TIER_DELTA: Record<TierKey, number> = {
-  tier1: 2.1,
-  tier2: 1.3,
-  tier3: -0.8,
+  tier1: 0,
+  tier2: 0,
+  tier3: 0,
 };
 
 export type ClassTierSplit = { tier1: number; tier2: number; tier3: number };
 
-/** Splits a class's real atRisk headcount into Tier 2 (targeted) vs Tier 3
- * (intensive) using the classroom's own composite tier as a severity weight —
- * worse-performing classrooms allocate a larger share of their at-risk
- * students to Tier 3. Every non-at-risk student is Tier 1. */
 export function classTierSplit(c: SchoolClassRow): ClassTierSplit {
   const tier = classroomTierFor(classComposite(c.drivers)).tier;
   const tier3Share =
@@ -1207,7 +900,7 @@ export function scopedSchoolClasses(scope: TierScope = {}): SchoolClassRow[] {
   if (scope.classroomId) out = out.filter((c) => c.id === scope.classroomId);
   if (scope.driver) {
     const driver = scope.driver;
-    out = out.filter((c) => c.drivers[driver] < DRIVER_ATTENTION_CUTOFF);
+    out = out.filter((c) => c.drivers[driver] != null && (c.drivers[driver] as number) < DRIVER_ATTENTION_CUTOFF);
   }
   return out;
 }
@@ -1247,27 +940,22 @@ export type SchoolSupportStatus = {
   escalations: number;
 };
 
-// Same "hardcoded but plausible" convention as SCHOOL_DRIVER_DELTA — no real
-// week-over-week case history is tracked at school scale yet.
 export const SUPPORT_STATUS_DELTA: Record<keyof SchoolSupportStatus, number> = {
-  newReferrals: 3,
-  awaitingReview: 4,
-  activeInterventions: 9,
-  studentsImproving: 8,
-  limitedResponse: 5,
-  escalations: 1,
+  newReferrals: 0,
+  awaitingReview: 0,
+  activeInterventions: 0,
+  studentsImproving: 0,
+  limitedResponse: 0,
+  escalations: 0,
 };
 
-/** Every real at-risk student falls into exactly one bucket here, split by
- * two real signals: whether their classroom has checked in this period
- * (monthlyCheckIn) and whether that classroom's trend is improving or not
- * (pfiTrend). Not-yet-checked-in + declining trend reads as a fresh, urgent
- * referral; not-yet-checked-in + flat/improving reads as routine review. */
 export function schoolSupportStatus(scope: TierScope = {}): SchoolSupportStatus {
   const classes = scopedSchoolClasses(scope);
-  let newReferrals = 0;
+  // No real week-over-week trend exists, so a "new" vs "improving" split
+  // isn't derivable yet — both stay 0 rather than a fabricated split.
+  const newReferrals = 0;
+  const studentsImproving = 0;
   let awaitingReview = 0;
-  let studentsImproving = 0;
   let limitedResponse = 0;
   let escalations = 0;
   let activeInterventions = 0;
@@ -1277,19 +965,15 @@ export function schoolSupportStatus(scope: TierScope = {}): SchoolSupportStatus 
     activeInterventions += c.atRisk;
     escalations += classTierSplit(c).tier3;
     if (!c.monthlyCheckIn) {
-      if (c.pfiTrend < 0) newReferrals += c.atRisk;
-      else awaitingReview += c.atRisk;
+      awaitingReview += c.atRisk;
     } else {
-      if (c.pfiTrend > 0) studentsImproving += c.atRisk;
-      else limitedResponse += c.atRisk;
+      limitedResponse += c.atRisk;
     }
   });
 
   return { newReferrals, awaitingReview, activeInterventions, studentsImproving, limitedResponse, escalations };
 }
 
-// Configured programme capacity — planning constants, not derived from
-// check-in data (no real capacity/roster ceiling is tracked yet).
 export const TIER2_GROUP_CAPACITY = 65;
 export const TIER3_CASELOAD_CAPACITY = 5;
 
@@ -1303,8 +987,6 @@ export type SchoolCapacityIndicators = {
   reviewsOverdueTotal: number;
   reviewsOverdueTier2: number;
   reviewsOverdueTier3: number;
-  /** Share of each tier's caseload whose classroom has checked in this period —
-   * "implementation by tier," reusing the same real overdue counts above. */
   tier2ImplementationRate: number;
   tier3ImplementationRate: number;
 };
@@ -1334,10 +1016,8 @@ export function schoolCapacityIndicators(): SchoolCapacityIndicators {
     reviewsOverdueTotal: reviewsOverdueTier2 + reviewsOverdueTier3,
     reviewsOverdueTier2,
     reviewsOverdueTier3,
-    tier2ImplementationRate:
-      tier2Used > 0 ? Math.round(((tier2Used - reviewsOverdueTier2) / tier2Used) * 100) : 0,
-    tier3ImplementationRate:
-      tier3Used > 0 ? Math.round(((tier3Used - reviewsOverdueTier3) / tier3Used) * 100) : 0,
+    tier2ImplementationRate: tier2Used > 0 ? Math.round(((tier2Used - reviewsOverdueTier2) / tier2Used) * 100) : 0,
+    tier3ImplementationRate: tier3Used > 0 ? Math.round(((tier3Used - reviewsOverdueTier3) / tier3Used) * 100) : 0,
   };
 }
 
@@ -1353,39 +1033,22 @@ export type GradeTierRow = {
 
 export function schoolTierByGrade(): GradeTierRow[] {
   const classes = getSchoolClasses();
-  const grades = GRADE_ORDER.filter((g) => classes.some((c) => c.grade === g));
-
-  return grades.map((grade) => {
-    const classesInGrade = classes.filter((c) => c.grade === grade);
-    const totals: ClassTierSplit = { tier1: 0, tier2: 0, tier3: 0 };
-    classesInGrade.forEach((c) => {
-      const s = classTierSplit(c);
-      totals.tier1 += s.tier1;
-      totals.tier2 += s.tier2;
-      totals.tier3 += s.tier3;
-    });
-    const totalStudents = totals.tier1 + totals.tier2 + totals.tier3;
-    const totalSize = classesInGrade.reduce((acc, c) => acc + c.size, 0) || 1;
-    const trend = Math.round(
-      classesInGrade.reduce((acc, c) => acc + c.pfiTrend * c.size, 0) / totalSize,
-    );
-
-    return {
-      grade,
-      gradeLabel: `Grade ${grade}`,
-      tier1Pct: totalStudents > 0 ? Math.round((totals.tier1 / totalStudents) * 100) : 0,
-      tier2Pct: totalStudents > 0 ? Math.round((totals.tier2 / totalStudents) * 100) : 0,
-      tier3Pct: totalStudents > 0 ? Math.round((totals.tier3 / totalStudents) * 100) : 0,
-      totalStudents,
-      trend,
-    };
-  });
+  if (classes.length === 0) return [];
+  const c = classes[0];
+  const split = classTierSplit(c);
+  const total = split.tier1 + split.tier2 + split.tier3;
+  return [
+    {
+      grade: c.grade,
+      gradeLabel: c.name,
+      tier1Pct: total > 0 ? Math.round((split.tier1 / total) * 100) : 0,
+      tier2Pct: total > 0 ? Math.round((split.tier2 / total) * 100) : 0,
+      tier3Pct: total > 0 ? Math.round((split.tier3 / total) * 100) : 0,
+      totalStudents: total,
+      trend: 0,
+    },
+  ];
 }
-
-/* ─────────────────────────────────────────────────────────
- * 5.1 Intervention Implementation — operational accountability: are the
- * supports above actually being carried out and reviewed.
- * ───────────────────────────────────────────────────────── */
 
 export type InterventionImplementationSummary = {
   activeInterventions: number;
@@ -1421,11 +1084,8 @@ export function interventionImplementationSummary(): InterventionImplementationS
     supportTeamInvolvement: teacherIdsWithCases.size,
     implementationRate: dueStudents > 0 ? Math.round((completedStudents / dueStudents) * 100) : 0,
     followUpCompletionRate:
-      classroomCompletionDenom > 0
-        ? Math.round((kpis.followUpsCompleted / classroomCompletionDenom) * 100)
-        : 0,
-    responseToInterventionRate:
-      completedStudents > 0 ? Math.round((status.studentsImproving / completedStudents) * 100) : 0,
+      classroomCompletionDenom > 0 ? Math.round((kpis.followUpsCompleted / classroomCompletionDenom) * 100) : 0,
+    responseToInterventionRate: completedStudents > 0 ? Math.round((status.studentsImproving / completedStudents) * 100) : 0,
   };
 }
 
@@ -1437,37 +1097,14 @@ export type GradeResponseRow = {
   totalFollowedUp: number;
 };
 
-/** Grades ranked by real response-to-intervention rate — the closest honest
- * substitute for "interventions showing strongest response" available at
- * school scale, since no per-intervention-type log exists yet. */
+// No real week-over-week trend exists to say a grade is "responding well" —
+// always empty now rather than fabricating a response rate.
 export function bestRespondingGrades(): GradeResponseRow[] {
-  const classes = getSchoolClasses();
-  const grades = GRADE_ORDER.filter((g) => classes.some((c) => c.grade === g));
-
-  return grades
-    .map((grade) => {
-      const classesInGrade = classes.filter(
-        (c) => c.grade === grade && c.atRisk > 0 && c.monthlyCheckIn,
-      );
-      const respondingCount = classesInGrade
-        .filter((c) => c.pfiTrend > 0)
-        .reduce((acc, c) => acc + c.atRisk, 0);
-      const totalFollowedUp = classesInGrade.reduce((acc, c) => acc + c.atRisk, 0);
-      return {
-        grade,
-        gradeLabel: `Grade ${grade}`,
-        respondingCount,
-        totalFollowedUp,
-        responseRate: totalFollowedUp > 0 ? Math.round((respondingCount / totalFollowedUp) * 100) : 0,
-      };
-    })
-    .filter((r) => r.totalFollowedUp > 0)
-    .sort((a, b) => b.responseRate - a.responseRate);
+  return [];
 }
 
 /* ─────────────────────────────────────────────────────────
- * Teacher & Classroom Support Needs — where staff support or
- * school-level resources may be required.
+ * Teacher & Classroom Support Needs.
  * ───────────────────────────────────────────────────────── */
 
 export type SupportCategory =
@@ -1479,9 +1116,6 @@ export type SupportCategory =
   | "Parent-engagement support"
   | "Schedule or routine adjustment";
 
-// "Parent-engagement support" has no per-teacher signal at school scale yet
-// (only a school-wide parentActivationPct exists) — kept in the reference
-// legend but never auto-assigned below.
 export const SUPPORT_CATEGORIES: SupportCategory[] = [
   "PBIS coaching",
   "Classroom-management strategy",
@@ -1507,70 +1141,37 @@ const CATEGORY_BY_DRIVER: Record<PillarKey, SupportCategory> = {
   academic: "Specialist consultation",
 };
 
-/** Flags teachers with at least one classroom at "watch" or worse — the same
- * composite-tier signal already used for Tier 2/3 caseloads elsewhere — or,
- * failing that, a real operational gap (overdue follow-up / outsized at-risk
- * load). Each teacher gets at most one tag, in order of diagnostic
- * specificity, so the watchlist reads as a short, real list rather than
- * every teacher with any noisy metric. */
 export function teacherSupportNeeds(): TeacherSupportNeed[] {
   const classes = getSchoolClasses();
   const CORE_KEYS: PillarKey[] = ["focus", "academic", "behavior", "task"];
-
-  const byTeacher = new Map<string, SchoolClassRow[]>();
-  classes.forEach((c) => {
-    const list = byTeacher.get(c.teacherId) ?? [];
-    list.push(c);
-    byTeacher.set(c.teacherId, list);
-  });
-
-  const teacherAtRiskTotals = Array.from(byTeacher.values()).map((list) =>
-    list.reduce((acc, c) => acc + c.atRisk, 0),
-  );
-  const avgAtRiskPerTeacher =
-    teacherAtRiskTotals.reduce((acc, v) => acc + v, 0) / (teacherAtRiskTotals.length || 1);
-  const highLoadThreshold = avgAtRiskPerTeacher * 1.4;
-
   const needs: TeacherSupportNeed[] = [];
-  byTeacher.forEach((list, teacherId) => {
-    const totalAtRisk = list.reduce((acc, c) => acc + c.atRisk, 0);
-    const overdue = list.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn);
-    const teacherName = list[0].teacherName;
 
-    // Struggling classrooms, worst composite first.
-    const struggling = [...list]
-      .filter((c) => classroomTierFor(classComposite(c.drivers)).tier !== "strong" && classroomTierFor(classComposite(c.drivers)).tier !== "solid")
-      .sort((a, b) => classComposite(a.drivers) - classComposite(b.drivers));
-
-    if (struggling.length > 0) {
-      const worst = struggling[0];
-      const weakest = [...CORE_KEYS].sort((a, b) => worst.drivers[a] - worst.drivers[b])[0];
-      needs.push({
-        teacherId,
-        teacherName,
-        category: CATEGORY_BY_DRIVER[weakest],
-        reason: `${worst.name} is in the ${SUPPORT_STATUS_LABEL[classroomTierFor(classComposite(worst.drivers)).tier]} tier, driven by ${SCHOOL_DRIVER_LABEL[weakest].toLowerCase()}.`,
-        classIds: struggling.map((c) => c.id),
-      });
-      return;
+  classes.forEach((c) => {
+    const composite = classComposite(c.drivers);
+    const tier = classroomTierFor(composite).tier;
+    if (tier !== "strong" && tier !== "solid") {
+      const scored = CORE_KEYS.map((k) => ({ k, v: c.drivers[k] })).filter(
+        (d): d is { k: PillarKey; v: number } => d.v != null,
+      );
+      const weakest = [...scored].sort((a, b) => a.v - b.v)[0];
+      if (weakest) {
+        needs.push({
+          teacherId: c.teacherId,
+          teacherName: c.teacherName,
+          category: CATEGORY_BY_DRIVER[weakest.k],
+          reason: `${c.name} is in the ${SUPPORT_STATUS_LABEL[tier]} tier, driven by ${SCHOOL_DRIVER_LABEL[weakest.k].toLowerCase()}.`,
+          classIds: [c.id],
+        });
+        return;
+      }
     }
-    if (overdue.length > 0) {
+    if (c.atRisk > 0 && !c.monthlyCheckIn) {
       needs.push({
-        teacherId,
-        teacherName,
+        teacherId: c.teacherId,
+        teacherName: c.teacherName,
         category: "Schedule or routine adjustment",
-        reason: `${overdue.length} classroom${overdue.length === 1 ? "" : "s"} overdue for a follow-up check-in.`,
-        classIds: overdue.map((c) => c.id),
-      });
-      return;
-    }
-    if (totalAtRisk > 0 && totalAtRisk >= highLoadThreshold) {
-      needs.push({
-        teacherId,
-        teacherName,
-        category: "Additional classroom assistance",
-        reason: `Supporting ${totalAtRisk} at-risk students across ${list.length} classroom${list.length === 1 ? "" : "s"}.`,
-        classIds: list.map((c) => c.id),
+        reason: "This classroom is overdue for a follow-up check-in.",
+        classIds: [c.id],
       });
     }
   });
@@ -1595,23 +1196,19 @@ export type TeacherClassroomSupportSummary = {
   improvingClasses: ImprovingClassroomEntry[];
 };
 
-/** "Repeated friction" is proxied by the same real focus-driver signal
- * schoolDriverCards() already uses for attention/transition issues — no
- * separate friction log exists at school scale yet. */
 export function teacherClassroomSupportSummary(): TeacherClassroomSupportSummary {
   const classes = getSchoolClasses();
   const kpis = getSchoolKpis();
 
   const frictionClasses: SupportClassroomEntry[] = classes
-    .filter((c) => c.drivers.focus < DRIVER_ATTENTION_CUTOFF)
+    .filter((c) => c.drivers.focus != null && (c.drivers.focus as number) < DRIVER_ATTENTION_CUTOFF)
     .map((c) => ({ id: c.id, name: c.name, grade: c.grade, teacherName: c.teacherName }));
 
   const pbisGrades = gradeOverviewRows().filter((r) => r.areaNeedingAttention === "behavior");
 
-  const improvingClasses: ImprovingClassroomEntry[] = classes
-    .filter((c) => c.pfiTrend > 0)
-    .sort((a, b) => b.pfiTrend - a.pfiTrend)
-    .map((c) => ({ id: c.id, name: c.name, grade: c.grade, teacherName: c.teacherName, trend: c.pfiTrend }));
+  // No real week-over-week trend exists — "improving" can't be honestly
+  // claimed at school scale yet.
+  const improvingClasses: ImprovingClassroomEntry[] = [];
 
   return {
     frictionClasses,
@@ -1622,13 +1219,7 @@ export function teacherClassroomSupportSummary(): TeacherClassroomSupportSummary
   };
 }
 
-/** Synthesizes a single recommended next step from the real counts above —
- * same "closest honest summary" convention as gradeWeeklyInsight, just
- * combining multiple signals instead of one. Returns null when nothing in
- * this segment needs a response. */
-export function supportNeedsRecommendedResponse(
-  summary: TeacherClassroomSupportSummary,
-): string | null {
+export function supportNeedsRecommendedResponse(summary: TeacherClassroomSupportSummary): string | null {
   const parts: string[] = [];
 
   if (summary.frictionClasses.length > 0) {
@@ -1643,18 +1234,13 @@ export function supportNeedsRecommendedResponse(
   }
 
   if (summary.pbisGrades.length > 0) {
-    parts.push(`schedule PBIS coaching for ${formatGradeList(summary.pbisGrades.map((g) => g.grade))}`);
+    parts.push(`schedule PBIS coaching for ${summary.pbisGrades[0].gradeLabel}`);
   }
 
   if (parts.length === 0) return null;
   const sentence = `${parts.join(", ")}. Review outcomes in 2 weeks.`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
-
-/* ─────────────────────────────────────────────────────────
- * Positive Behaviour Culture — how consistently positive behaviour is
- * being recognised across the school.
- * ───────────────────────────────────────────────────────── */
 
 export type GradeRecognitionRow = {
   grade: string;
@@ -1663,32 +1249,21 @@ export type GradeRecognitionRow = {
   delta: number;
 };
 
-/** Grades ranked by real Behaviour & Discipline driver score — the closest
- * honest proxy for "strong recognition" available at school scale, since no
- * PBIS acknowledgement log exists yet to count recognitions directly. Only
- * grades already at or above the healthy cutoff are surfaced. */
 export function gradesWithStrongRecognition(): GradeRecognitionRow[] {
   const classes = getSchoolClasses();
-  const grades = GRADE_ORDER.filter((g) => classes.some((c) => c.grade === g));
-
-  return grades
-    .map((grade) => {
-      const classesInGrade = classes.filter((c) => c.grade === grade);
-      const totalSize = classesInGrade.reduce((acc, c) => acc + c.size, 0) || 1;
-      const behaviorScore = weightedAvgFor(classesInGrade, (c) => c.drivers.behavior);
-      const delta = Math.round(
-        classesInGrade.reduce((acc, c) => acc + c.pfiTrend * c.size, 0) / totalSize,
-      );
-      return { grade, gradeLabel: `Grade ${grade}`, behaviorScore, delta };
-    })
-    .filter((r) => r.behaviorScore >= DRIVER_ATTENTION_CUTOFF)
-    .sort((a, b) => b.behaviorScore - a.behaviorScore);
+  if (classes.length === 0) return [];
+  const c = classes[0];
+  if (c.drivers.behavior == null || c.drivers.behavior < DRIVER_ATTENTION_CUTOFF) return [];
+  return [{ grade: c.grade, gradeLabel: c.name, behaviorScore: c.drivers.behavior, delta: 0 }];
 }
 
-/** Celebration-kind events already authored for the school feed, surfaced in
- * full here rather than just the single top one SchoolGrowthAlertRow shows —
- * the closest honest source for "school celebration opportunities" since no
- * dedicated opportunities log exists yet. */
 export function schoolCelebrationOpportunities(): SchoolRecentEvent[] {
   return SCHOOL_RECENT_EVENTS.filter((e) => e.kind === "celebration");
+}
+
+// Kept for API compatibility — no real per-hour attention signal exists at
+// school scale, so this now returns an empty series rather than a fabricated
+// intra-day curve. Check the one consumer before removing entirely.
+export function schoolDailyAttention(): { hour: string; attention: number }[] {
+  return [];
 }

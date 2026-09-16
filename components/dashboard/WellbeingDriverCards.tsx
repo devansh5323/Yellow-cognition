@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Cloud, Frown, HeartHandshake, HeartPulse, Users, type LucideIcon } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Cloud, Frown, HeartHandshake, HeartPulse, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   classWellbeingDrivers,
@@ -14,7 +14,7 @@ import {
   type WellbeingDriverStat,
 } from "@/lib/classWellbeing";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
-import { cn } from "@/lib/utils";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -27,12 +27,12 @@ const ICONS: Record<WellbeingDriverKey, LucideIcon> = {
 export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
   const drivers = useMemo(() => classWellbeingDrivers(locked ? [] : undefined), [locked]);
-  const [openSkillsKey, setOpenSkillsKey] = useState<WellbeingDriverKey | null>(null);
   const [drillKey, setDrillKey] = useState<WellbeingDriverKey | null>(null);
 
-  const avgScore = drivers.length > 0 ? Math.round(drivers.reduce((s, d) => s + d.score, 0) / drivers.length) : 0;
-  const avgStatus = wellbeingStatusFromScore(avgScore);
-  const avgTone = WELLBEING_STATUS_TONE[avgStatus];
+  const scored = drivers.filter((d): d is WellbeingDriverStat & { score: number } => d.score != null);
+  const avgScore = scored.length > 0 ? Math.round(scored.reduce((s, d) => s + d.score, 0) / scored.length) : null;
+  const avgStatus = avgScore != null ? wellbeingStatusFromScore(avgScore) : null;
+  const avgTone = avgStatus ? WELLBEING_STATUS_TONE[avgStatus] : undefined;
 
   const drillDriver = drillKey ? drivers.find((d) => d.key === drillKey) : undefined;
   const drillStudents = drillKey && !locked ? studentsByWellbeingDriver(drillKey) : [];
@@ -58,16 +58,22 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
           <h3 className="font-heading font-extrabold text-[16px] leading-tight">Student Wellbeing</h3>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="font-heading font-extrabold text-[22px] tabular-nums leading-none" style={{ color: avgTone }}>
-            {avgScore}
-            <span className="text-muted-foreground text-[12px] font-bold">/100</span>
-          </span>
-          <span
-            className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
-            style={{ background: `color-mix(in srgb, ${avgTone} 14%, transparent)`, color: avgTone }}
-          >
-            {WELLBEING_STATUS_LABEL[avgStatus]}
-          </span>
+          {avgScore != null && avgStatus && avgTone ? (
+            <>
+              <span className="font-heading font-extrabold text-[22px] tabular-nums leading-none" style={{ color: avgTone }}>
+                {avgScore}
+                <span className="text-muted-foreground text-[12px] font-bold">/100</span>
+              </span>
+              <span
+                className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
+                style={{ background: `color-mix(in srgb, ${avgTone} 14%, transparent)`, color: avgTone }}
+              >
+                {WELLBEING_STATUS_LABEL[avgStatus]}
+              </span>
+            </>
+          ) : (
+            <NotEnoughData />
+          )}
         </div>
       </div>
 
@@ -79,8 +85,6 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
             index={i}
             reduce={!!reduce}
             locked={locked}
-            skillsOpen={openSkillsKey === driver.key}
-            onToggleSkills={() => setOpenSkillsKey((k) => (k === driver.key ? null : driver.key))}
             onViewStudents={() => setDrillKey(driver.key)}
           />
         ))}
@@ -106,22 +110,16 @@ function WellbeingCard({
   index,
   reduce,
   locked,
-  skillsOpen,
-  onToggleSkills,
   onViewStudents,
 }: {
   driver: WellbeingDriverStat;
   index: number;
   reduce: boolean;
   locked: boolean;
-  skillsOpen: boolean;
-  onToggleSkills: () => void;
   onViewStudents: () => void;
 }) {
   const Icon = ICONS[driver.key];
-  const statusTone = WELLBEING_STATUS_TONE[driver.status];
-  const delta = driver.score - driver.prevScore;
-  const panelId = `wellbeing-skills-${driver.key}`;
+  const statusTone = driver.status ? WELLBEING_STATUS_TONE[driver.status] : undefined;
 
   return (
     <motion.div
@@ -142,78 +140,42 @@ function WellbeingCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
             <div className="font-heading font-bold text-[13px] leading-tight truncate min-w-0">{driver.label}</div>
-            <span
-              className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
-              style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
-            >
-              {WELLBEING_STATUS_LABEL[driver.status]}
-            </span>
+            {driver.status && statusTone && (
+              <span
+                className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+                style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
+              >
+                {WELLBEING_STATUS_LABEL[driver.status]}
+              </span>
+            )}
           </div>
           <p className="text-[10.5px] text-muted-foreground mt-0.5 truncate">{driver.description}</p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3">
-        <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-          <motion.span
-            initial={reduce ? undefined : { scaleX: 0 }}
-            animate={{ scaleX: driver.score / 100 }}
-            transition={{ duration: 0.5, ease: EASE, delay: 0.04 * index }}
-            className="block h-full w-full origin-left rounded-full"
-            style={{ background: statusTone }}
-          />
+      {driver.score != null && statusTone ? (
+        <div className="mt-3 flex items-center gap-3">
+          <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+            <motion.span
+              initial={reduce ? undefined : { scaleX: 0 }}
+              animate={{ scaleX: driver.score / 100 }}
+              transition={{ duration: 0.5, ease: EASE, delay: 0.04 * index }}
+              className="block h-full w-full origin-left rounded-full"
+              style={{ background: statusTone }}
+            />
+          </div>
         </div>
-        {delta !== 0 && (
-          <span
-            className="shrink-0 text-[10.5px] font-bold tabular-nums"
-            style={{ color: delta > 0 ? "hsl(142 55% 42%)" : "hsl(0 70% 50%)" }}
-          >
-            {delta > 0 ? "+" : ""}
-            {delta} this week
-          </span>
-        )}
-      </div>
+      ) : (
+        <div className="mt-3">
+          <NotEnoughData />
+        </div>
+      )}
 
       <div className="mt-3 flex items-center gap-1.5 text-[10.5px] font-semibold text-muted-foreground">
         <Users className="h-3 w-3" />
         {driver.studentCount} student{driver.studentCount === 1 ? "" : "s"} contributing
       </div>
       <p className="mt-1 text-[11px] text-foreground/80 leading-snug">{driver.mainSignal}</p>
-
-      <button
-        type="button"
-        onClick={onToggleSkills}
-        aria-expanded={skillsOpen}
-        aria-controls={panelId}
-        className="mt-3 w-full flex items-center justify-between gap-1 text-[10.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span>View impacting skills</span>
-        <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", skillsOpen && "rotate-180")} />
-      </button>
-      <AnimatePresence initial={false}>
-        {skillsOpen && (
-          <motion.div
-            key="skills"
-            id={panelId}
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: EASE }}
-            className="overflow-hidden"
-          >
-            <ul className="pt-2.5 space-y-1.5">
-              {driver.topSkills.map((skill) => (
-                <li key={skill.name} className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="text-muted-foreground">{skill.name}</span>
-                  <span className="font-bold tabular-nums" style={{ color: driver.hue }}>
-                    {skill.score}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="mt-3 flex items-center gap-2">
         <button

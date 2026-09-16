@@ -390,7 +390,7 @@ function GradeRow({ row, onView }: { row: GradeOverviewRow; onView: () => void }
         </span>
       </td>
       <td className="p-2.5">
-        <DriverChip driver={row.strongestDriver} />
+        {row.strongestDriver ? <DriverChip driver={row.strongestDriver} /> : <span className="text-muted-foreground">—</span>}
       </td>
       <td className="p-2.5">
         {row.areaNeedingAttention ? (
@@ -597,7 +597,7 @@ function GradeDetailDrawer({
                     Strongest driver
                   </div>
                   <div className="text-[12.5px] font-semibold">
-                    {SCHOOL_DRIVER_LABEL[row.strongestDriver]}
+                    {row.strongestDriver ? SCHOOL_DRIVER_LABEL[row.strongestDriver] : "Not enough data yet"}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/60 p-2.5">

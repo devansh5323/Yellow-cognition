@@ -21,6 +21,7 @@ import {
   studentsByLearningArea,
 } from "@/lib/classLearning";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -38,8 +39,9 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
   const [openKey, setOpenKey] = useState<LearningAreaKey | null>(null);
 
   const { strongest, weakest } = useMemo(() => {
-    if (areas.length === 0) return { strongest: null, weakest: null };
-    const sorted = [...areas].sort((a, b) => b.score - a.score);
+    const scored = areas.filter((a): a is LearningAreaStat & { score: number } => a.score != null);
+    if (scored.length === 0) return { strongest: null, weakest: null };
+    const sorted = [...scored].sort((a, b) => b.score - a.score);
     return { strongest: sorted[0], weakest: sorted[sorted.length - 1] };
   }, [areas]);
 
@@ -86,8 +88,8 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {areas.map((a, i) => {
-          const status = readinessStatusFromScore(a.score);
-          const statusTone = READINESS_STATUS_TONE[status];
+          const status = a.score != null ? readinessStatusFromScore(a.score) : null;
+          const statusTone = status ? READINESS_STATUS_TONE[status] : undefined;
           const Icon = AREA_ICON[a.key];
           return (
             <motion.button
@@ -116,32 +118,40 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
                     {a.label}
                   </span>
                 </div>
-                <span
-                  className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
-                  style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
-                >
-                  {READINESS_STATUS_LABEL[status]}
-                </span>
+                {status && statusTone && (
+                  <span
+                    className="shrink-0 inline-flex items-center text-[9px] font-bold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+                    style={{ background: `color-mix(in srgb, ${statusTone} 12%, transparent)`, color: statusTone }}
+                  >
+                    {READINESS_STATUS_LABEL[status]}
+                  </span>
+                )}
               </div>
 
               <p className="text-[10.5px] text-muted-foreground mt-2 leading-snug">
                 {a.description}
               </p>
 
-              <div className="mt-3 flex items-center gap-2.5">
-                <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                  <motion.span
-                    initial={reduce ? undefined : { scaleX: 0 }}
-                    animate={{ scaleX: a.score / 100 }}
-                    transition={{ delay: 0.04 * i, duration: 0.5, ease: EASE }}
-                    className="block h-full w-full origin-left rounded-full"
-                    style={{ background: a.hue }}
-                  />
+              {a.score != null ? (
+                <div className="mt-3 flex items-center gap-2.5">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                    <motion.span
+                      initial={reduce ? undefined : { scaleX: 0 }}
+                      animate={{ scaleX: a.score / 100 }}
+                      transition={{ delay: 0.04 * i, duration: 0.5, ease: EASE }}
+                      className="block h-full w-full origin-left rounded-full"
+                      style={{ background: a.hue }}
+                    />
+                  </div>
+                  <span className="font-heading font-extrabold text-[15px] tabular-nums" style={{ color: a.hue }}>
+                    {a.score}
+                  </span>
                 </div>
-                <span className="font-heading font-extrabold text-[15px] tabular-nums" style={{ color: a.hue }}>
-                  {a.score}
-                </span>
-              </div>
+              ) : (
+                <div className="mt-3">
+                  <NotEnoughData />
+                </div>
+              )}
 
               {a.studentCount > 0 && (
                 <div className="mt-2 text-[10.5px] tabular-nums text-muted-foreground">

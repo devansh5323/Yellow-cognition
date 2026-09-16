@@ -224,7 +224,7 @@ function BehaviorPage({ classroom }: { classroom: string }) {
             <BehaviorClassroomStrategies strategies={recommendedStrategies} triggerCounts={triggerCounts} />
 
             {/* 7. Behavior Trend Tracking — is behaviour improving? */}
-            <BehaviorTrendTracking snapshot={snapshot} breakdown={breakdown} />
+            <BehaviorTrendTracking />
 
             {/* 8. Students Needing Behavior Support — individual layer */}
             <BehaviorSupportTable items={supportRoster} />

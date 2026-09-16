@@ -1,6 +1,12 @@
 // Session-only overrides for student risk + intervention tags + notes + contact log.
 import { useSyncExternalStore } from "react";
-import type { RiskLevel } from "@/data/mockData";
+
+// `RiskLevel` used to live in data/mockData.ts as a field computed from
+// gameplay signals that no longer exist in the real dataset (see
+// lib/classBehavior.ts for the same removal rationale). A teacher manually
+// setting a risk level here is real user input, not fabricated data, so the
+// type is kept — just defined locally instead of imported from the roster.
+export type RiskLevel = "low" | "medium" | "high" | "at-risk";
 
 export interface StudentNote {
   id: string;

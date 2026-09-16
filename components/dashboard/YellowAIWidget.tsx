@@ -428,7 +428,7 @@ export function YellowAIWidget() {
                           {selectedStudent.name}
                         </span>
                         <span className="text-[11px] text-muted-foreground truncate">
-                          {selectedStudent.grade} · Section {selectedStudent.section}
+                          {selectedStudent.ageGroup}
                         </span>
                       </div>
                     </>
@@ -514,7 +514,7 @@ export function YellowAIWidget() {
                                           {s.name}
                                         </span>
                                         <span className="block text-[10.5px] text-muted-foreground truncate">
-                                          {s.grade} · {s.section}
+                                          {s.ageGroup}
                                         </span>
                                       </span>
                                       {active && <Check className="h-3.5 w-3.5 text-primary" />}
@@ -893,7 +893,7 @@ function DraftCard({
               <div className="leading-tight min-w-0">
                 <div className="text-[12.5px] font-semibold truncate">{target.name}</div>
                 <div className="text-[10.5px] text-muted-foreground truncate">
-                  {target.grade} · Section {target.section}
+                  {target.ageGroup}
                 </div>
               </div>
             </div>

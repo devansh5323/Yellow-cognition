@@ -2,29 +2,17 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ChevronRight, Filter } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { SchoolAppShell } from "@/components/school/SchoolAppShell";
 import { SchoolKpiDetail } from "@/components/school/SchoolKpiDetail";
 import { SchoolKpiRosterTable } from "@/components/school/SchoolKpiRosterTable";
-import {
-  getSchoolKpi,
-  getSchoolKpiRoster,
-  type BreakdownDim,
-  type KpiId,
-} from "@/lib/schoolKpis";
-import { cn } from "@/lib/utils";
+import { getSchoolKpi, getSchoolKpiRoster, type KpiId } from "@/lib/schoolKpis";
 
 const VALID_KPI_IDS: KpiId[] = ["rit", "tei", "lrs"];
 const isValidKpiId = (id: string): id is KpiId =>
   (VALID_KPI_IDS as string[]).includes(id);
-
-const PAGE_DIM_OPTIONS: { id: BreakdownDim; label: string }[] = [
-  { id: "class", label: "By Class" },
-  { id: "subject", label: "By Subject" },
-  { id: "teacher", label: "By Teacher" },
-];
 
 function KpiNotFound() {
   return (
@@ -67,10 +55,6 @@ function SchoolKpiDetailPage({ kpiId }: { kpiId: KpiId }) {
     [kpiId],
   );
 
-  // Page-level breakdown dimension. Controls which slice of the school
-  // the page is showing — applies to every section below.
-  const [dim, setDim] = useState<BreakdownDim>("class");
-
   return (
     <div className="relative">
       <div
@@ -83,7 +67,7 @@ function SchoolKpiDetailPage({ kpiId }: { kpiId: KpiId }) {
         variants={fadeIn}
         className="relative space-y-5"
       >
-        {/* Page header — breadcrumb + title + global dimension filter. */}
+        {/* Page header — breadcrumb + title. */}
         <header className="min-w-0">
           <nav
             aria-label="Breadcrumb"
@@ -98,58 +82,17 @@ function SchoolKpiDetailPage({ kpiId }: { kpiId: KpiId }) {
             <ChevronRight className="h-3 w-3 opacity-60" />
             <span className="text-foreground">{kpi.title}</span>
           </nav>
-          <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
-            <h1 className="font-heading font-black text-[24px] md:text-[28px] leading-tight">
-              {kpi.title}
-            </h1>
-            <PageDimensionFilter dim={dim} onChange={setDim} />
-          </div>
+          <h1 className="mt-2 font-heading font-black text-[24px] md:text-[28px] leading-tight">
+            {kpi.title}
+          </h1>
         </header>
 
-        {/* KPI sections — summary + recommends, sub-metrics, focus callout. */}
-        <SchoolKpiDetail kpi={kpi} roster={roster} dim={dim} />
+        {/* KPI sections — summary + recommends, sub-metrics. */}
+        <SchoolKpiDetail kpi={kpi} />
 
         {/* Class roster — its own card */}
         <SchoolKpiRosterTable kpi={kpi} rows={roster} />
       </motion.div>
-    </div>
-  );
-}
-
-function PageDimensionFilter({
-  dim,
-  onChange,
-}: {
-  dim: BreakdownDim;
-  onChange: (d: BreakdownDim) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Breakdown dimension"
-      className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 p-0.5 backdrop-blur"
-    >
-      <Filter className="h-3.5 w-3.5 text-muted-foreground ml-2 shrink-0" />
-      {PAGE_DIM_OPTIONS.map((t) => {
-        const active = dim === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(t.id)}
-            className={cn(
-              "px-3 h-7 rounded-full text-[11.5px] font-bold transition-colors whitespace-nowrap",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

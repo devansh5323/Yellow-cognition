@@ -98,8 +98,6 @@ function StudentProfileBody({ student }: { student: Student }) {
   const nextReviewIso = assignment?.nextReview ?? null;
   const nextReviewOverdue = nextReviewIso ? +new Date(nextReviewIso) < nowMs : false;
 
-  const gradeNumber = student.grade.replace(/\D/g, "");
-
   const QUICK_ACTIONS = [
     { label: "Log observation", icon: FileText },
     { label: "Request update", icon: MessageSquarePlus },
@@ -147,11 +145,10 @@ function StudentProfileBody({ student }: { student: Student }) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-heading font-black text-[22px] md:text-[26px] leading-tight">{student.name}</h1>
-              <RiskBadge risk={student.risk} />
+              <RiskBadge band={composite.status} />
             </div>
             <p className="text-[12.5px] text-muted-foreground mt-1">
-              {student.grade} &middot; Classroom {gradeNumber}
-              {student.section} &middot; Composite score {composite.score}/100
+              {student.ageGroup} &middot; Composite score {composite.score}/100
             </p>
 
             {/* Status badges */}

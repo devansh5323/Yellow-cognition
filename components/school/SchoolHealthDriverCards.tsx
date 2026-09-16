@@ -196,7 +196,7 @@ function DriverCard({
 }) {
   const Icon = DRIVER_ICON[card.key];
   const tone = DRIVER_TONE[card.key];
-  const statusTone = STATUS_TONE[card.status];
+  const statusTone = card.status ? STATUS_TONE[card.status] : "hsl(230 10% 55%)";
 
   return (
     <div
@@ -221,14 +221,14 @@ function DriverCard({
 
       <div className="flex items-center gap-2 mt-3.5 flex-wrap">
         <span className="font-heading font-extrabold text-[28px] tabular-nums leading-none" style={{ color: tone }}>
-          {card.score}
+          {card.score ?? "—"}
           <span className="text-[13px] font-bold text-muted-foreground/70">/100</span>
         </span>
         <span
           className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
           style={{ background: `color-mix(in srgb, ${statusTone} 14%, transparent)`, color: statusTone }}
         >
-          {STATUS_LABEL[card.status]}
+          {card.status ? STATUS_LABEL[card.status] : "Not enough data"}
         </span>
       </div>
       <div

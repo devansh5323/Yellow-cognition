@@ -5,77 +5,44 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/dashboard/AppShell";
 import {
-  ResponsiveContainer,
-  RadarChart,
-  Radar,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  ReferenceLine,
-  ReferenceDot,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
-} from "recharts";
-import {
   ChevronLeft,
   Mail,
-  Phone,
-  Award,
-  Sparkles,
-  Clock,
-  AlertTriangle,
   MessageSquarePlus,
   Tag,
   Plus,
   X,
-  ShieldCheck,
-  Share2,
-  Pencil,
-  Globe2,
-  GraduationCap,
-  CalendarDays,
-  TrendingUp,
-  TrendingDown,
-  Calculator,
-  BookOpen,
-  FlaskConical,
-  Languages,
-  Gamepad2,
-  ArrowRight,
   History,
-  Send,
+  Brain,
+  HeartPulse,
+  BookOpen,
+  Cloud,
+  Frown,
+  HeartHandshake,
+  Gauge,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getStudent, MONTH_LABELS, SUBJECT_DETAILS, type Student } from "@/data/mockData";
-
-const SUBJECT_ICONS = {
-  "calculator": Calculator,
-  "book-open": BookOpen,
-  "flask-conical": FlaskConical,
-  "languages": Languages,
-  "globe-2": Globe2,
-} as const;
+import { getStudent, type Student } from "@/data/mockData";
+import { scoreBand } from "@/lib/classHealth";
+import { DRIVER_META } from "@/lib/driverMeta";
+import {
+  WELLBEING_LABEL,
+  WELLBEING_HUE,
+  wellbeingStatusFromScore,
+  WELLBEING_STATUS_TONE,
+} from "@/lib/classWellbeing";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
-import { RiskBadge } from "@/components/dashboard/RiskBadge";
+import { RiskBadge, SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
+import { NotEnoughData, NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import {
   useStudentOverrides,
   addTag,
   removeTag,
-  setRisk,
   removeNote,
-  logContact,
   PRESET_TAGS,
 } from "@/lib/studentMutations";
 import {
@@ -84,13 +51,12 @@ import {
   getPositiveLogCountThisWeekForStudent,
 } from "@/lib/checkInTools";
 import { getFollowUpRecordsForStudent, type FollowUpRecord } from "@/lib/interventionFollowUps";
-import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { NoteDialog } from "@/components/dashboard/NoteDialog";
 import { ContactParentDialog } from "@/components/dashboard/ContactParentDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const STUDENT_TABS = ["profile", "overview", "journey", "reports"] as const;
+const STUDENT_TABS = ["profile", "overview", "journey"] as const;
 
 type StudentTab = (typeof STUDENT_TABS)[number];
 
@@ -130,61 +96,22 @@ export default function Page() {
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const TOOLTIP_STYLE: React.CSSProperties = {
-  borderRadius: 12,
-  border: "1px solid hsl(240 15% 90%)",
-  background: "hsl(0 0% 100% / 0.92)",
-  backdropFilter: "blur(12px)",
-  boxShadow: "0 10px 28px -12px hsl(230 50% 18% / 0.22)",
-  fontSize: 12,
-};
-
 function StudentPage({ student }: { student: Student }) {
   const searchParams = useSearchParams();
   const tab = parseStudentTab(searchParams?.get("tab"));
   const router = useRouter();
   const overrides = useStudentOverrides(student.id);
-  const effectiveRisk = overrides.riskOverride ?? student.risk;
   const tags = overrides.tags;
   const notes = overrides.notes;
   const contacts = overrides.contacts;
   const reduce = useReducedMotion();
 
-  const delta = student.pfi - student.pfiPrevCheckIn;
-  const radar = student.subDomains.map((d: any) => ({
-    domain: d.name.split(" ")[0],
-    score: d.score,
-    classAvg: d.classAvg,
-  }));
-
-  const monthlyAttention = student.monthly.map((v, i) => ({ month: MONTH_LABELS[i], attention: v }));
-  const submittedMonths = monthlyAttention.filter((d): d is { month: string; attention: number } => d.attention != null);
-  const bestMonth = submittedMonths.length
-    ? submittedMonths.reduce((a, b) => (b.attention > a.attention ? b : a))
-    : null;
-
-  const weakest = [...student.subDomains].sort(
-    (a, b) => a.score - a.classAvg - (b.score - b.classAvg),
-  )[0];
-  const weakestDelta = weakest.score - weakest.classAvg;
-
-  const topDomain = [...student.subDomains].sort((a, b) => b.score - a.score)[0];
-  const learningStyle = topDomain.name.includes("Visual")
-    ? "Visual"
-    : topDomain.name.includes("Memory")
-    ? "Reflective"
-    : topDomain.name.includes("Speed")
-    ? "Kinesthetic"
-    : "Auditory";
+  const band = scoreBand(student.studentHealthScore);
 
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [customTag, setCustomTag] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [nudgeEditing, setNudgeEditing] = useState(false);
-  const [nudgeTouched, setNudgeTouched] = useState(false);
-  const [subjectDraft, setSubjectDraft] = useState("");
-  const [bodyDraft, setBodyDraft] = useState("");
 
   // Behaviour logs and intervention follow-ups live in their own
   // localStorage stores (not the studentMutations overrides useStudentOverrides
@@ -192,8 +119,8 @@ function StudentPage({ student }: { student: Student }) {
   // same pattern TeacherCheckInTools.tsx uses.
   const [behaviorLogs, setBehaviorLogs] = useState(() => getBehaviorLogEntriesForStudent(student.id));
   const [followUps, setFollowUps] = useState<FollowUpRecord[]>(() => getFollowUpRecordsForStudent(student.id));
-  const [positiveThisWeek, setPositiveThisWeek] = useState(() => getPositiveLogCountThisWeekForStudent(student.id));
-  const [behaviorThisWeek, setBehaviorThisWeek] = useState(() => getBehaviorLogCountThisWeekForStudent(student.id));
+  const [, setPositiveThisWeek] = useState(() => getPositiveLogCountThisWeekForStudent(student.id));
+  const [, setBehaviorThisWeek] = useState(() => getBehaviorLogCountThisWeekForStudent(student.id));
   useEffect(() => {
     const refresh = () => {
       setBehaviorLogs(getBehaviorLogEntriesForStudent(student.id));
@@ -212,90 +139,11 @@ function StudentPage({ student }: { student: Student }) {
     };
   }, [student.id]);
 
-  const idx = parseInt(student.id.replace(/\D/g, ""), 10) || 1;
-  const studentCode = `AH-2026-${String(idx).padStart(3, "0")}`;
-  const dob = new Date(2026 - student.age, (idx * 7) % 12, ((idx * 13) % 27) + 1).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const gender = idx % 2 === 0 ? "Female" : "Male";
-  const cities = ["Mumbai", "Bengaluru", "Delhi", "Pune", "Hyderabad", "Chennai"];
-  const city = cities[idx % cities.length];
-  const board = ["CBSE", "ICSE", "IB", "State"][idx % 4];
-  const interests = [
-    ["Robotics", "Drawing", "Football"],
-    ["Reading", "Music", "Chess"],
-    ["Coding", "Dance", "Cricket"],
-    ["Painting", "Swimming", "Puzzles"],
-  ][idx % 4];
-  const sortedDomains = [...student.subDomains].sort((a, b) => b.score - a.score);
-  const strengths = sortedDomains.slice(0, 2);
-  const growthAreas = sortedDomains.slice(-2);
-
   function handleAddTag(label: string) {
     addTag(student.id, label);
     toast.success(`Added tag “${label}”`);
     setTagPopoverOpen(false);
     setCustomTag("");
-  }
-
-  function handleMarkNeedsHelp() {
-    if (effectiveRisk === "high") {
-      setRisk(student.id, undefined);
-      toast.success("Cleared Needs help flag");
-    } else {
-      setRisk(student.id, "high");
-      toast.success("Marked as Needs help");
-    }
-  }
-
-  const neuroSessions = student.sessions.filter((s) => s.type === "Neurogame");
-  const neuroCount = neuroSessions.length;
-  const neuroAvgScore = neuroCount
-    ? Math.round(neuroSessions.reduce((a, s) => a + s.score, 0) / neuroCount)
-    : 0;
-  const neuroAvgCompletion = neuroCount
-    ? Math.round(neuroSessions.reduce((a, s) => a + s.completion, 0) / neuroCount)
-    : 0;
-  const neuroMinutes = neuroSessions.reduce((a, s) => a + s.duration, 0);
-
-  const studentFirstName = student.name.split(" ")[0];
-  const nudgeSubject = `A quick update on ${studentFirstName}`;
-  const nudgeBody =
-    delta >= 0
-      ? `Hi ${student.parent.name},\n\n${studentFirstName}'s focus score is now ${student.pfi} (up ${delta} pts since the last check-in)${
-          positiveThisWeek > 0
-            ? `, with ${positiveThisWeek} positive note${positiveThisWeek === 1 ? "" : "s"} logged this week`
-            : ""
-        }. Keep up the great momentum at home!\n\nBest,\n${TEACHER_NAME}`
-      : `Hi ${student.parent.name},\n\n${studentFirstName}'s focus score has dipped to ${student.pfi} (down ${Math.abs(delta)} pts since the last check-in)${
-          behaviorThisWeek > 0
-            ? `, with ${behaviorThisWeek} behaviour note${behaviorThisWeek === 1 ? "" : "s"} logged this week`
-            : ""
-        }. I'd love to find 10 minutes to talk through what's going on and how we can support ${studentFirstName} together.\n\nBest,\n${TEACHER_NAME}`;
-
-  // Once the teacher edits the draft, keep their wording even if the
-  // underlying signals (delta, log counts) change on a later render.
-  const effectiveSubject = nudgeTouched ? subjectDraft : nudgeSubject;
-  const effectiveBody = nudgeTouched ? bodyDraft : nudgeBody;
-
-  function handleEditNudge() {
-    setSubjectDraft(effectiveSubject);
-    setBodyDraft(effectiveBody);
-    setNudgeTouched(true);
-    setNudgeEditing(true);
-  }
-
-  function handleResetNudge() {
-    setSubjectDraft(nudgeSubject);
-    setBodyDraft(nudgeBody);
-  }
-
-  function handleSendNudge() {
-    logContact(student.id, { channel: "email", template: effectiveBody });
-    window.location.href = `mailto:${student.parent.email}?subject=${encodeURIComponent(effectiveSubject)}&body=${encodeURIComponent(effectiveBody)}`;
-    toast.success(`Nudge email opened for ${student.parent.name}`);
   }
 
   return (
@@ -335,7 +183,7 @@ function StudentPage({ student }: { student: Student }) {
               "radial-gradient(60% 50% at 0% 0%, hsl(142 60% 82% / 0.35), transparent 65%), radial-gradient(55% 50% at 100% 0%, hsl(260 70% 84% / 0.30), transparent 65%)",
           }}
         />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
           <motion.div
             initial={reduce ? undefined : { scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -350,20 +198,10 @@ function StudentPage({ student }: { student: Student }) {
                   {student.name}
                 </span>
               </h1>
-              <RiskBadge risk={effectiveRisk} />
-              {student.lastActiveDays >= 3 && (
-                <Badge
-                  variant="outline"
-                  className="bg-warning/20 text-warning-foreground border-warning/40 dark:text-warning gap-1 rounded-full font-semibold"
-                >
-                  <AlertTriangle className="h-3 w-3" /> Inactive {student.lastActiveDays}d
-                </Badge>
-              )}
+              <RiskBadge band={band} />
             </div>
             <p className="text-[13px] text-muted-foreground mt-1">
-              Age {student.age} · {student.grade} Section {student.section} · Coach {student.coach}
-              {" · "}
-              Last active {student.lastActiveDays === 0 ? "today" : `${student.lastActiveDays}d ago`}
+              {student.ageGroup} · Parent {student.parentName}
             </p>
 
             {/* Tag chips row */}
@@ -430,13 +268,6 @@ function StudentPage({ student }: { student: Student }) {
               </Popover>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              <Stat label="Current PFI" value={student.pfi} delta={delta} />
-              <Stat label="CSI" value={student.csi} />
-              <Stat label="Games" value={`${student.gamesPlayed}/${student.gamesAssigned}`} />
-              <Stat label="Days active" value={`${student.daysActive}/28`} />
-            </div>
-
             {/* Quick actions */}
             <div className="flex flex-wrap gap-2 mt-4">
               <Button
@@ -455,23 +286,15 @@ function StudentPage({ student }: { student: Student }) {
               >
                 <Mail className="h-4 w-4" /> Contact parent
               </Button>
-              <Button
-                size="sm"
-                variant={effectiveRisk === "high" ? "secondary" : "outline"}
-                className="gap-1.5 rounded-lg"
-                onClick={handleMarkNeedsHelp}
-              >
-                {effectiveRisk === "high" ? (
-                  <>
-                    <ShieldCheck className="h-4 w-4 text-primary" /> Clear flag
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4 text-destructive" /> Mark as Needs help
-                  </>
-                )}
-              </Button>
             </div>
+          </div>
+
+          {/* Student Health Score tile */}
+          <div className="shrink-0 flex flex-col items-center gap-1.5">
+            <HealthScoreRing score={student.studentHealthScore} tone={SCORE_BAND_TONE[band]} />
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Health score
+            </span>
           </div>
         </div>
       </motion.section>
@@ -485,127 +308,54 @@ function StudentPage({ student }: { student: Student }) {
         className="space-y-4"
       >
         <TabsList className="bg-muted/60 backdrop-blur p-1 h-auto flex-wrap rounded-full border border-border/70">
-          <StudentTab value="profile">Profile</StudentTab>
-          <StudentTab value="overview">Overview</StudentTab>
-          <StudentTab value="journey">Hero Journey</StudentTab>
-          <StudentTab value="reports">Reports</StudentTab>
+          <StudentTabTrigger value="profile">Profile</StudentTabTrigger>
+          <StudentTabTrigger value="overview">Overview</StudentTabTrigger>
+          <StudentTabTrigger value="journey">Hero Journey</StudentTabTrigger>
         </TabsList>
 
         {/* ───── PROFILE ───── */}
         <TabsContent value="profile">
           <div className="grid md:grid-cols-2 gap-4">
-            <PanelCard title="Demographics">
-              <Row k="Full name" v={student.name} />
-              <Row k="Student ID" v={studentCode} />
-              <Row k="Date of birth" v={dob} />
-              <Row k="Age" v={`${student.age} years`} />
-              <Row k="Gender" v={gender} />
-              <Row k="City" v={city} />
-              <Row k="Mother tongue" v={idx % 3 === 0 ? "Hindi" : idx % 3 === 1 ? "Marathi" : "Tamil"} />
-              <Row k="Languages" v="English, Hindi" icon={<Globe2 className="h-3.5 w-3.5" />} />
-              <Row k="Allergies / medical" v="None reported" />
-              <Row k="Emergency contact" v={student.parent.phone} icon={<Phone className="h-3.5 w-3.5" />} />
-            </PanelCard>
-
             <PanelCard title="Parent contact">
-              <Row k="Name" v={student.parent.name} />
-              <Row k="Email" v={student.parent.email} icon={<Mail className="h-3.5 w-3.5" />} />
-              <Row k="Phone" v={student.parent.phone} icon={<Phone className="h-3.5 w-3.5" />} />
+              <Row k="Name" v={student.parentName} />
               <div className="pt-2 flex gap-2">
                 <Button size="sm" variant="outline" className="gap-1 rounded-lg" onClick={() => setContactOpen(true)}>
                   <Mail className="h-3.5 w-3.5" />
-                  Email
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1 rounded-lg" onClick={() => setContactOpen(true)}>
-                  <Phone className="h-3.5 w-3.5" />
-                  Call
+                  Contact
                 </Button>
               </div>
             </PanelCard>
 
-            <PanelCard title="School & cohort">
-              <Row k="School" v="Lovable Academy" icon={<GraduationCap className="h-3.5 w-3.5" />} />
-              <Row k="Board" v={board} />
-              <Row k="Class teacher" v={student.coach} />
-              <Row k="Assigned coach" v={student.coach} />
-              <Row k="Joined" v="Aug 12, 2024" icon={<CalendarDays className="h-3.5 w-3.5" />} />
-              <Row k="Cohort size" v="24 students" />
-              <Row k="Learning track" v="Core Attention" />
-            </PanelCard>
-
-            <PanelCard title="Learner profile">
-              <Row k="Learning style" v={learningStyle} />
-              <div>
-                <div className="premium-eyebrow mb-1.5"><span>Strengths</span></div>
-                <div className="flex flex-wrap gap-1.5">
-                  {strengths.map((d) => (
-                    <span
-                      key={d.name}
-                      className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full bg-primary/12 text-primary border border-primary/25"
-                    >
-                      {d.name} · {d.score}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="premium-eyebrow mb-1.5"><span>Growth areas</span></div>
-                <div className="flex flex-wrap gap-1.5">
-                  {growthAreas.map((d) => (
-                    <span
-                      key={d.name}
-                      className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full bg-warning/20 text-warning-foreground dark:text-warning border border-warning/40"
-                    >
-                      {d.name} · {d.score}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="premium-eyebrow mb-1.5"><span>Interests</span></div>
-                <div className="flex flex-wrap gap-1.5">
-                  {interests.map((i) => (
-                    <span
-                      key={i}
-                      className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full bg-accent/60 text-accent-foreground border border-border/70"
-                    >
-                      {i}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </PanelCard>
-
-            <PanelCard title="Flags & history">
-              {student.flags && student.flags.length > 0 ? (
+            <PanelCard
+              title="Intervention tags"
+              headerRight={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 rounded-lg"
+                  onClick={() => setTagPopoverOpen(true)}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  Add
+                </Button>
+              }
+            >
+              {tags.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No intervention tags yet.</p>
+              ) : (
                 <ul className="space-y-1.5">
-                  {student.flags.map((f: string) => (
-                    <li key={f} className="text-[13px] flex items-center gap-2">
-                      <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                      {f}
+                  {tags.map((t) => (
+                    <li key={t.label} className="text-[13px] flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Tag className="h-3.5 w-3.5 text-primary" />
+                        {t.label}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(t.addedAt).toLocaleDateString()}
+                      </span>
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-[13px] text-muted-foreground">No active flags.</p>
-              )}
-              {tags.length > 0 && (
-                <>
-                  <div className="premium-eyebrow pt-2"><span>Intervention tags</span></div>
-                  <ul className="space-y-1.5">
-                    {tags.map((t) => (
-                      <li key={t.label} className="text-[13px] flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <Tag className="h-3.5 w-3.5 text-primary" />
-                          {t.label}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {new Date(t.addedAt).toLocaleDateString()}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
               )}
             </PanelCard>
 
@@ -667,7 +417,7 @@ function StudentPage({ student }: { student: Student }) {
                   className="h-7 gap-1 rounded-lg"
                   onClick={() => setContactOpen(true)}
                 >
-                  <Phone className="h-3.5 w-3.5" />
+                  <Mail className="h-3.5 w-3.5" />
                   New
                 </Button>
               }
@@ -682,13 +432,7 @@ function StudentPage({ student }: { student: Student }) {
                       className="flex items-center justify-between border-b border-border/60 pb-1.5 last:border-0"
                     >
                       <span className="capitalize font-medium flex items-center gap-1.5">
-                        {c.channel === "call" ? (
-                          <Phone className="h-3.5 w-3.5" />
-                        ) : c.channel === "email" ? (
-                          <Mail className="h-3.5 w-3.5" />
-                        ) : (
-                          <Tag className="h-3.5 w-3.5" />
-                        )}
+                        <Mail className="h-3.5 w-3.5" />
                         {c.channel}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
@@ -729,6 +473,7 @@ function StudentPage({ student }: { student: Student }) {
             <PanelCard
               title="Intervention follow-ups"
               subtitle={`${followUps.length} logged all-time`}
+              className="md:col-span-2"
             >
               {followUps.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">No follow-ups logged yet.</p>
@@ -765,815 +510,20 @@ function StudentPage({ student }: { student: Student }) {
                 </ul>
               )}
             </PanelCard>
-
-            <PanelCard
-              title="Neuroplay report"
-              subtitle={
-                neuroCount > 0
-                  ? `${neuroCount} sessions · ${neuroMinutes} mins played`
-                  : "No neurogame sessions yet"
-              }
-              className="md:col-span-2"
-              headerRight={
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 rounded-lg"
-                    onClick={() => toast.success("Shared with parent")}
-                  >
-                    <Share2 className="h-3.5 w-3.5" /> Share with parent
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-lg"
-                    onClick={() => toast.info("Report download coming soon")}
-                  >
-                    Download
-                  </Button>
-                </div>
-              }
-            >
-              {neuroCount === 0 ? (
-                <p className="text-[13px] text-muted-foreground">
-                  {studentFirstName} hasn&apos;t played any neurogames yet.
-                </p>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  <Stat label="Sessions played" value={neuroCount} />
-                  <Stat label="Avg score" value={neuroAvgScore} />
-                  <Stat label="Avg completion" value={`${neuroAvgCompletion}%`} />
-                </div>
-              )}
-            </PanelCard>
-
-            <PanelCard
-              title="Parent nudge email"
-              subtitle="Pre-filled from this student's recent signals — edit before sending"
-              className="md:col-span-2"
-              headerRight={
-                !nudgeEditing ? (
-                  <Button size="sm" variant="outline" className="h-7 gap-1 rounded-lg" onClick={handleEditNudge}>
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 rounded-lg" onClick={handleResetNudge}>
-                    Reset to suggested
-                  </Button>
-                )
-              }
-            >
-              {nudgeEditing ? (
-                <div className="space-y-2">
-                  <input
-                    value={subjectDraft}
-                    onChange={(e) => setSubjectDraft(e.target.value)}
-                    className="w-full rounded-lg border border-border/70 bg-card/70 backdrop-blur px-3 py-2 text-[12.5px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                  <textarea
-                    value={bodyDraft}
-                    onChange={(e) => setBodyDraft(e.target.value)}
-                    rows={7}
-                    className="w-full rounded-xl border border-border/70 bg-card/70 backdrop-blur p-3.5 text-[13px] leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              ) : (
-                <div className="rounded-xl border border-border/70 bg-card/70 backdrop-blur p-3.5">
-                  <div className="text-[12.5px] font-semibold">{effectiveSubject}</div>
-                  <p className="text-[13px] text-muted-foreground mt-1.5 whitespace-pre-line leading-relaxed">
-                    {effectiveBody}
-                  </p>
-                </div>
-              )}
-              <div className="flex justify-end gap-2">
-                {nudgeEditing && (
-                  <Button size="sm" variant="outline" className="rounded-lg" onClick={() => setNudgeEditing(false)}>
-                    Done editing
-                  </Button>
-                )}
-                <Button size="sm" className="gap-1.5 rounded-lg" onClick={handleSendNudge}>
-                  <Send className="h-3.5 w-3.5" /> Send nudge
-                </Button>
-              </div>
-            </PanelCard>
           </div>
         </TabsContent>
 
         {/* ───── OVERVIEW ───── */}
-        <TabsContent value="overview" className="grid md:grid-cols-3 gap-4">
-          <PanelCard title="Attention sub-domains" subtitle="Student vs class average" className="md:col-span-2">
-            <div className="h-72">
-              <ResponsiveContainer>
-                <RadarChart data={radar}>
-                  <PolarGrid stroke="hsl(240 15% 88%)" />
-                  <PolarAngleAxis dataKey="domain" tick={{ fontSize: 11, fill: "hsl(230 15% 40%)" }} />
-                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} stroke="hsl(240 15% 80%)" />
-                  <Radar dataKey="classAvg" stroke="hsl(260 50% 60%)" fill="hsl(260 50% 60%)" fillOpacity={0.15} />
-                  <Radar dataKey="score" stroke="hsl(142 52% 48%)" fill="hsl(142 52% 48%)" fillOpacity={0.4} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </PanelCard>
-
-          <PanelCard
-            title={
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Yellow Recommends
-              </span>
-            }
-          >
-            <p className="text-[13px] leading-relaxed">
-              <span className="font-semibold">{weakest.name}</span> is{" "}
-              <span
-                className={cn(
-                  "font-bold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11.5px] align-baseline",
-                  weakestDelta < 0
-                    ? "bg-destructive/12 text-destructive border border-destructive/25"
-                    : "bg-primary/12 text-primary border border-primary/25",
-                )}
-              >
-                {weakestDelta < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
-                {weakestDelta >= 0 ? "+" : ""}
-                {weakestDelta}
-              </span>{" "}
-              pts vs class avg. Try a focused intervention 3×/week.
-            </p>
-            <ul className="mt-3 space-y-2">
-              {[
-                "Focus Maze · Sustained Attention",
-                "Memory Match · Working Memory",
-                "Stop Signal · Inhibitory Control",
-              ].map((g) => (
-                <li
-                  key={g}
-                  className="rounded-xl border border-border/70 bg-card/70 backdrop-blur p-3 text-[13px] hover:border-primary/40 hover:bg-card transition-colors cursor-pointer"
-                >
-                  <div className="font-heading font-extrabold">{g.split(" · ")[0]}</div>
-                  <div className="text-[11.5px] text-muted-foreground">{g.split(" · ")[1]}</div>
-                </li>
-              ))}
-            </ul>
-          </PanelCard>
-
-          <PanelCard
-            title="Monthly check-in trend"
-            subtitle={
-              bestMonth ? (
-                <>
-                  Best month:{" "}
-                  <span className="font-semibold text-primary">{bestMonth.month}</span>{" "}
-                  ({bestMonth.attention}% attention) ·{" "}
-                  {submittedMonths.length}/{MONTH_LABELS.length} check-ins submitted
-                </>
-              ) : (
-                <>No monthly check-ins submitted yet.</>
-              )
-            }
-            className="md:col-span-2"
-          >
-            <div className="h-56">
-              <ResponsiveContainer>
-                <LineChart data={monthlyAttention} margin={{ top: 4, right: 6, left: -12, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="sd-monthly-line" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="hsl(260 55% 60%)" />
-                      <stop offset="100%" stopColor="hsl(200 60% 55%)" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" vertical={false} />
-                  <XAxis dataKey="month" stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis domain={[0, 100]} stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ stroke: "hsl(260 55% 60%)", strokeOpacity: 0.3, strokeWidth: 1, strokeDasharray: "3 3" }} />
-                  <Line
-                    type="monotone"
-                    dataKey="attention"
-                    stroke="url(#sd-monthly-line)"
-                    strokeWidth={2.6}
-                    dot={{ r: 3, strokeWidth: 2, stroke: "white", fill: "hsl(230 55% 55%)" }}
-                    activeDot={{ r: 5, strokeWidth: 2, stroke: "white", fill: "hsl(230 55% 55%)" }}
-                    connectNulls
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </PanelCard>
-
-          <PanelCard title="Recent sessions">
-            <ul className="space-y-2">
-              {student.sessions.slice(0, 3).map((s: any, i: number) => (
-                <li
-                  key={i}
-                  className="rounded-xl border border-border/70 bg-card/70 backdrop-blur p-2.5 hover:border-primary/40 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-heading font-extrabold text-[13px]">{s.title}</div>
-                    <span className="text-[12px] font-extrabold">{s.score}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                    <span>{s.date}</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {s.duration}m
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </PanelCard>
-
-          <PanelCard title="PFI growth · 4 weeks" className="md:col-span-3">
-            <div className="h-56">
-              <ResponsiveContainer>
-                <LineChart data={student.history} margin={{ top: 4, right: 6, left: -12, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="sd-pfi-line" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="hsl(142 55% 45%)" />
-                      <stop offset="100%" stopColor="hsl(200 60% 55%)" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" vertical={false} />
-                  <XAxis dataKey="week" stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis domain={[0, 100]} stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line
-                    type="monotone"
-                    dataKey="pfi"
-                    stroke="url(#sd-pfi-line)"
-                    strokeWidth={2.6}
-                    dot={{ r: 4, strokeWidth: 2, stroke: "white", fill: "hsl(142 55% 45%)" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="engagement"
-                    stroke="hsl(260 55% 60%)"
-                    strokeWidth={2}
-                    dot={{ r: 3, strokeWidth: 2, stroke: "white", fill: "hsl(260 55% 60%)" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </PanelCard>
+        <TabsContent value="overview">
+          <StudentMetricsOverview student={student} />
         </TabsContent>
 
         {/* ───── JOURNEY ───── */}
         <TabsContent value="journey">
-          <div className="premium-surface rounded-[18px] p-5 grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-            <Stat
-              label="Total neuro time"
-              value={`${student.sessions.reduce((a: number, s: any) => a + s.duration, 0)}m`}
-            />
-            <Stat
-              label="Avg session"
-              value={`${Math.round(
-                student.sessions.reduce((a: number, s: any) => a + s.duration, 0) /
-                  student.sessions.length,
-              )}m`}
-            />
-            <Stat
-              label="Completion"
-              value={`${Math.round(
-                student.sessions.reduce((a: number, s: any) => a + s.completion, 0) /
-                  student.sessions.length,
-              )}%`}
-            />
-            <Stat
-              label="Avg score"
-              value={Math.round(
-                student.sessions.reduce((a: number, s: any) => a + s.score, 0) /
-                  student.sessions.length,
-              )}
-            />
-          </div>
-          <Tabs defaultValue="all">
-            <TabsList className="bg-muted/60 backdrop-blur rounded-full border border-border/70 p-1 h-auto">
-              <StudentTab value="all">All</StudentTab>
-              <StudentTab value="Neurogame">Neurogame</StudentTab>
-              <StudentTab value="Sessions">Sessions</StudentTab>
-              <StudentTab value="Project">Project</StudentTab>
-            </TabsList>
-            {["all", "Neurogame", "Sessions", "Project"].map((t) => (
-              <TabsContent key={t} value={t} className="space-y-2 mt-3">
-                {student.sessions
-                  .filter((s: any) => t === "all" || s.type === t)
-                  .map((s: any, i: number) => (
-                    <div key={i} className="premium-surface rounded-[16px] p-4 flex items-center gap-4">
-                      <div
-                        className={cn(
-                          "h-11 w-11 rounded-xl flex items-center justify-center shrink-0",
-                          s.type === "Neurogame" && "bg-primary/15 text-primary",
-                          s.type === "Sessions" && "bg-accent text-accent-foreground",
-                          s.type === "Project" && "bg-warning/20 text-warning",
-                        )}
-                      >
-                        <Award className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="font-heading font-extrabold text-[13.5px]">{s.title}</div>
-                          <Badge variant="outline" className="text-[10px] rounded-full">
-                            {s.type}
-                          </Badge>
-                        </div>
-                        <div className="text-[11.5px] text-muted-foreground flex items-center gap-3 mt-0.5">
-                          <span>{s.date}</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {s.duration}m
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-heading font-extrabold text-[18px] leading-none tabular-nums">
-                          {s.score}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">{s.completion}% done</div>
-                      </div>
-                    </div>
-                  ))}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </TabsContent>
-
-        {/* ───── REPORTS ───── */}
-        <TabsContent value="reports">
-          <Tabs defaultValue="subdomain">
-            <TabsList className="bg-muted/60 backdrop-blur flex-wrap h-auto rounded-full border border-border/70 p-1">
-              <StudentTab value="subdomain">Sub-Domain</StudentTab>
-              <StudentTab value="skills">Skills</StudentTab>
-              <StudentTab value="indicators">Indicators</StudentTab>
-              <StudentTab value="subjects">Subjects</StudentTab>
-              <StudentTab value="growth">Growth Timeline</StudentTab>
-            </TabsList>
-
-            <TabsContent value="subdomain" className="mt-3">
-              <div className="grid md:grid-cols-2 gap-4">
-                {student.subDomains.map((d: any, sIdx: number) => {
-                  const dlt = d.score - d.classAvg;
-                  const isWeak = dlt < -5;
-                  // Per-card distinct trend shape — both series start from the same baseline at W1
-                  // and diverge through W4. Tells the "started equal, pulled ahead/behind" story.
-                  const wiggle = (k: number, salt: number) => {
-                    const x = Math.sin((sIdx + 1) * salt + k * 11.7) * 10000;
-                    return (x - Math.floor(x) - 0.5) * 6;
-                  };
-                  const clamp01 = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
-                  const chartData = ["W1", "W2", "W3", "W4"].map((week, i) => {
-                    if (i === 0) {
-                      return { week, student: d.classAvg, class: d.classAvg };
-                    }
-                    const t = i / 3;
-                    return {
-                      week,
-                      student: clamp01(d.classAvg + (d.score - d.classAvg) * t + wiggle(i, 7.3)),
-                      class: clamp01(d.classAvg + wiggle(i, 5.1) * 0.6),
-                    };
-                  });
-                  const gradId = `sd-area-${sIdx}`;
-                  return (
-                    <div
-                      key={d.name}
-                      className="premium-surface rounded-[20px] p-5 transition-all duration-200 hover:shadow-[0_14px_36px_-20px_hsl(230_50%_18%/0.22)] hover:-translate-y-px"
-                    >
-                      {/* Header — name & description on the left, hero metric on the right */}
-                      <div className="flex items-start justify-between gap-5">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-heading font-extrabold text-[14px] tracking-tight leading-tight">
-                            {d.name}
-                          </h4>
-                          {d.description && (
-                            <p className="text-[11.5px] leading-snug text-muted-foreground mt-1 line-clamp-2">
-                              {d.description}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end shrink-0 leading-none">
-                          <span className="font-heading font-extrabold text-[28px] tabular-nums">
-                            {d.score}
-                          </span>
-                          <span
-                            className={cn(
-                              "mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold tabular-nums whitespace-nowrap",
-                              dlt >= 0 ? "text-primary" : "text-destructive",
-                            )}
-                          >
-                            {dlt >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                            {dlt >= 0 ? "+" : ""}{dlt}
-                            <span className="text-muted-foreground font-normal">
-                              vs class avg {d.classAvg}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Trend chart — both series begin at the class-avg baseline at W1 and diverge */}
-                      <div className="h-[120px] mt-5 -mx-1">
-                        <ResponsiveContainer>
-                          <AreaChart
-                            data={chartData}
-                            margin={{ top: 14, right: 18, left: 8, bottom: 0 }}
-                          >
-                            <defs>
-                              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(142 55% 45%)" stopOpacity={0.4} />
-                                <stop offset="55%" stopColor="hsl(142 55% 45%)" stopOpacity={0.18} />
-                                <stop offset="100%" stopColor="hsl(142 55% 45%)" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <YAxis domain={[0, 100]} hide />
-                            <XAxis
-                              dataKey="week"
-                              fontSize={10}
-                              stroke="hsl(230 15% 60%)"
-                              tickLine={false}
-                              axisLine={false}
-                              dy={6}
-                              padding={{ left: 8, right: 8 }}
-                            />
-                            <Tooltip
-                              contentStyle={TOOLTIP_STYLE}
-                              cursor={{ stroke: "hsl(142 52% 48%)", strokeOpacity: 0.3, strokeWidth: 1, strokeDasharray: "3 3" }}
-                              labelStyle={{ fontSize: 11, fontWeight: 600 }}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="class"
-                              name="Class avg"
-                              stroke="hsl(230 12% 65%)"
-                              strokeWidth={1.5}
-                              strokeDasharray="4 3"
-                              fill="none"
-                              dot={false}
-                              activeDot={false}
-                              isAnimationActive={!reduce}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="student"
-                              name="This student"
-                              stroke="hsl(142 55% 45%)"
-                              strokeWidth={2.6}
-                              fill={`url(#${gradId})`}
-                              dot={false}
-                              activeDot={{ r: 4, strokeWidth: 2, stroke: "white", fill: "hsl(142 55% 45%)" }}
-                              isAnimationActive={!reduce}
-                            />
-                            {/* W1 anchor — small dot where both series meet */}
-                            <ReferenceDot
-                              x="W1"
-                              y={d.classAvg}
-                              r={3}
-                              fill="hsl(230 12% 65%)"
-                              stroke="white"
-                              strokeWidth={1.5}
-                              ifOverflow="extendDomain"
-                            />
-                            {/* W4 student endpoint — halo + crisp dot */}
-                            <ReferenceDot
-                              x="W4"
-                              y={d.score}
-                              r={9}
-                              fill="hsl(142 55% 45%)"
-                              fillOpacity={0.15}
-                              stroke="none"
-                              ifOverflow="extendDomain"
-                            />
-                            <ReferenceDot
-                              x="W4"
-                              y={d.score}
-                              r={4}
-                              fill="hsl(142 55% 45%)"
-                              stroke="white"
-                              strokeWidth={2}
-                              ifOverflow="extendDomain"
-                            />
-                            {/* W4 class endpoint */}
-                            <ReferenceDot
-                              x="W4"
-                              y={d.classAvg}
-                              r={3}
-                              fill="hsl(230 12% 65%)"
-                              stroke="white"
-                              strokeWidth={1.5}
-                              ifOverflow="extendDomain"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      {isWeak && (
-                        <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-2 text-[11.5px]">
-                          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-muted-foreground">
-                            <span className="font-semibold text-foreground">Try:</span>{" "}
-                            Focus Maze · Memory Match · Stop Signal
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="skills" className="mt-3">
-              <div className="space-y-3">
-                <PanelCard title="KSA Breakdown">
-                  <div className="space-y-3.5">
-                    {student.ksa.map((k: any) => (
-                      <div key={k.name} className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-heading font-extrabold text-[13px] leading-tight">{k.name}</div>
-                            {k.description && (
-                              <p className="text-[11px] leading-snug text-muted-foreground mt-0.5">
-                                {k.description}
-                              </p>
-                            )}
-                          </div>
-                          <span className="font-heading font-extrabold tabular-nums text-[13px] shrink-0 mt-0.5">
-                            {k.score}%
-                          </span>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <motion.div
-                            className="h-full rounded-full bg-gradient-to-r from-[hsl(142_60%_50%)] to-[hsl(142_52%_40%)]"
-                            initial={reduce ? undefined : { width: 0 }}
-                            animate={{ width: `${k.score}%` }}
-                            transition={{ duration: 0.9, ease: EASE }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </PanelCard>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="indicators" className="mt-3">
-              <PanelCard title="Behavioral indicators">
-                <div className="-mt-1 mb-3 flex items-center justify-between gap-3 flex-wrap">
-                  <p className="text-[11.5px] text-muted-foreground">
-                    Behaviours you can observe in class, with the cognitive skills behind each one.
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className="bg-card/70 text-[10.5px] font-semibold rounded-full px-2 py-0.5 shrink-0"
-                  >
-                    Age group · {student.age}–{student.age + 1} years
-                  </Badge>
-                </div>
-                <div className="space-y-3.5">
-                  {student.indicators.map((ind: any) => (
-                    <div key={ind.name} className="space-y-1.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-heading font-extrabold text-[13px] leading-tight">{ind.name}</div>
-                          <p className="text-[11px] leading-snug text-muted-foreground mt-0.5">
-                            <span className="font-semibold text-foreground/70">Cognitive skills behind this:</span>{" "}
-                            {ind.ksas.map((k: { name: string; weight: number }) => k.name).join(" · ")}
-                          </p>
-                        </div>
-                        <span className="font-heading font-extrabold tabular-nums text-[13px] shrink-0 mt-0.5">
-                          {ind.score}%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full rounded-full bg-gradient-to-r from-[hsl(260_55%_65%)] via-[hsl(230_55%_60%)] to-[hsl(200_60%_55%)]"
-                          initial={reduce ? undefined : { width: 0 }}
-                          animate={{ width: `${ind.score}%` }}
-                          transition={{ duration: 0.9, ease: EASE }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </PanelCard>
-            </TabsContent>
-
-            <TabsContent value="subjects" className="mt-3">
-              <p className="text-[12px] text-muted-foreground mb-3 px-1">
-                How {student.name.split(" ")[0]}'s cognitive skills shape{" "}
-                {student.grade.toLowerCase()} subjects — and which games will lift the
-                skills behind each one.
-              </p>
-              <div className="space-y-3">
-                {SUBJECT_DETAILS.map((sub, sIdx) => {
-                  const subjectData = student.subjects[sIdx];
-                  const SubjectIcon = SUBJECT_ICONS[sub.iconKey];
-                  const accentSolid = `hsl(${sub.hue} 65% 48%)`;
-                  const accentDeep = `hsl(${sub.hue} 60% 38%)`;
-                  const accentSoft = `hsl(${sub.hue} 70% 95%)`;
-                  const accentText = `hsl(${sub.hue} 55% 36%)`;
-                  return (
-                    <div
-                      key={sub.name}
-                      className="premium-surface rounded-[20px] p-5 transition-all duration-200 hover:shadow-[0_14px_36px_-20px_hsl(230_50%_18%/0.22)] hover:-translate-y-px relative overflow-hidden"
-                    >
-                      {/* Subtle accent rail on the left edge */}
-                      <div
-                        className="absolute left-0 top-5 bottom-5 w-[3px] rounded-full"
-                        style={{
-                          background: `linear-gradient(180deg, ${accentSolid} 0%, ${accentDeep} 100%)`,
-                        }}
-                        aria-hidden
-                      />
-
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-4 mb-5">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div
-                            className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-[0_6px_16px_-8px_hsl(230_50%_18%/0.22)]"
-                            style={{
-                              background: `linear-gradient(135deg, ${accentSolid} 0%, ${accentDeep} 100%)`,
-                            }}
-                          >
-                            <SubjectIcon className="h-5 w-5 text-white" strokeWidth={2.2} />
-                          </div>
-                          <div className="min-w-0">
-                            <div
-                              className="text-[10px] uppercase tracking-[0.2em] font-bold"
-                              style={{ color: accentText }}
-                            >
-                              {sub.short}
-                            </div>
-                            <h3 className="font-heading font-extrabold text-[16px] mt-0.5 leading-tight tracking-tight">
-                              {sub.name}
-                            </h3>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end shrink-0 leading-none">
-                          <span className="font-heading font-extrabold text-[26px] tabular-nums">
-                            {subjectData.score}
-                            <span className="text-[12px] text-muted-foreground font-normal ml-0.5">
-                              /100
-                            </span>
-                          </span>
-                          <span
-                            className={cn(
-                              "mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold tabular-nums whitespace-nowrap",
-                              subjectData.trend >= 0 ? "text-primary" : "text-destructive",
-                            )}
-                          >
-                            {subjectData.trend >= 0 ? (
-                              <TrendingUp className="h-3 w-3" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3" />
-                            )}
-                            {subjectData.trend >= 0 ? "+" : ""}
-                            {subjectData.trend}
-                            <span className="text-muted-foreground font-normal">this term</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Two-column body */}
-                      <div className="grid md:grid-cols-2 gap-x-6 gap-y-5">
-                        {/* Skills */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <h4 className="text-[10.5px] uppercase tracking-[0.16em] font-bold text-foreground/80">
-                              Skills behind this subject
-                            </h4>
-                          </div>
-                          <div className="space-y-2.5">
-                            {sub.skills.map((skillName) => {
-                              const ksaEntry = student.ksa.find(
-                                (k: any) => k.name === skillName,
-                              );
-                              const score = ksaEntry?.score ?? 0;
-                              const isStrong = score >= 75;
-                              return (
-                                <div key={skillName} className="space-y-1">
-                                  <div className="flex items-center justify-between text-[12px]">
-                                    <span className="font-semibold truncate">{skillName}</span>
-                                    <span className="font-heading font-extrabold tabular-nums shrink-0 ml-2 text-[11.5px]">
-                                      {score}%
-                                    </span>
-                                  </div>
-                                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                    <motion.div
-                                      className="h-full rounded-full"
-                                      style={{
-                                        background: isStrong
-                                          ? `linear-gradient(90deg, ${accentSolid} 0%, ${accentDeep} 100%)`
-                                          : `linear-gradient(90deg, ${accentSolid} 0%, ${accentSolid} 100%)`,
-                                        opacity: isStrong ? 1 : 0.55,
-                                      }}
-                                      initial={reduce ? undefined : { width: 0 }}
-                                      animate={{ width: `${score}%` }}
-                                      transition={{ duration: 0.85, ease: EASE }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Games */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <h4 className="text-[10.5px] uppercase tracking-[0.16em] font-bold text-foreground/80">
-                              Games to boost these skills
-                            </h4>
-                          </div>
-                          <div className="space-y-1.5">
-                            {sub.games.map((game) => (
-                              <button
-                                key={game.title}
-                                type="button"
-                                className="group/game w-full text-left rounded-xl p-2.5 border border-border/60 transition-all hover:border-transparent hover:shadow-[0_8px_22px_-14px_hsl(230_50%_18%/0.22)]"
-                                style={{
-                                  // soft tinted hover background via inline custom prop
-                                  // (Tailwind can't compose dynamic hex from sub.hue)
-                                  ["--game-hover" as any]: accentSoft,
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = accentSoft;
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = "";
-                                }}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-                                    style={{ backgroundColor: accentSoft }}
-                                  >
-                                    <Gamepad2
-                                      className="h-4 w-4"
-                                      style={{ color: accentText }}
-                                      strokeWidth={2.2}
-                                    />
-                                  </div>
-                                  <div className="font-heading font-extrabold text-[12.5px] flex-1 min-w-0 truncate">
-                                    {game.title}
-                                  </div>
-                                  <ArrowRight
-                                    className="h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform group-hover/game:translate-x-0.5"
-                                    style={{ color: accentText }}
-                                  />
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-1.5 ml-[42px]">
-                                  {game.targets.map((target) => (
-                                    <span
-                                      key={target}
-                                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold"
-                                    >
-                                      {target}
-                                    </span>
-                                  ))}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="growth" className="mt-3">
-              <PanelCard title="Growth Timeline">
-                <ol className="relative border-l-2 border-primary/30 ml-3 space-y-4">
-                  {student.history.map((h: any, i: number) => {
-                    const isLatest = i === student.history.length - 1;
-                    return (
-                      <li key={i} className="ml-4">
-                        <div className="absolute -left-2 h-4 w-4 rounded-full bg-primary border-2 border-card shadow-[0_0_0_3px_hsl(142_55%_45%/0.15)]" />
-                        <div className="font-heading font-extrabold text-[13px]">
-                          {h.week} · PFI {h.pfi}
-                        </div>
-                        <div className="text-[11.5px] text-muted-foreground">
-                          Engagement {h.engagement}% · Sessions {2 + i}
-                        </div>
-                        {isLatest && tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {tags.map((t) => (
-                              <span
-                                key={t.label}
-                                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent/60 text-accent-foreground border border-border/70"
-                              >
-                                ★ {t.label}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </PanelCard>
-            </TabsContent>
-          </Tabs>
+          <NotEnoughDataPanel
+            title="No game/session history yet"
+            description={`${student.name.split(" ")[0]}'s Neuroplay session history isn't available in the real dataset yet — this will populate once game/session data comes in.`}
+          />
         </TabsContent>
       </Tabs>
 
@@ -1583,9 +533,218 @@ function StudentPage({ student }: { student: Student }) {
   );
 }
 
+/* ──────────────── Overview tab — real metrics breakdown ──────────────── */
+
+function StudentMetricsOverview({ student }: { student: Student }) {
+  const cp = student.cognitivePerformance;
+  const lr = cp.learningReadiness;
+  const wb = student.studentWellbeing;
+
+  const cognitiveRows: { key: string; label: string; Icon: LucideIcon; tone: string; value: number | null }[] = [
+    { key: "focus", label: DRIVER_META.focus.title, Icon: DRIVER_META.focus.Icon, tone: DRIVER_META.focus.tone, value: cp.attentionAndFocus },
+    { key: "task", label: DRIVER_META.task.title, Icon: DRIVER_META.task.Icon, tone: DRIVER_META.task.tone, value: cp.taskEngagement },
+    { key: "behavior", label: DRIVER_META.behavior.title, Icon: DRIVER_META.behavior.Icon, tone: DRIVER_META.behavior.tone, value: cp.behaviourAndDiscipline },
+    { key: "friction", label: "Instructional friction", Icon: Gauge, tone: "hsl(28 88% 54%)", value: cp.instructionalFriction },
+  ];
+
+  const learningRows: { key: string; label: string; value: number | null }[] = [
+    { key: "reading", label: "Reading comprehension", value: lr.readingComprehension },
+    { key: "recall", label: "Recall & retention", value: lr.recallRetention },
+    { key: "problem", label: "Problem solving", value: lr.problemSolving },
+    { key: "reasoning", label: "Reasoning", value: lr.reasoning },
+    { key: "creative", label: "Creative expression", value: lr.creativeExpression },
+  ];
+
+  const wellbeingRows: { key: string; label: string; hue: string; value: number | null }[] = [
+    { key: "anxiety", label: WELLBEING_LABEL.anxiety, hue: WELLBEING_HUE.anxiety, value: wb.anxietyAndCopingIndex },
+    { key: "peer-safety", label: WELLBEING_LABEL["peer-safety"], hue: WELLBEING_HUE["peer-safety"], value: wb.peerSafetyAndBelonging },
+    { key: "frustration", label: WELLBEING_LABEL.frustration, hue: WELLBEING_HUE.frustration, value: wb.angerAndEmotionalRegulation },
+  ];
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      {/* Cognitive performance */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0 bg-[hsl(212_90%_58%/0.14)] text-[hsl(212_90%_58%)]">
+              <Brain className="h-5 w-5" />
+            </span>
+            <h3 className="font-heading font-extrabold text-[16px] leading-tight">Cognitive Performance</h3>
+          </div>
+          <span className="font-heading font-extrabold text-[22px] tabular-nums" style={{ color: "hsl(212 90% 58%)" }}>
+            {cp.score}
+            <span className="text-muted-foreground text-[12px] font-bold">/100</span>
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {cognitiveRows.map((row) => (
+            <MetricRow key={row.key} label={row.label} Icon={row.Icon} tone={row.tone} value={row.value} />
+          ))}
+        </div>
+
+        <div className="pt-2 border-t border-border/60">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="flex items-center gap-1.5 text-[12px] font-bold">
+              <BookOpen className="h-3.5 w-3.5" style={{ color: DRIVER_META.academic.tone }} />
+              {DRIVER_META.academic.title}
+            </span>
+            {lr.score != null ? (
+              <span className="font-heading font-extrabold text-[13px] tabular-nums" style={{ color: DRIVER_META.academic.tone }}>
+                {lr.score}/100
+              </span>
+            ) : (
+              <NotEnoughData />
+            )}
+          </div>
+          <div className="flex flex-col gap-2 pl-1">
+            {learningRows.map((row) => (
+              <MetricSubRow key={row.key} label={row.label} value={row.value} tone={DRIVER_META.academic.tone} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Student wellbeing */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0 bg-[hsl(243_75%_65%/0.14)] text-[hsl(243_75%_65%)]">
+              <HeartPulse className="h-5 w-5" />
+            </span>
+            <h3 className="font-heading font-extrabold text-[16px] leading-tight">Student Wellbeing</h3>
+          </div>
+          {wb.score != null ? (
+            <span className="font-heading font-extrabold text-[22px] tabular-nums" style={{ color: WELLBEING_STATUS_TONE[wellbeingStatusFromScore(wb.score)] }}>
+              {wb.score}
+              <span className="text-muted-foreground text-[12px] font-bold">/100</span>
+            </span>
+          ) : (
+            <NotEnoughData label="Not enough data" />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {wellbeingRows.map((row) => {
+            const Icon = row.key === "anxiety" ? Cloud : row.key === "peer-safety" ? HeartHandshake : Frown;
+            return <MetricRow key={row.key} label={row.label} Icon={Icon} tone={row.hue} value={row.value} />;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricRow({
+  label,
+  Icon,
+  tone,
+  value,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  tone: string;
+  value: number | null;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-3 flex items-center gap-3">
+      <span className="absolute inset-y-0 left-0 w-[3px]" aria-hidden style={{ background: tone }} />
+      <span
+        className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+        style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
+      >
+        <Icon className="h-4 w-4" strokeWidth={2.2} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="font-heading font-bold text-[12.5px] leading-tight truncate">{label}</div>
+        {value != null ? (
+          <div className="mt-2 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+            <span
+              className="block h-full rounded-full"
+              style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: tone }}
+            />
+          </div>
+        ) : null}
+      </div>
+      {value != null ? (
+        <span className="font-heading font-extrabold tabular-nums text-[13px] shrink-0" style={{ color: tone }}>
+          {value}
+        </span>
+      ) : (
+        <NotEnoughData />
+      )}
+    </div>
+  );
+}
+
+function MetricSubRow({ label, value, tone }: { label: string; value: number | null; tone: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-[12px]">
+      <span className="text-muted-foreground truncate">{label}</span>
+      {value != null ? (
+        <span className="font-semibold tabular-nums shrink-0" style={{ color: tone }}>
+          {value}
+        </span>
+      ) : (
+        <NotEnoughData />
+      )}
+    </div>
+  );
+}
+
+/* ──────────────── Hero score ring ──────────────── */
+
+function HealthScoreRing({ score, tone, size = 108 }: { score: number; tone: string; size?: number }) {
+  const STROKE = Math.round(size / 12);
+  const R = (size - STROKE) / 2;
+  const C = 2 * Math.PI * R;
+  const offset = C - (Math.max(0, Math.min(100, score)) / 100) * C;
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`${score} out of 100`}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={R}
+          stroke="hsl(240 15% 90%)"
+          strokeWidth={STROKE}
+          fill="none"
+          className="dark:stroke-[hsl(230_20%_25%)]"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={R}
+          stroke={tone}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          fill="none"
+          style={{ strokeDasharray: C, strokeDashoffset: offset, transition: "stroke-dashoffset 1s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className="font-heading font-extrabold leading-none tabular-nums"
+          style={{ color: tone, fontSize: Math.round(size * 0.28) }}
+        >
+          {Math.round(score)}
+        </span>
+        <span
+          className="text-muted-foreground font-bold mt-0.5"
+          style={{ fontSize: Math.max(9, Math.round(size * 0.09)) }}
+        >
+          /100
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* ──────────────── Local UI helpers ──────────────── */
 
-function StudentTab({ value, children }: { value: string; children: React.ReactNode }) {
+function StudentTabTrigger({ value, children }: { value: string; children: React.ReactNode }) {
   return (
     <TabsTrigger
       value={value}
@@ -1630,47 +789,7 @@ function PanelCard({
   );
 }
 
-function Stat({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: string | number;
-  delta?: number;
-}) {
-  return (
-    <div className="bg-card/80 backdrop-blur rounded-xl p-3 border border-border/60">
-      <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="font-heading font-extrabold text-[22px] mt-0.5 tabular-nums leading-none">
-        {value}
-        {delta !== undefined && (
-          <span
-            className={cn(
-              "ml-1.5 text-[11.5px] font-bold inline-flex items-center gap-0.5 align-middle",
-              delta >= 0 ? "text-primary" : "text-destructive",
-            )}
-          >
-            {delta >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(delta)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Row({
-  k,
-  v,
-  icon,
-}: {
-  k: string;
-  v: string;
-  icon?: React.ReactNode;
-}) {
+function Row({ k, v, icon }: { k: string; v: string; icon?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between text-[13px] border-b border-border/50 pb-2 last:border-0">
       <span className="text-muted-foreground">{k}</span>

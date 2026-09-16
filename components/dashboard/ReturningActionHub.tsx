@@ -11,7 +11,6 @@ import {
   ClipboardCheck,
   Eye,
   Send,
-  Share2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { studentComposites } from "@/lib/classHealth";
-import { classRiskRadar, type Student } from "@/data/mockData";
+import { type Student } from "@/data/mockData";
 import { listCheckInsForTeacher } from "@/lib/checkIn";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { getPendingFollowUps } from "@/lib/interventionFollowUps";
@@ -89,9 +88,6 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
   const total = Math.max(0, stats.total);
   const notYetActive = Math.max(0, total - stats.active);
 
-  const flagged = classRiskRadar().flatMap((group) =>
-    group.students.map((student) => ({ student, reason: group.reason })),
-  );
   const pendingFollowUps = getPendingFollowUps();
   const followUp = pendingFollowUps[0];
   const interventionFollowUp = pendingFollowUps[1] ?? pendingFollowUps[0];
@@ -197,20 +193,6 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
             detail: { studentId: interventionFollowUp.student.id, reason: interventionFollowUp.reason },
           }),
         ),
-    });
-  }
-
-  if (flagged.length > 0) {
-    const target = flagged[0].student;
-    actions.push({
-      id: "share-summary",
-      priority: "low",
-      Icon: Share2,
-      title: `Share ${target.name.split(" ")[0]}'s summary with the special educator`,
-      description: "Keep the support team aligned on this student's progress.",
-      meta: "Suggested",
-      cta: "Open profile",
-      href: `/students/${target.id}`,
     });
   }
 

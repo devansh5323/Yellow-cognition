@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ClipboardList,
-  Gamepad2,
   HeartHandshake,
   ThumbsUp,
   Video,
@@ -62,23 +61,10 @@ export function DataSourcesConfidence() {
 
   if (!snapshot) return null;
 
-  const gamesCoverage =
-    snapshot.gamesTotalStudents > 0 ? snapshot.gamesActiveStudents / snapshot.gamesTotalStudents : 0;
   const followUpsCoverage =
     snapshot.followUpsTotal > 0 ? snapshot.followUpsCompleted / snapshot.followUpsTotal : 1;
 
   const tiles: SourceTile[] = [
-    {
-      key: "games",
-      label: "Attention Hero games",
-      Icon: Gamepad2,
-      tone: GREEN,
-      status: snapshot.gamesActiveStudents > 0 ? "Active" : "Inactive",
-      value: `${snapshot.gamesActiveStudents} / ${snapshot.gamesTotalStudents}`,
-      unit: "students",
-      met: gamesCoverage >= 0.5,
-      need: "at least half the class playing",
-    },
     {
       key: "observations",
       label: "Teacher observations",
@@ -135,7 +121,7 @@ export function DataSourcesConfidence() {
             Data Sources &amp; Confidence
           </h2>
           <p className="text-[12px] text-muted-foreground mt-1 leading-snug">
-            Insights are based on both Attention Hero activity and teacher observations.
+            Insights are based on teacher observations, class check-ins, and follow-ups logged so far.
           </p>
         </div>
 

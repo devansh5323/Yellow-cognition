@@ -14,25 +14,23 @@ import {
   BarChart,
   Bar,
   Legend,
-  ReferenceLine,
 } from "recharts";
 import {
   Download,
   FileText,
   BarChart3,
-  TrendingUp,
-  TrendingDown,
   Sparkles,
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { STUDENTS, classSubDomainAvg } from "@/data/mockData";
+import { STUDENTS } from "@/data/mockData";
+import { classHealth } from "@/lib/classHealth";
+import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { cn } from "@/lib/utils";
 import { ReportsKpiStrip } from "@/components/reports/ReportsKpiStrip";
 import { CohortFilterStrip, type CohortKey } from "@/components/reports/CohortFilterStrip";
 import { RiskDonut } from "@/components/reports/RiskDonut";
-import { KsaRadar } from "@/components/reports/KsaRadar";
 import { MonthlyTrendChart } from "@/components/reports/MonthlyTrendChart";
 import { InterventionImpact } from "@/components/reports/InterventionImpact";
 import { downloadCsv, printPdf } from "@/lib/reportsExport";
@@ -67,10 +65,11 @@ function ReportsPage() {
   const [range, setRange] = useState<"week" | "month" | "term">("month");
   const [cohort, setCohort] = useState<CohortKey>("all");
 
+  // The real roster has no grade/section field — only `ageGroup` — so
+  // cohorts here are age groups rather than the old grade×section combos.
   const students = useMemo(() => {
     if (cohort === "all") return STUDENTS;
-    const [g, sec] = cohort.split("-");
-    return STUDENTS.filter((s) => s.grade === `Grade ${g}` && s.section === sec);
+    return STUDENTS.filter((s) => s.ageGroup === cohort);
   }, [cohort]);
 
   const weeks = range === "week" ? 1 : range === "month" ? 4 : 6;
@@ -82,16 +81,14 @@ function ReportsPage() {
     }));
   }, [weeks]);
 
-  const subdomain = useMemo(() => classSubDomainAvg(students), [students]);
-  const sorted = [...subdomain].sort((a, b) => b.score - a.score);
-  const strengths = sorted.slice(0, 3);
-  const growthAreas = sorted.slice(-3).reverse();
-
-  const pfiNow = growth[growth.length - 1]?.pfi ?? 0;
-  const pfiThen = growth[0]?.pfi ?? pfiNow;
-  const pfiDelta = pfiThen > 0 ? Math.round(((pfiNow - pfiThen) / pfiThen) * 100) : 0;
-  const atRiskCount = students.filter((s) => s.risk === "at-risk" || s.risk === "high").length;
-  const cohortLabel = cohort === "all" ? "all classrooms" : `Grade ${cohort}`;
+  // classSubDomainAvg() and the old `risk` field both relied on gameplay
+  // signals (subDomains, csi) that don't exist in the real dataset — see
+  // lib/classHealth.ts, which replaces the old weighted composite with the
+  // real `studentHealthScore`, banded into the same excellent/stable/watch/
+  // needs-support scale the old risk levels used to occupy.
+  const health = useMemo(() => classHealth(students), [students]);
+  const needsSupportCount = health.distribution["needs-support"];
+  const cohortLabel = cohort === "all" ? "all classrooms" : cohort;
 
   const handleCsv = () => {
     downloadCsv(students, `yellow-${cohort}-${range}.csv`);
@@ -184,32 +181,19 @@ function ReportsPage() {
               <span>At a glance · {RANGE_LABEL[range]}</span>
             </div>
             <p className="mt-1.5 font-heading font-extrabold text-[18px] md:text-[20px] leading-snug text-foreground">
-              Class PFI{" "}
-              <span className={cn("tabular-nums", pfiDelta >= 0 ? "text-primary" : "text-destructive")}>
-                {pfiDelta >= 0 ? "+" : ""}{pfiDelta}%
+              Class health{" "}
+              <span className={cn("tabular-nums", health.score >= 65 ? "text-primary" : "text-destructive")}>
+                {health.score}
               </span>{" "}
-              across <span className="tabular-nums">{students.length}</span> students ·{" "}
-              <span className="tabular-nums">{atRiskCount}</span> at-risk ·{" "}
-              strongest{" "}
-              <span className="text-primary">{strengths[0]?.name}</span>{" "}
-              <span className="text-muted-foreground font-semibold tabular-nums">({strengths[0]?.score})</span>
-              {" · "}focus on{" "}
-              <span className="text-destructive">{growthAreas[0]?.name}</span>{" "}
-              <span className="text-muted-foreground font-semibold tabular-nums">({growthAreas[0]?.score})</span>
+              ({health.label}) across <span className="tabular-nums">{students.length}</span> students ·{" "}
+              <span className="tabular-nums">{needsSupportCount}</span> needing support
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                PFI:
-                <span className="font-semibold text-foreground tabular-nums">{pfiNow}</span>
-                <span className="text-muted-foreground">({pfiThen} → {pfiNow})</span>
-              </span>
-              <span className="text-border">·</span>
               <a href="#growth" className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80">
                 Jump to growth <ArrowRight className="h-3.5 w-3.5" />
               </a>
               <a href="#risk" className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary/80 ml-2">
-                Who's at risk <ArrowRight className="h-3.5 w-3.5" />
+                Who&apos;s at risk <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
           </div>
@@ -302,75 +286,11 @@ function ReportsPage() {
           title="Sub-domain performance"
           subtitle="Where the class is strong and where there's room to grow."
         />
-        <ChartCard title="Sub-domain scores" tone="primary">
-          <div className="h-72">
-            <ResponsiveContainer>
-              <BarChart data={subdomain} layout="vertical" margin={{ left: 80, right: 10 }}>
-                <defs>
-                  <linearGradient id="rp-sub-bar" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="hsl(142 55% 45%)" />
-                    <stop offset="60%" stopColor="hsl(200 60% 55%)" />
-                    <stop offset="100%" stopColor="hsl(260 55% 65%)" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} stroke="hsl(230 15% 55%)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis dataKey="name" type="category" fontSize={11} stroke="hsl(230 15% 55%)" tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(142 52% 48% / 0.06)" }} />
-                <ReferenceLine
-                  x={75}
-                  stroke="hsl(0 70% 60%)"
-                  strokeDasharray="4 4"
-                  label={{ value: "Target", position: "top", fontSize: 11 }}
-                />
-                <Bar dataKey="score" fill="url(#rp-sub-bar)" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <section className="premium-surface rounded-[18px] p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-7 w-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-[14px]">Top 3 strengths</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {strengths.map((s) => (
-                <span
-                  key={s.name}
-                  className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full bg-primary/12 text-primary border border-primary/25 inline-flex items-center gap-1.5"
-                >
-                  {s.name}
-                  <span className="tabular-nums font-bold">{s.score}</span>
-                </span>
-              ))}
-            </div>
-          </section>
-          <section className="premium-surface rounded-[18px] p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-7 w-7 rounded-lg bg-warning/20 text-warning-foreground dark:text-warning flex items-center justify-center">
-                <TrendingDown className="h-4 w-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-[14px]">Top 3 growth areas</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {growthAreas.map((s) => (
-                <span
-                  key={s.name}
-                  className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full bg-warning/20 text-warning-foreground dark:text-warning border border-warning/40 inline-flex items-center gap-1.5"
-                >
-                  {s.name}
-                  <span className="tabular-nums font-bold">{s.score}</span>
-                </span>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <KsaRadar students={students} />
+        {/* The old sub-domain radar/bar breakdown (classSubDomainAvg/ksa)
+            was derived from gameplay-signal fields that don't exist in the
+            real dataset — no fabricated per-domain scores until a real
+            sub-domain signal exists for this roster. */}
+        <NotEnoughDataPanel description="Sub-domain scores will appear here once this roster has real per-domain signal." />
       </motion.div>
 
       {/* ───── Risk & time patterns ───── */}

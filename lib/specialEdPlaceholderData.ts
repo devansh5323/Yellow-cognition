@@ -114,7 +114,7 @@ const TRACKER_TEMPLATES: TrackerTemplate[] = [
     implementation: "Tried consistently",
     outcome: "Improved",
     nextStep: "Continue",
-    reason: "At Risk (CSI<50)",
+    reason: "At Risk (Health Score)",
     teacherResponse: "Posted a visual schedule at the student's desk and reviewed it each transition.",
     evidence: "Fewer transition-related redirects logged this week.",
   },

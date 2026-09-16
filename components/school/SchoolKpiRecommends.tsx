@@ -3,24 +3,21 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  AlertOctagon,
-  ArrowUpRight,
   Eye,
   Lightbulb,
   PartyPopper,
   Sparkle,
   Sparkles,
-  Telescope,
   type LucideIcon,
 } from "lucide-react";
-import type { SchoolKpi, SchoolKpiRosterRow, SubMetric } from "@/lib/schoolKpis";
-import { cn } from "@/lib/utils";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import type { SchoolKpi, SubMetric } from "@/lib/schoolKpis";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 type Recommend = {
   id: string;
-  kind: "Celebrate" | "Investigate" | "Act now" | "Try this" | "Watch";
+  kind: "Celebrate" | "Try this" | "Watch";
   Icon: LucideIcon;
   tone: string;
   title: string;
@@ -29,22 +26,30 @@ type Recommend = {
 
 type Props = {
   kpi: SchoolKpi;
-  roster: SchoolKpiRosterRow[];
 };
 
 /**
  * AI-styled recommends strip for the school KPI detail page.
- * Derives five concrete moves from the KPI + roster so a school leader
- * doesn't have to read every metric to know what to do next:
- *   1. Celebrate — top performing class
- *   2. Investigate — the sub-metric dragging the score down the most
- *   3. Act now — the class most urgently needing support
- *   4. Try this — a tactical move borrowed from the top performer
- *   5. Watch — the next sub-metric to keep an eye on
+ *
+ * There's only one real class and one real teacher, so there's nothing left
+ * to compare "best vs. worst" across — every recommendation here is derived
+ * directly from this class's own sub-metric values, never a fabricated
+ * ranking against invented peers.
  */
-export function SchoolKpiRecommends({ kpi, roster }: Props) {
+export function SchoolKpiRecommends({ kpi }: Props) {
   const reduce = useReducedMotion();
-  const recommends = useMemo(() => buildRecommends(kpi, roster), [kpi, roster]);
+  const recommends = useMemo(() => buildRecommends(kpi), [kpi]);
+
+  if (!kpi.hasData) {
+    return (
+      <section
+        aria-label="Yellow Recommends"
+        className="premium-elevated h-full rounded-[20px] p-5 md:p-6 flex flex-col items-center justify-center text-center gap-2"
+      >
+        <NotEnoughData label="Not enough data yet for recommendations" />
+      </section>
+    );
+  }
 
   return (
     <section
@@ -99,201 +104,130 @@ export function SchoolKpiRecommends({ kpi, roster }: Props) {
         </header>
 
         {/* Recommendation rows */}
-        <ul className="mt-6 -mx-2 flex flex-col gap-1.5 flex-1">
-          {recommends.map((r, i) => (
-            <motion.li
-              key={r.id}
-              initial={reduce ? undefined : { opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: 0.05 * i + 0.1,
-                duration: 0.32,
-                ease: EASE,
-              }}
-              className="group rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/35 flex items-start gap-2.5"
-            >
-              <span
-                aria-hidden
-                className="h-7 w-7 rounded-lg inline-flex items-center justify-center shrink-0 mt-0.5"
-                style={{
-                  background: `color-mix(in srgb, ${r.tone} 14%, transparent)`,
-                  color: r.tone,
-                  boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${r.tone} 22%, transparent)`,
+        {recommends.length > 0 ? (
+          <ul className="mt-6 -mx-2 flex flex-col gap-1.5 flex-1">
+            {recommends.map((r, i) => (
+              <motion.li
+                key={r.id}
+                initial={reduce ? undefined : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  delay: 0.05 * i + 0.1,
+                  duration: 0.32,
+                  ease: EASE,
                 }}
+                className="group rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/35 flex items-start gap-2.5"
               >
-                <r.Icon className="h-3.5 w-3.5" strokeWidth={2.4} />
-              </span>
+                <span
+                  aria-hidden
+                  className="h-7 w-7 rounded-lg inline-flex items-center justify-center shrink-0 mt-0.5"
+                  style={{
+                    background: `color-mix(in srgb, ${r.tone} 14%, transparent)`,
+                    color: r.tone,
+                    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${r.tone} 22%, transparent)`,
+                  }}
+                >
+                  <r.Icon className="h-3.5 w-3.5" strokeWidth={2.4} />
+                </span>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.10em]"
-                    style={{
-                      color: r.tone,
-                      background: `color-mix(in srgb, ${r.tone} 10%, transparent)`,
-                    }}
-                  >
-                    {r.kind}
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.10em]"
+                      style={{
+                        color: r.tone,
+                        background: `color-mix(in srgb, ${r.tone} 10%, transparent)`,
+                      }}
+                    >
+                      {r.kind}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[12.5px] font-semibold leading-snug text-foreground/90">
+                    {r.title}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{r.meta}</p>
                 </div>
-                <p className="mt-1 text-[12.5px] font-semibold leading-snug text-foreground/90">
-                  {r.title}
-                </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{r.meta}</p>
-              </div>
-
-              <ArrowUpRight
-                aria-hidden
-                className={cn(
-                  "h-3.5 w-3.5 mt-1 shrink-0 text-muted-foreground/70",
-                  "opacity-0 -translate-x-1 transition-all duration-200",
-                  "group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100",
-                )}
-              />
-            </motion.li>
-          ))}
-        </ul>
+              </motion.li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-6 text-[12px] text-muted-foreground leading-snug flex-1">
+            Not enough sub-metric data yet to make a recommendation.
+          </p>
+        )}
       </div>
     </section>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
- * Derivations
+ * Derivations — purely from this KPI's own real sub-metrics, no
+ * per-class/subject/teacher comparison.
  * ───────────────────────────────────────────────────────────── */
 
 const CELEBRATE_TONE = "hsl(142 55% 45%)";
-const INVESTIGATE_TONE = "hsl(38 92% 55%)";
-const ACT_TONE = "hsl(0 78% 58%)";
 const TRY_TONE = "hsl(260 55% 60%)";
 const WATCH_TONE = "hsl(200 60% 50%)";
 
-function buildRecommends(kpi: SchoolKpi, roster: SchoolKpiRosterRow[]): Recommend[] {
-  const top = roster[0];
-  const bottom = roster[roster.length - 1];
-
-  const worstSm = pickWorstSubMetric(kpi.subMetrics);
-  const secondWorst = pickSecondWorstSubMetric(kpi.subMetrics);
-  const worstSubject =
-    worstSm?.breakdown?.subject.worst.name ??
-    kpi.subMetrics[0]?.breakdown?.subject.worst.name ??
-    "Science";
-
-  // Score format: RIT sub-metrics are "/100"; others vary but for the
-  // recommends meta line we always show the raw number.
-  const fmtScore = (n: number) => `${n}`;
-
-  const coachCue = COACH_CUES[worstSm?.label ?? ""] ?? "Pair a coach with the section this week";
-
-  return [
-    {
-      id: "celebrate",
-      kind: "Celebrate",
-      Icon: PartyPopper,
-      tone: CELEBRATE_TONE,
-      title: `${top.className} leads on ${kpi.title.toLowerCase()}`,
-      meta: subMetricSummary(kpi.subMetrics, top.subMetricValues),
-    },
-    {
-      id: "investigate",
-      kind: "Investigate",
-      Icon: Telescope,
-      tone: INVESTIGATE_TONE,
-      title: `${worstSm?.label ?? "Friction"} is the biggest drag`,
-      meta: `Lowest score (${fmtScore(worstSm?.value ?? 0)}) · highest in ${worstSubject} classes`,
-    },
-    {
-      id: "act",
-      kind: "Act now",
-      Icon: AlertOctagon,
-      tone: ACT_TONE,
-      title: `${bottom.className} needs urgent support`,
-      meta: `Trending ${bottom.trend === "declining" ? "down" : bottom.trend} · ${subMetricSummary(kpi.subMetrics, bottom.subMetricValues)}`,
-    },
-    {
-      id: "try",
-      kind: "Try this",
-      Icon: Lightbulb,
-      tone: TRY_TONE,
-      title: coachCue,
-      meta: `Borrow what's working in ${top.className} for ${bottom.className}`,
-    },
-    {
-      id: "watch",
-      kind: "Watch",
-      Icon: Eye,
-      tone: WATCH_TONE,
-      title: `${secondWorst?.label ?? "Next concern"} is the next drag`,
-      meta: `Score ${fmtScore(secondWorst?.value ?? 0)} · rising in ${secondWorst?.breakdown?.subject.worst.name ?? worstSubject} sections`,
-    },
-  ];
-}
+/** Sub-metrics scoring at or above this are called out as strong. */
+const STRONG_THRESHOLD = 75;
+/** Sub-metrics scoring below this need a closer look. */
+const WATCH_THRESHOLD = 60;
 
 /**
- * Tactical coaching cues mapped to the worst sub-metric. Keeps the
- * recommendation specific instead of "do better" hand-waving.
+ * Tactical coaching cues mapped to a sub-metric that needs support. Generic,
+ * real pedagogical suggestions — not tied to any invented per-class number.
  */
 const COACH_CUES: Record<string, string> = {
-  "Instructional Friction Index": "Run a 60-sec settle-in routine each lesson",
-  "Transition Efficiency": "Cue activity changes with a visible timer",
-  "Disruption Reduction Index": "Reset behavior norms in week one",
-  "Instructional Delivery Time": "Protect a 10-min uninterrupted teach block",
-  "Teacher Cognitive Load": "Co-plan one lesson with a lead teacher",
-  "Classroom Stability": "Lock seating + opening routine for two weeks",
-  "Learning Skill Score": "Add twice-weekly focus drills before core blocks",
-  "Learning Readiness Score": "Add twice-weekly focus drills before core blocks",
-  Focus: "Start each class with a 3-min focus warm-up",
+  "Learning Readiness Areas": "Add twice-weekly focus drills before core blocks",
   "Task Engagement": "Open with a single clear task-start cue",
 };
 
-/** Returns the sub-metric most dragging the KPI down, accounting for direction. */
-function pickWorstSubMetric(subMetrics: SubMetric[]): SubMetric | null {
-  if (subMetrics.length === 0) return null;
-  return subMetrics.reduce((worst, sm) => {
-    const normSm = sm.negativeIsGood ? 100 - sm.value : sm.value;
-    const normWorst = worst.negativeIsGood ? 100 - worst.value : worst.value;
-    return normSm < normWorst ? sm : worst;
-  }, subMetrics[0]);
-}
+function buildRecommends(kpi: SchoolKpi): Recommend[] {
+  const withValue = kpi.subMetrics.filter(
+    (sm): sm is SubMetric & { value: number } => sm.value != null,
+  );
+  if (withValue.length === 0) return [];
 
-/** Returns the second-worst sub-metric. */
-function pickSecondWorstSubMetric(subMetrics: SubMetric[]): SubMetric | null {
-  if (subMetrics.length < 2) return null;
-  const sorted = [...subMetrics].sort((a, b) => {
-    const normA = a.negativeIsGood ? 100 - a.value : a.value;
-    const normB = b.negativeIsGood ? 100 - b.value : b.value;
-    return normA - normB;
-  });
-  return sorted[1];
-}
+  const recs: Recommend[] = [];
 
-/** Compact line like "Friction 33 · Transitions 94 · Disruption 88". */
-function subMetricSummary(subMetrics: SubMetric[], values: number[]): string {
-  return subMetrics.map((sm, i) => `${shortLabel(sm.label)} ${values[i] ?? "—"}`).join(" · ");
-}
-
-function shortLabel(label: string): string {
-  switch (label) {
-    case "Instructional Friction Index":
-      return "Friction";
-    case "Transition Efficiency":
-      return "Transitions";
-    case "Disruption Reduction Index":
-      return "Disruption";
-    case "Instructional Delivery Time":
-      return "Delivery";
-    case "Teacher Cognitive Load":
-      return "Cog. Load";
-    case "Classroom Stability":
-      return "Stability";
-    case "Learning Skill Score":
-    case "Learning Readiness Score":
-      return "Readiness";
-    case "Focus":
-      return "Focus";
-    case "Task Engagement":
-      return "Engagement";
-    default:
-      return label;
+  for (const sm of withValue) {
+    if (sm.value >= STRONG_THRESHOLD) {
+      recs.push({
+        id: `celebrate-${sm.id}`,
+        kind: "Celebrate",
+        Icon: PartyPopper,
+        tone: CELEBRATE_TONE,
+        title: `${sm.label} is strong`,
+        meta: `${formatValue(sm)} · ${sm.description}`,
+      });
+    } else if (sm.value < WATCH_THRESHOLD) {
+      recs.push({
+        id: `watch-${sm.id}`,
+        kind: "Watch",
+        Icon: Eye,
+        tone: WATCH_TONE,
+        title: `${sm.label} needs a closer look`,
+        meta: `${formatValue(sm)} · ${sm.description}`,
+      });
+      const cue = COACH_CUES[sm.label];
+      if (cue) {
+        recs.push({
+          id: `try-${sm.id}`,
+          kind: "Try this",
+          Icon: Lightbulb,
+          tone: TRY_TONE,
+          title: cue,
+          meta: `To help lift ${sm.label.toLowerCase()}`,
+        });
+      }
+    }
   }
+
+  return recs;
+}
+
+function formatValue(sm: SubMetric & { value: number }): string {
+  const value = Number.isInteger(sm.value) ? sm.value : sm.value.toFixed(1);
+  return sm.unit ? `${value} ${sm.unit}` : `${value}`;
 }

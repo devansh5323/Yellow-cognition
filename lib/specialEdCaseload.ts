@@ -8,7 +8,7 @@
 
 import { STUDENTS, type Student } from "@/data/mockData";
 import { classDisruptionBreakdown, DISRUPTION_LABEL } from "@/lib/classBehavior";
-import { pillarScores, studentComposites, type StudentComposite } from "@/lib/classHealth";
+import { studentComposites, type StudentComposite } from "@/lib/classHealth";
 import type { FollowUpRecord, PendingFollowUp } from "@/lib/interventionFollowUps";
 
 export type CaseloadTier = "tier2" | "tier3";
@@ -157,24 +157,53 @@ export type ReviewQueueRow = {
   actionLabel: string;
 };
 
-/** Weakest real signal for this one student, across the academic/focus/
- * task pillars and any actively-flagged behaviour driver — same "pick the
- * worst of what's real" approach used elsewhere in this app. */
+/** Weakest real signal for this one student, read directly off the real
+ * per-student fields (there's no per-student pillar-breakdown function
+ * anymore — see classHealth.ts's header) plus any actively-flagged
+ * behaviour driver — same "pick the worst of what's real" approach used
+ * elsewhere in this app. Fields with no real value for this student
+ * (attentionAndFocus/behaviourAndDiscipline are null for every student in
+ * the current batch) are skipped rather than treated as a score of 0. */
 export function mainConcernAndEvidence(student: Student): { concern: string; evidenceSource: string } {
-  const pillars = pillarScores(student);
-  const candidates: { label: string; score: number; evidenceSource: string }[] = [
-    { label: "Learning Progress", score: pillars.academic, evidenceSource: "Subject scores" },
-    { label: "Attention & Focus", score: pillars.focus, evidenceSource: "Attention domain scores" },
-    { label: "Task Engagement", score: pillars.task, evidenceSource: "Task completion signal" },
-  ];
+  const candidates: { label: string; score: number; evidenceSource: string }[] = [];
+  const { cognitivePerformance } = student;
+
+  if (cognitivePerformance.learningReadiness.score != null) {
+    candidates.push({
+      label: "Learning Progress",
+      score: cognitivePerformance.learningReadiness.score,
+      evidenceSource: "Learning readiness score",
+    });
+  }
+  if (cognitivePerformance.attentionAndFocus != null) {
+    candidates.push({
+      label: "Attention & Focus",
+      score: cognitivePerformance.attentionAndFocus,
+      evidenceSource: "Attention & focus score",
+    });
+  }
+  if (cognitivePerformance.taskEngagement != null) {
+    candidates.push({
+      label: "Task Engagement",
+      score: cognitivePerformance.taskEngagement,
+      evidenceSource: "Task engagement score",
+    });
+  }
+  if (cognitivePerformance.behaviourAndDiscipline != null) {
+    candidates.push({
+      label: "Behaviour & Discipline",
+      score: cognitivePerformance.behaviourAndDiscipline,
+      evidenceSource: "Behaviour & discipline score",
+    });
+  }
   for (const d of classDisruptionBreakdown([student])) {
-    if (d.studentCount > 0) {
+    if (d.hasData && d.studentCount > 0 && d.score != null) {
       candidates.push({ label: DISRUPTION_LABEL[d.key], score: d.score, evidenceSource: "Behaviour driver signal" });
     }
   }
   candidates.sort((a, b) => a.score - b.score);
   const top = candidates[0];
-  return top ? { concern: top.label, evidenceSource: top.evidenceSource } : { concern: "—", evidenceSource: "—" };
+  return top ? { concern: top.label, evidenceSource: top.evidenceSource } : { concern: "Not enough data yet", evidenceSource: "—" };
 }
 
 export function getReviewQueueRows(entries: CaseloadEntry[], overduePending: PendingFollowUp[]): ReviewQueueRow[] {
@@ -277,13 +306,14 @@ export function concernBreakdown(entries: CaseloadEntry[]): ConcernBreakdownEntr
     .sort((a, b) => b.count - a.count);
 }
 
-/** School-wide (not caseload-scoped), since "improving" is a distinct
- * composite band from the "watch"/"needs-support" bands the caseload
- * itself is filtered to — a caseload student can't carry this status by
- * definition, so this signal only means something across the full real
- * student roster. */
-export function studentsImprovingCount(allStudents: Student[] = STUDENTS): number {
-  return studentComposites(allStudents).filter((c) => c.status === "improving").length;
+/** No week-over-week history is persisted anywhere in this app's real data
+ * (see classHealth.ts's header — every previous/delta/trend concept was
+ * removed rather than kept with a fake value), so there's no real way to
+ * tell whether a student is "improving." `ScoreBand` no longer has an
+ * "improving" value either — this honestly reports 0 rather than reusing a
+ * composite band that doesn't actually mean "trending up." */
+export function studentsImprovingCount(_allStudents: Student[] = STUDENTS): number {
+  return 0;
 }
 
 /* ─────────────────────────────────────────────────────────

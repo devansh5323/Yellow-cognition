@@ -14,20 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TaskEngagementSnapshot } from "@/components/dashboard/TaskEngagementSnapshot";
-import { TaskBreakdown } from "@/components/dashboard/TaskBreakdown";
-import { TaskProblemAreasToSkills } from "@/components/dashboard/TaskProblemAreasToSkills";
 import { MonthlyTaskCheckIn } from "@/components/dashboard/MonthlyTaskCheckIn";
-import { TaskInsights } from "@/components/dashboard/TaskInsights";
 import { TaskRecommendsStrip } from "@/components/dashboard/TaskRecommendsStrip";
-import { TaskTrendTracking } from "@/components/dashboard/TaskTrendTracking";
 import { TaskSupportTable } from "@/components/dashboard/TaskSupportTable";
-import {
-  classTaskBreakdown,
-  classTaskSnapshot,
-  pickTaskStrategies,
-  studentsNeedingTaskSupport,
-  taskEngagementInsights,
-} from "@/lib/classTask";
+import { classTaskSnapshot, studentsNeedingTaskSupport } from "@/lib/classTask";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -71,9 +61,6 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
   const reduce = useReducedMotion();
 
   const snapshot = useMemo(() => classTaskSnapshot(), []);
-  const breakdown = useMemo(() => classTaskBreakdown(), []);
-  const insights = useMemo(() => taskEngagementInsights(), []);
-  const strategies = useMemo(() => pickTaskStrategies(breakdown, 4), [breakdown]);
   const supportRoster = useMemo(() => studentsNeedingTaskSupport(), []);
 
   return (
@@ -107,25 +94,13 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
         {/* Component 1: Task engagement snapshot */}
         <TaskEngagementSnapshot snapshot={snapshot} />
 
-        {/* Component 2: Task engagement breakdown (7 categories) */}
-        <TaskBreakdown stats={breakdown} />
-
-        {/* Component 3: Problem areas → skills reference table */}
-        <TaskProblemAreasToSkills />
-
-        {/* Component 4: Monthly check-in */}
+        {/* Component 2: Monthly check-in */}
         <MonthlyTaskCheckIn />
 
-        {/* Component 5: Task engagement insights */}
-        <TaskInsights insights={insights} />
+        {/* Component 3: Yellow Recommends (task interventions) */}
+        <TaskRecommendsStrip />
 
-        {/* Component 6: Yellow Recommends (task interventions) */}
-        <TaskRecommendsStrip strategies={strategies} />
-
-        {/* Component 7: Task trend tracking */}
-        <TaskTrendTracking snapshot={snapshot} />
-
-        {/* Component 8: Students needing task support */}
+        {/* Component 4: Students needing task support */}
         <TaskSupportTable items={supportRoster} />
       </motion.div>
     </div>

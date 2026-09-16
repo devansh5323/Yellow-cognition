@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { RiskBadge } from "@/components/dashboard/RiskBadge";
+import { scoreBand } from "@/lib/classHealth";
 import type { Student } from "@/data/mockData";
 
 interface Props {
@@ -46,7 +47,7 @@ export function StudentDrillDialog({
                     <StudentAvatar student={s} size="sm" />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm truncate">{s.name}</div>
-                      <div className="text-xs text-muted-foreground">{s.grade} · {s.section}</div>
+                      <div className="text-xs text-muted-foreground">{s.ageGroup}</div>
                     </div>
                     {metricLabel && metricValue ? (
                       <div className="text-right">
@@ -54,7 +55,7 @@ export function StudentDrillDialog({
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{metricLabel}</div>
                       </div>
                     ) : (
-                      <RiskBadge risk={s.risk} />
+                      <RiskBadge band={scoreBand(s.studentHealthScore)} />
                     )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>

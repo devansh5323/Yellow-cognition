@@ -152,7 +152,7 @@ export function PlanTrackerTable({
                   <div className="min-w-0">
                     <div className="font-bold text-[13.5px]">{selected.student.name}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      {selected.student.grade} · Section {selected.student.section} · {selected.type}
+                      {selected.student.ageGroup} · {selected.type}
                     </div>
                   </div>
                 </div>

@@ -32,6 +32,10 @@ function id(): string {
   return `ti_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// This school is the one real class covered by data/realStudents.ts (see
+// lib/schoolData.ts) — its one real teacher, "Maya Khan", is the only seeded
+// entry. Admins can still add more teachers for real through the UI below;
+// only the seed content itself is real rather than a roster of invented names.
 function seed(): InvitedTeacher[] {
   const now = Date.now();
   return [
@@ -39,42 +43,12 @@ function seed(): InvitedTeacher[] {
       id: "tseed_1",
       fullName: "Maya Khan",
       email: "maya.khan@school.edu",
-      subject: "Math",
+      subject: "Homeroom",
       status: "active",
       source: "manual",
       addedAt: now - 21 * DAY,
       invitedAt: now - 21 * DAY + 3600_000,
       activatedAt: now - 19 * DAY,
-    },
-    {
-      id: "tseed_2",
-      fullName: "Arjun Reddy",
-      email: "arjun.reddy@school.edu",
-      subject: "Science",
-      status: "active",
-      source: "google",
-      addedAt: now - 18 * DAY,
-      invitedAt: now - 18 * DAY,
-      activatedAt: now - 16 * DAY,
-    },
-    {
-      id: "tseed_3",
-      fullName: "Priya Iyer",
-      email: "priya.iyer@school.edu",
-      subject: "ELA",
-      status: "invited",
-      source: "csv",
-      addedAt: now - 4 * DAY,
-      invitedAt: now - 4 * DAY,
-    },
-    {
-      id: "tseed_4",
-      fullName: "Karan Mehta",
-      email: "karan.mehta@school.edu",
-      subject: "Social Studies",
-      status: "pending-invite",
-      source: "manual",
-      addedAt: now - 1 * DAY,
     },
   ];
 }

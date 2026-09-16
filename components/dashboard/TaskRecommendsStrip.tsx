@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUpRight,
@@ -11,12 +10,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import {
-  TASK_CATEGORY_HUE,
-  TASK_CATEGORY_LABEL,
-  type TaskStrategy,
-  type TaskStrategyKind,
-} from "@/lib/classTask";
+import { TASK_STRATEGIES, type TaskStrategyKind } from "@/lib/classTask";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -35,9 +29,8 @@ const KIND_ICON: Record<TaskStrategyKind, LucideIcon> = {
   Routine: Sparkles,
 };
 
-export function TaskRecommendsStrip({ strategies }: { strategies: TaskStrategy[] }) {
+export function TaskRecommendsStrip() {
   const reduce = useReducedMotion();
-  const relevance = useMemo(() => Math.min(96, 82 + strategies.length * 3), [strategies.length]);
 
   return (
     <section
@@ -91,29 +84,8 @@ export function TaskRecommendsStrip({ strategies }: { strategies: TaskStrategy[]
           </span>
         </header>
 
-        <div className="mt-3.5">
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            <span>Relevance</span>
-            <span className="tabular-nums">{relevance}%</span>
-          </div>
-          <div className="mt-1.5 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-            <motion.span
-              initial={reduce ? undefined : { scaleX: 0 }}
-              animate={{ scaleX: relevance / 100 }}
-              transition={{ delay: 0.15, duration: 0.7, ease: EASE }}
-              className="block h-full origin-left rounded-full"
-              style={{
-                width: "100%",
-                background:
-                  "linear-gradient(90deg, hsl(38 92% 55%), hsl(38 92% 50%) 60%, hsl(142 55% 46%))",
-              }}
-              aria-label={`Relevance ${relevance}%`}
-            />
-          </div>
-        </div>
-
         <ul className="mt-4 -mx-2 flex-1 space-y-0.5">
-          {strategies.map((s, i) => {
+          {TASK_STRATEGIES.map((s, i) => {
             const tone = KIND_TONE[s.kind];
             const Icon = KIND_ICON[s.kind];
             return (
@@ -147,11 +119,6 @@ export function TaskRecommendsStrip({ strategies }: { strategies: TaskStrategy[]
                     >
                       {s.kind}
                     </span>
-                    {s.durationMins > 0 && (
-                      <span className="text-[10px] tabular-nums text-muted-foreground">
-                        {s.durationMins} min
-                      </span>
-                    )}
                   </div>
                   <p className="mt-1 text-[12.5px] font-semibold leading-snug text-foreground/90">
                     {s.title}
@@ -159,23 +126,6 @@ export function TaskRecommendsStrip({ strategies }: { strategies: TaskStrategy[]
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                     {s.rationale}
                   </p>
-                  {s.targets.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {s.targets.map((t) => (
-                        <span
-                          key={t}
-                          className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9.5px] font-bold"
-                          style={{
-                            color: TASK_CATEGORY_HUE[t],
-                            background: `color-mix(in srgb, ${TASK_CATEGORY_HUE[t]} 10%, transparent)`,
-                            border: `1px solid color-mix(in srgb, ${TASK_CATEGORY_HUE[t]} 22%, transparent)`,
-                          }}
-                        >
-                          {TASK_CATEGORY_LABEL[t]}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <ArrowUpRight

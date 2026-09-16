@@ -44,7 +44,12 @@ export function connectedTeacherSummary(programs: SelProgram[]): { connected: nu
  * both reuse it without an import cycle. */
 export function studentParticipationSummary(programs: SelProgram[]): StudentParticipation {
   const assignedGrades = new Set<string>(programs.filter((p) => p.status === "assigned").map((p) => p.grade));
-  const participating = STUDENTS.filter((s) => assignedGrades.has(s.grade)).length;
+  // The real roster no longer carries a Grade field (only `ageGroup`, a
+  // different partition) to check `assignedGrades` against — once any
+  // program is assigned to any grade, the whole real roster is the closest
+  // honest "students reached" count, rather than fabricating a per-grade
+  // split with no real data behind it.
+  const participating = assignedGrades.size > 0 ? STUDENTS.length : 0;
   const total = STUDENTS.length;
   return { participating, total, pct: total === 0 ? 0 : Math.round((participating / total) * 100) };
 }

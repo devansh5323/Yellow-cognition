@@ -126,7 +126,7 @@ function StudentTrendStrip({ checkIn }: { checkIn: ClassCheckIn }) {
       .map((s) => {
         const stu = STUDENTS.find((x) => x.id === s.studentId);
         const points = getStudentRubricTrend(s.studentId);
-        return { id: s.studentId, name: stu?.name ?? s.studentId, initials: stu?.initials ?? "?", points };
+        return { id: s.studentId, name: stu?.name ?? s.studentId, points };
       })
       .filter((t) => t.points.length >= 2);
   }, [checkIn]);

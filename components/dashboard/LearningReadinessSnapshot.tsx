@@ -9,6 +9,7 @@ import {
   type ReadinessSnapshot,
   type ReadinessStatus,
 } from "@/lib/classLearning";
+import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -16,14 +17,27 @@ const STATUS_ORDER: ReadinessStatus[] = ["strong", "stable", "watch", "support"]
 
 export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSnapshot }) {
   const reduce = useReducedMotion();
+
+  if (snapshot.score == null || snapshot.status == null) {
+    return (
+      <NotEnoughDataPanel
+        title="Not enough data yet"
+        description="We don't have enough real learning-readiness signal yet to show an overall score for this class."
+      />
+    );
+  }
+
   const tone = READINESS_STATUS_TONE[snapshot.status];
   const stableOrStrong = snapshot.statusDistribution.strong + snapshot.statusDistribution.stable;
 
-  const insight = `The class shows stronger readiness in ${snapshot.strongestAreas
-    .map((a) => a.label)
-    .join(" and ")}, while ${snapshot.supportAreas
-    .map((a) => a.label)
-    .join(" and ")} may need support.`;
+  const insight =
+    snapshot.strongestAreas.length > 0 && snapshot.supportAreas.length > 0
+      ? `The class shows stronger readiness in ${snapshot.strongestAreas
+          .map((a) => a.label)
+          .join(" and ")}, while ${snapshot.supportAreas
+          .map((a) => a.label)
+          .join(" and ")} may need support.`
+      : "Not enough area-level data yet to compare strengths and support needs.";
 
   return (
     <section
@@ -138,9 +152,15 @@ export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSna
                       aria-hidden
                     />
                     <span className="text-foreground/85 truncate">{a.label}</span>
-                    <span className="ml-auto font-bold tabular-nums shrink-0" style={{ color: a.hue }}>
-                      {a.score}
-                    </span>
+                    {a.score != null ? (
+                      <span className="ml-auto font-bold tabular-nums shrink-0" style={{ color: a.hue }}>
+                        {a.score}
+                      </span>
+                    ) : (
+                      <span className="ml-auto text-[10px] font-semibold text-muted-foreground shrink-0">
+                        No data
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -193,9 +213,10 @@ function ContributionDonut({
   areas: ReadinessSnapshot["areas"];
   reduce: boolean;
 }) {
+  const scored = areas.filter((a): a is typeof areas[number] & { score: number } => a.score != null);
   const total = Math.max(
     1,
-    areas.reduce((sum, a) => sum + a.score, 0),
+    scored.reduce((sum, a) => sum + a.score, 0),
   );
   const size = 108;
   const stroke = 14;
@@ -204,7 +225,7 @@ function ContributionDonut({
 
   // Precompute each segment's dash length + cumulative start offset in a
   // single pass, rather than mutating a variable inside the render map.
-  const segments = areas.reduce<{ key: string; hue: string; dash: number; offset: number }[]>(
+  const segments = scored.reduce<{ key: string; hue: string; dash: number; offset: number }[]>(
     (acc, a) => {
       const prevOffset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0;
       acc.push({ key: a.key, hue: a.hue, dash: (a.score / total) * c, offset: prevOffset });
@@ -244,7 +265,7 @@ function ContributionDonut({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-heading font-extrabold tabular-nums leading-none text-[20px]">
-          {areas.length}
+          {scored.length}
         </span>
         <span className="text-[9px] font-bold text-muted-foreground">areas</span>
       </div>

@@ -6,35 +6,25 @@ import { AppShell } from "@/components/dashboard/AppShell";
 import { Suspense, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowUp,
-  ArrowDown,
   Search,
   GitCompare,
-  AlertTriangle,
   Tag,
   Plus,
   Users,
   Filter,
   Sparkles,
-  ClipboardCheck,
-  Gamepad2,
-  Info,
+  AlertTriangle,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { STUDENTS, type RiskLevel, type Student } from "@/data/mockData";
+import { STUDENTS } from "@/data/mockData";
+import { studentComposites, type ScoreBand } from "@/lib/classHealth";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
-import { RiskBadge } from "@/components/dashboard/RiskBadge";
+import { RiskBadge, SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
 import { CompareDrawer } from "@/components/dashboard/CompareDrawer";
-import {
-  bulkSetRisk,
-  bulkAddTag,
-  useOverridesVersion,
-  getOverrides,
-  PRESET_TAGS,
-} from "@/lib/studentMutations";
+import { bulkAddTag, useOverridesVersion, getOverrides, PRESET_TAGS } from "@/lib/studentMutations";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -48,23 +38,16 @@ export default function Page() {
   );
 }
 
-const RISKS: { key: RiskLevel | "all"; label: string }[] = [
+const BANDS: { key: ScoreBand | "all"; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "at-risk", label: "At risk" },
-  { key: "high", label: "Needs help" },
-  { key: "medium", label: "Watch" },
-  { key: "low", label: "On track" },
+  { key: "excellent", label: "Excellent" },
+  { key: "stable", label: "Stable" },
+  { key: "watch", label: "Watch" },
+  { key: "needs-support", label: "Needs Support" },
 ];
-
-type SortKey = "pfi-desc" | "pfi-asc" | "attention-desc" | "attention-asc" | "trend-desc" | "trend-asc" | "name" | "active";
 
 const MAX_COMPARE = 6;
 const EASE = [0.2, 0.7, 0.2, 1] as const;
-
-function attentionIndex(s: Student) {
-  const v = s.monthly.filter((x): x is number => x != null);
-  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0;
-}
 
 function StudentsPage() {
   const router = useRouter();
@@ -78,71 +61,57 @@ function StudentsPage() {
   }, [searchParams]);
 
   const [query, setQuery] = useState("");
-  const [risk, setRisk] = useState<RiskLevel | "all">("all");
-  const [classroom, setClassroom] = useState<string>("all");
-  const [sort] = useState<SortKey>("pfi-desc");
+  const [band, setBand] = useState<ScoreBand | "all">("all");
+  const [ageGroup, setAgeGroup] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [customTag, setCustomTag] = useState("");
 
-  const classrooms = useMemo(() => {
+  const ageGroups = useMemo(() => {
     const set = new Set<string>();
-    STUDENTS.forEach((s) => set.add(`${s.grade} · ${s.section}`));
+    STUDENTS.forEach((s) => set.add(s.ageGroup));
     return Array.from(set).sort();
   }, []);
 
+  // overridesVersion isn't read inside — it exists purely to force a
+  // recompute when tags change elsewhere (bulk-tag action, student page).
   const enriched = useMemo(
-    () => STUDENTS.map((s) => {
-      const o = getOverrides(s.id);
-      return { ...s, risk: o.riskOverride ?? s.risk, interventionTags: o.tags.map((t) => t.label) };
-    }),
+    () =>
+      studentComposites(STUDENTS).map((c) => ({
+        ...c,
+        tags: getOverrides(c.student.id).tags.map((t) => t.label),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [overridesVersion],
   );
 
-  const classFiltered = useMemo(
-    () =>
-      classroom === "all"
-        ? enriched
-        : enriched.filter((s) => `${s.grade} · ${s.section}` === classroom),
-    [enriched, classroom],
+  const ageFiltered = useMemo(
+    () => (ageGroup === "all" ? enriched : enriched.filter((c) => c.student.ageGroup === ageGroup)),
+    [enriched, ageGroup],
   );
 
   const kpiStats = useMemo(() => {
-    const total = classFiltered.length;
-    const atRisk = classFiltered.filter((s) => s.risk === "at-risk" || s.risk === "high").length;
-    const onTrack = classFiltered.filter((s) => s.risk === "low").length;
-    const assessments = classFiltered.reduce((acc, s) => acc + s.sessions.length, 0);
-    const gameMinutes = classFiltered.reduce(
-      (acc, s) =>
-        acc + s.sessions.filter((ses) => ses.type === "Neurogame").reduce((a, ses) => a + ses.duration, 0),
-      0,
-    );
-    return { total, atRisk, onTrack, assessments, gameMinutes };
-  }, [classFiltered]);
+    const total = ageFiltered.length;
+    const needsSupport = ageFiltered.filter((c) => c.status === "needs-support").length;
+    const excellent = ageFiltered.filter((c) => c.status === "excellent").length;
+    const avgScore = total
+      ? Math.round((ageFiltered.reduce((a, c) => a + c.score, 0) / total) * 10) / 10
+      : 0;
+    return { total, needsSupport, excellent, avgScore };
+  }, [ageFiltered]);
 
   const filtered = useMemo(() => {
     let list = idFilterList
-      ? enriched.filter((s) => idFilterList.includes(s.id))
-      : classFiltered.filter((s) => {
-          if (risk !== "all" && s.risk !== risk) return false;
-          if (query && !s.name.toLowerCase().includes(query.toLowerCase())) return false;
+      ? enriched.filter((c) => idFilterList.includes(c.student.id))
+      : ageFiltered.filter((c) => {
+          if (band !== "all" && c.status !== band) return false;
+          if (query && !c.student.name.toLowerCase().includes(query.toLowerCase())) return false;
           return true;
         });
-    list = [...list].sort((a, b) => {
-      switch (sort) {
-        case "pfi-desc": return b.pfi - a.pfi;
-        case "pfi-asc": return a.pfi - b.pfi;
-        case "attention-desc": return attentionIndex(b) - attentionIndex(a);
-        case "attention-asc": return attentionIndex(a) - attentionIndex(b);
-        case "trend-desc": return (b.pfi - b.pfiPrevCheckIn) - (a.pfi - a.pfiPrevCheckIn);
-        case "trend-asc": return (a.pfi - a.pfiPrevCheckIn) - (b.pfi - b.pfiPrevCheckIn);
-        case "active": return b.daysActive - a.daysActive;
-        case "name": return a.name.localeCompare(b.name);
-      }
-    });
+    list = [...list].sort((a, b) => b.score - a.score);
     return list;
-  }, [query, risk, sort, classFiltered, idFilterList, enriched]);
+  }, [query, band, ageFiltered, idFilterList, enriched]);
 
   const selectedStudents = useMemo(
     () => STUDENTS.filter((s) => selected.has(s.id)),
@@ -162,13 +131,6 @@ function StudentsPage() {
     setSelected(new Set());
   }
 
-  function handleMarkNeedsHelp() {
-    const ids = Array.from(selected);
-    bulkSetRisk(ids, "high");
-    toast.success(`${ids.length} student${ids.length === 1 ? "" : "s"} marked as Needs help`);
-    clearSelection();
-  }
-
   function handleApplyTag(label: string) {
     const ids = Array.from(selected);
     bulkAddTag(ids, label);
@@ -186,57 +148,50 @@ function StudentsPage() {
       className="space-y-5"
     >
 
-      {/* ───────────── KPI overview (classroom-scoped) ───────────── */}
+      {/* ───────────── KPI overview (age-group-scoped) ───────────── */}
       <motion.section
         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } } }}
-        className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3"
       >
         <KpiCard
           icon={Users}
           label="Total students"
           value={kpiStats.total}
-          meta={classroom === "all" ? "All classrooms" : classroom}
+          meta={ageGroup === "all" ? "All age groups" : ageGroup}
           tone="primary"
         />
         <KpiCard
-          icon={AlertTriangle}
-          label="At risk"
-          value={kpiStats.atRisk}
-          meta={
-            kpiStats.total > 0
-              ? `${Math.round((kpiStats.atRisk / kpiStats.total) * 100)}% of class`
-              : "—"
-          }
-          tone="danger"
+          icon={BarChart3}
+          label="Avg health score"
+          value={kpiStats.avgScore}
+          meta="out of 100"
+          tone="accent"
         />
         <KpiCard
           icon={Sparkles}
-          label="On track"
-          value={kpiStats.onTrack}
+          label="Excellent"
+          value={kpiStats.excellent}
           meta={
             kpiStats.total > 0
-              ? `${Math.round((kpiStats.onTrack / kpiStats.total) * 100)}% of class`
+              ? `${Math.round((kpiStats.excellent / kpiStats.total) * 100)}% of shown`
               : "—"
           }
           tone="success"
         />
         <KpiCard
-          icon={ClipboardCheck}
-          label="Assessments"
-          value={kpiStats.assessments}
-          meta="completed"
-          tone="accent"
-        />
-        <KpiCard
-          icon={Gamepad2}
-          label="Neurogames"
-          value={kpiStats.gameMinutes}
-          meta="mins played"
-          tone="warning"
+          icon={AlertTriangle}
+          label="Needs support"
+          value={kpiStats.needsSupport}
+          meta={
+            kpiStats.total > 0
+              ? `${Math.round((kpiStats.needsSupport / kpiStats.total) * 100)}% of shown`
+              : "—"
+          }
+          tone="danger"
         />
       </motion.section>
 
-      {/* ───────────── Table filters: risk pills + inline search ───────────── */}
+      {/* ───────────── Table filters: age group + status pills + inline search ───────────── */}
       {idFilterList ? (
         <motion.div
           variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.1 } } }}
@@ -258,14 +213,14 @@ function StudentsPage() {
           variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.1 } } }}
           className="flex flex-wrap items-center gap-2"
         >
-          <span className="premium-eyebrow mr-1"><Filter className="h-3 w-3 text-primary" /><span>Risk</span></span>
+          <span className="premium-eyebrow mr-1"><Filter className="h-3 w-3 text-primary" /><span>Status</span></span>
           <div className="flex flex-wrap gap-1.5">
-            {RISKS.map((r) => {
-              const active = risk === r.key;
+            {BANDS.map((b) => {
+              const active = band === b.key;
               return (
                 <button
-                  key={r.key}
-                  onClick={() => setRisk(r.key)}
+                  key={b.key}
+                  onClick={() => setBand(b.key)}
                   className={cn(
                     "relative px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors",
                     active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -273,30 +228,38 @@ function StudentsPage() {
                 >
                   {active && (
                     <motion.span
-                      layoutId={reduce ? undefined : "risk-pill"}
+                      layoutId={reduce ? undefined : "band-pill"}
                       transition={{ type: "spring", stiffness: 420, damping: 32 }}
                       className="absolute inset-0 rounded-full bg-card shadow-[0_6px_14px_-8px_hsl(230_50%_18%/0.22)] border border-primary/35"
                       aria-hidden
                     />
                   )}
                   <span className="relative z-10 inline-flex items-center gap-1.5">
-                    {r.key !== "all" && (
+                    {b.key !== "all" && (
                       <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          r.key === "at-risk" && "bg-destructive",
-                          r.key === "high" && "bg-destructive/75",
-                          r.key === "medium" && "bg-warning",
-                          r.key === "low" && "bg-primary",
-                        )}
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: SCORE_BAND_TONE[b.key] }}
                       />
                     )}
-                    {r.label}
+                    {b.label}
                   </span>
                 </button>
               );
             })}
           </div>
+          <select
+            value={ageGroup}
+            onChange={(e) => setAgeGroup(e.target.value)}
+            className="premium-search h-9 px-3 text-[12.5px] font-semibold rounded-full bg-card"
+            aria-label="Filter by age group"
+          >
+            <option value="all">All age groups</option>
+            {ageGroups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
           <div className="premium-search h-9 px-3 w-full sm:w-auto sm:min-w-[240px] sm:ml-auto">
             <Search className="h-4 w-4 shrink-0 mr-2" />
             <input
@@ -330,9 +293,6 @@ function StudentsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={clearSelection} className="rounded-lg">
                   Clear
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleMarkNeedsHelp} className="gap-2 rounded-lg bg-card/70">
-                  <AlertTriangle className="h-4 w-4 text-destructive" /> Mark Needs help
                 </Button>
                 <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
                   <PopoverTrigger asChild>
@@ -401,44 +361,24 @@ function StudentsPage() {
               <tr className="text-left">
                 <th className="p-3 w-10"></th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Student</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 cursor-default">
-                          Focus Score
-                          <Info className="h-3 w-3 text-muted-foreground/70" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px] text-[11px] leading-snug normal-case">
-                        A 0–100 score reflecting how focused and engaged this student has been in
-                        recent sessions.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Trend</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Games</th>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Age group</th>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Health score</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Status</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Tags</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => {
-                const delta = s.pfi - s.pfiPrevCheckIn;
-                const completion = Math.round((s.gamesPlayed / s.gamesAssigned) * 100);
+              {filtered.map((c) => {
+                const s = c.student;
                 const isSelected = selected.has(s.id);
                 const disabled = !isSelected && selected.size >= MAX_COMPARE;
-                const tags = s.interventionTags;
                 return (
                   <tr
                     key={s.id}
                     role="link"
                     tabIndex={0}
-                    onClick={() =>
-                      router.push(`/students/${s.id}?tab=profile`)
-                    }
+                    onClick={() => router.push(`/students/${s.id}?tab=profile`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
@@ -452,7 +392,6 @@ function StudentsPage() {
                     )}
                   >
                     <td className="p-3 relative" onClick={(e) => e.stopPropagation()}>
-                      {/* Selected left rail */}
                       <span
                         className={cn(
                           "absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full transition-all",
@@ -475,43 +414,25 @@ function StudentsPage() {
                         <StudentAvatar student={s} size="sm" />
                         <div className="min-w-0">
                           <div className="font-heading font-extrabold text-[13.5px] truncate">{s.name}</div>
-                          <div className="text-[11px] text-muted-foreground">Age {s.age}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">{s.parentName}</div>
                         </div>
                       </Link>
                     </td>
                     <td className="p-3">
-                      <span className="font-heading font-extrabold tabular-nums">{s.pfi}</span>
+                      <span className="text-[12.5px] font-semibold text-muted-foreground">{s.ageGroup}</span>
                     </td>
                     <td className="p-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-0.5 font-semibold text-[11.5px] px-2 py-0.5 rounded-full",
-                          delta >= 0
-                            ? "bg-primary/12 text-primary border border-primary/25"
-                            : "bg-destructive/12 text-destructive border border-destructive/25",
-                        )}
-                      >
-                        {delta >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                        {Math.abs(delta)}
-                      </span>
+                      <span className="font-heading font-extrabold tabular-nums">{c.score}</span>
                     </td>
                     <td className="p-3">
-                      <div className="text-[12px]">
-                        <span className="font-heading font-bold">{completion}%</span>{" "}
-                        <span className="text-muted-foreground tabular-nums">
-                          ({s.gamesPlayed}/{s.gamesAssigned})
-                        </span>
-                      </div>
+                      <RiskBadge band={c.status} />
                     </td>
                     <td className="p-3">
-                      <RiskBadge risk={s.risk} />
-                    </td>
-                    <td className="p-3">
-                      {tags.length === 0 ? (
+                      {c.tags.length === 0 ? (
                         <span className="text-[11.5px] text-muted-foreground">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
-                          {tags.slice(0, 2).map((t) => (
+                          {c.tags.slice(0, 2).map((t) => (
                             <span
                               key={t}
                               className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent/60 text-accent-foreground border border-border/70"
@@ -519,9 +440,9 @@ function StudentsPage() {
                               {t}
                             </span>
                           ))}
-                          {tags.length > 2 && (
+                          {c.tags.length > 2 && (
                             <span className="text-[10px] font-semibold text-muted-foreground self-center">
-                              +{tags.length - 2}
+                              +{c.tags.length - 2}
                             </span>
                           )}
                         </div>
@@ -544,7 +465,7 @@ function StudentsPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="p-14 text-center">
+                  <td colSpan={7} className="p-14 text-center">
                     <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-muted/70 text-muted-foreground flex items-center justify-center">
                       <Search className="h-5 w-5" />
                     </div>

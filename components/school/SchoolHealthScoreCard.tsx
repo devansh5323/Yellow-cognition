@@ -342,19 +342,24 @@ function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
           <div className="text-[10.5px] font-bold text-foreground/85 leading-tight truncate">{metric.label}</div>
           <div className="flex items-baseline gap-1.5 mt-0.5">
             <span className="font-heading font-extrabold text-[18px] tabular-nums leading-none" style={{ color: tone }}>
-              {metric.score}%
+              {metric.score != null ? `${metric.score}%` : "—"}
             </span>
-            <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums"
-              style={{ color: metric.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
-            >
-              {metric.delta >= 0 ? "↑" : "↓"} {Math.abs(metric.delta)}%
-            </span>
+            {metric.score != null && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums"
+                style={{ color: metric.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
+              >
+                {metric.delta >= 0 ? "↑" : "↓"} {Math.abs(metric.delta)}%
+              </span>
+            )}
           </div>
         </div>
       </div>
       <div className="h-1 w-full rounded-full bg-muted/60 mt-2.5 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${Math.min(100, metric.score)}%`, background: tone }} />
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${metric.score != null ? Math.min(100, metric.score) : 0}%`, background: tone }}
+        />
       </div>
     </div>
   );

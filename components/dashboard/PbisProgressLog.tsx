@@ -159,7 +159,7 @@ export function PbisProgressLog() {
                             {student.name}
                           </div>
                           <div className="text-[11px] text-muted-foreground">
-                            {student.grade} · {student.section}
+                            {student.ageGroup}
                           </div>
                         </div>
                       </div>
@@ -230,7 +230,7 @@ function PbisRecordDrawer({
                     {student.name}
                   </SheetTitle>
                   <SheetDescription className="text-[12px]">
-                    {student.grade} · {student.section} — flagged for {record.reason}
+                    {student.ageGroup} — flagged for {record.reason}
                   </SheetDescription>
                 </div>
               </div>

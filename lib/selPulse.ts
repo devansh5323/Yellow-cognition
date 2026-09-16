@@ -105,11 +105,15 @@ export function suggestedPulseCompetencies(monitorFocus: SelMonitorFocus[]): Sel
   return mapped.length > 0 ? mapped : RECOMMENDED_PULSE_AREAS.slice(0, 3);
 }
 
-/** Real, if currently narrow — the grades that actually have students in
- * the roster (the wider GRADES constant in mockData.ts is a school-wide
- * taxonomy list, not all of it backed by real students). */
+/** The real roster (data/realStudents.ts) carries no Grade-taxonomy field
+ * at all anymore — only `ageGroup`, a different, non-overlapping partition
+ * — so there's no live way to derive "which of the wider GRADES constant
+ * have real students" from the roster itself. The closest honest source of
+ * truth left is REAL_GRADES below: the two grades the seeded weekly pulse
+ * data actually covers, so this dropdown never offers a grade with
+ * silently empty data behind it. */
 export function pulseGradeOptions(): Grade[] {
-  return Array.from(new Set(STUDENTS.map((s) => s.grade))).sort() as Grade[];
+  return [...REAL_GRADES];
 }
 
 const KEY = "ah_sel_pulses";
@@ -326,8 +330,12 @@ export function pulseResponseProgress(pulses: Pulse[], nowMs: number = Date.now(
   const active = pulses.filter((p) => p.status === "active");
   if (active.length === 0) return null;
 
-  const grades = new Set<string>(active.map((p) => p.grade));
-  const totalPossible = STUDENTS.filter((s) => grades.has(s.grade)).length;
+  // The real roster no longer carries a Grade field to partition by (see
+  // pulseGradeOptions above) — once any pulse is active, the whole real
+  // roster is the closest honest count of "students possibly being
+  // surveyed," rather than fabricating a per-grade split with no real data
+  // behind it.
+  const totalPossible = STUDENTS.length;
   const mostRecentCreatedAt = Math.max(...active.map((p) => +new Date(p.createdAt)));
   const daysElapsed = (nowMs - mostRecentCreatedAt) / (24 * 60 * 60 * 1000);
   const coveragePct = Math.max(0, Math.min(100, Math.round((daysElapsed / RESPONSE_RAMP_DAYS) * 100)));

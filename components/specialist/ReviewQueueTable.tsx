@@ -84,7 +84,7 @@ export function ReviewQueueTable({
                       <div className="min-w-0">
                         <div className="font-bold truncate">{row.student.name}</div>
                         <div className="text-[10.5px] text-muted-foreground">
-                          {row.student.grade} · {row.student.section}
+                          {row.student.ageGroup}
                         </div>
                       </div>
                     </div>

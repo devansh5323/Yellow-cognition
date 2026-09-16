@@ -11,11 +11,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-  PolarRadiusAxis,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -28,14 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  STUDENTS,
-  classStats,
-  classSubDomainAvg,
-  MONTH_LABELS,
-  studentMonthlyCheckIns,
-  type Student,
-} from "@/data/mockData";
+import { STUDENTS, type Student } from "@/data/mockData";
+import { classHealth, SCORE_BANDS } from "@/lib/classHealth";
+import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, ChevronDown, ArrowRight } from "lucide-react";
@@ -50,9 +40,19 @@ export default function Page() {
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const ALL_SECTIONS = ["3-A", "3-B", "4-A", "4-B"] as const;
-type SectionKey = (typeof ALL_SECTIONS)[number];
-const MAX_COMPARE = 4;
+// The real roster has no grade/section field — only `ageGroup` — so
+// "sections" here are age-group cohorts rather than the old grade×section
+// combos. Derived from whatever age groups actually appear in the roster
+// instead of a hardcoded list.
+function ageGroupSortKey(g: string): number {
+  const m = g.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+const ALL_SECTIONS = Array.from(new Set(STUDENTS.map((s) => s.ageGroup))).sort(
+  (a, b) => ageGroupSortKey(a) - ageGroupSortKey(b),
+);
+type SectionKey = string;
+const MAX_COMPARE = ALL_SECTIONS.length;
 
 const TOOLTIP_STYLE: React.CSSProperties = {
   borderRadius: 12,
@@ -65,21 +65,13 @@ const TOOLTIP_STYLE: React.CSSProperties = {
 
 function ClassroomPage() {
   const reduce = useReducedMotion();
-  const stats = classStats();
-  const radar = classSubDomainAvg();
+  const health = classHealth();
 
-  const heatmapRows = useMemo(
-    () => STUDENTS.map((s) => ({ student: s, monthly: studentMonthlyCheckIns(s) })),
-    [],
-  );
-  const windowAvg = useMemo(() => {
-    const all = heatmapRows.flatMap((r) => r.monthly).filter((v): v is number => v != null);
-    return all.length ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
-  }, [heatmapRows]);
-
-  const buckets = Array.from({ length: 6 }, (_, i) => ({
-    range: `${40 + i * 10}–${50 + i * 10}`,
-    count: STUDENTS.filter((s) => s.pfi >= 40 + i * 10 && s.pfi < 50 + i * 10).length,
+  // Real health-score distribution across the class — replaces the old
+  // PFI-bucket histogram (`s.pfi` no longer exists).
+  const buckets = SCORE_BANDS.map((b) => ({
+    range: b.range,
+    count: health.distribution[b.band],
   }));
 
   const [selectedSections, setSelectedSections] = useState<SectionKey[]>([...ALL_SECTIONS]);
@@ -95,8 +87,8 @@ function ClassroomPage() {
 
   const studentsBySection = useMemo(() => {
     const map = {} as Record<SectionKey, Student[]>;
-    ALL_SECTIONS.forEach((sec, i) => {
-      map[sec] = STUDENTS.filter((_, idx) => idx % 4 === i);
+    ALL_SECTIONS.forEach((sec) => {
+      map[sec] = STUDENTS.filter((s) => s.ageGroup === sec);
     });
     return map;
   }, []);
@@ -105,23 +97,28 @@ function ClassroomPage() {
     () =>
       ALL_SECTIONS.filter((sec) => selectedSections.includes(sec)).map((sec) => {
         const subset = studentsBySection[sec];
-        const s = classStats(subset);
-        return { section: sec, pfi: s.avgPfi, tei: s.tei, engagement: s.engagement, atRisk: s.atRisk };
+        const h = classHealth(subset);
+        return {
+          section: sec,
+          score: h.score,
+          needsSupport: h.distribution["needs-support"],
+          total: subset.length,
+        };
       }),
     [selectedSections, studentsBySection],
   );
 
   const sectionPickerLabel =
     selectedSections.length === 0
-      ? "Pick sections"
+      ? "Pick age groups"
       : selectedSections.length === ALL_SECTIONS.length
-        ? "All sections"
+        ? "All age groups"
         : selectedSections.length === 1
-          ? `Section ${selectedSections[0]}`
-          : `${selectedSections.length} of ${ALL_SECTIONS.length} sections`;
+          ? selectedSections[0]
+          : `${selectedSections.length} of ${ALL_SECTIONS.length} age groups`;
 
-  const top = [...STUDENTS].sort((a, b) => b.pfi - a.pfi).slice(0, 5);
-  const needs = [...STUDENTS].sort((a, b) => a.pfi - b.pfi).slice(0, 5);
+  const top = [...STUDENTS].sort((a, b) => b.studentHealthScore - a.studentHealthScore).slice(0, 5);
+  const needs = [...STUDENTS].sort((a, b) => a.studentHealthScore - b.studentHealthScore).slice(0, 5);
 
   return (
     <motion.div
@@ -159,7 +156,7 @@ function ClassroomPage() {
             <PopoverContent align="end" className="w-60 p-2 rounded-xl">
               <div className="flex items-center justify-between px-2 pb-2 border-b border-border/60">
                 <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  Sections · max {MAX_COMPARE}
+                  Age groups · max {MAX_COMPARE}
                 </div>
                 <button
                   type="button"
@@ -190,7 +187,7 @@ function ClassroomPage() {
                       )}
                     >
                       <Checkbox checked={active} className="pointer-events-none" />
-                      <span>Section {sec}</span>
+                      <span>{sec}</span>
                     </button>
                   );
                 })}
@@ -213,7 +210,7 @@ function ClassroomPage() {
           )}
         >
           {sections.map((s, i) => {
-            const tone = s.atRisk > 1 ? "hsl(0 78% 58%)" : "hsl(142 55% 50%)";
+            const tone = s.needsSupport > 1 ? "hsl(0 78% 58%)" : "hsl(142 55% 50%)";
             return (
               <motion.div
                 key={s.section}
@@ -232,26 +229,25 @@ function ClassroomPage() {
                 }}
                 style={{ ["--kpi-tone" as never]: tone }}
                 className="group premium-surface premium-surface-hover premium-kpi sheen-hover rounded-[16px] p-4 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                aria-label={`Open detailed view for Section ${s.section}`}
+                aria-label={`Open detailed view for ${s.section}`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="font-heading font-extrabold text-[16px]">Section {s.section}</div>
+                  <div className="font-heading font-extrabold text-[16px]">{s.section}</div>
                   <Badge
                     variant="outline"
                     className={cn(
                       "rounded-full font-semibold border",
-                      s.atRisk > 1
+                      s.needsSupport > 1
                         ? "bg-destructive/10 text-destructive border-destructive/25"
                         : "bg-primary/10 text-primary border-primary/25",
                     )}
                   >
-                    {s.atRisk} at-risk
+                    {s.needsSupport} needs support
                   </Badge>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                  <Mini label="PFI" v={s.pfi} />
-                  <Mini label="TEI" v={s.tei} />
-                  <Mini label="Engage" v={`${s.engagement}%`} />
+                <div className="grid grid-cols-2 gap-2 mt-3 text-center">
+                  <Mini label="Health" v={s.score} />
+                  <Mini label="Students" v={s.total} />
                 </div>
                 <div className="mt-3 flex items-center justify-end gap-1 text-[11px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                   View details
@@ -265,26 +261,16 @@ function ClassroomPage() {
           <ResponsiveContainer>
             <BarChart data={sections} margin={{ top: 10, right: 10, left: -12, bottom: 0 }}>
               <defs>
-                <linearGradient id="cls-pfi" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="cls-health" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(142 60% 55%)" />
                   <stop offset="100%" stopColor="hsl(142 52% 40%)" />
-                </linearGradient>
-                <linearGradient id="cls-tei" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(260 60% 68%)" />
-                  <stop offset="100%" stopColor="hsl(260 55% 50%)" />
-                </linearGradient>
-                <linearGradient id="cls-eng" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(38 92% 60%)" />
-                  <stop offset="100%" stopColor="hsl(38 92% 48%)" />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" vertical={false} />
               <XAxis dataKey="section" fontSize={11} stroke="hsl(230 15% 55%)" tickLine={false} axisLine={false} />
               <YAxis fontSize={11} stroke="hsl(230 15% 55%)" tickLine={false} axisLine={false} />
               <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "hsl(142 52% 48% / 0.06)" }} />
-              <Bar dataKey="pfi" fill="url(#cls-pfi)" radius={[8, 8, 0, 0]} name="Avg PFI" />
-              <Bar dataKey="tei" fill="url(#cls-tei)" radius={[8, 8, 0, 0]} name="TEI" />
-              <Bar dataKey="engagement" fill="url(#cls-eng)" radius={[8, 8, 0, 0]} name="Engagement %" />
+              <Bar dataKey="score" fill="url(#cls-health)" radius={[8, 8, 0, 0]} name="Health score" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -301,9 +287,9 @@ function ClassroomPage() {
           <div className="premium-section-header mb-3">
             <div>
               <h2 className="premium-eyebrow">Distribution</h2>
-              <h3 className="font-heading font-extrabold text-[16px] mt-1.5">PFI distribution</h3>
+              <h3 className="font-heading font-extrabold text-[16px] mt-1.5">Health score distribution</h3>
               <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                Class avg: <strong className="text-foreground tabular-nums">{stats.avgPfi}</strong>
+                Class avg: <strong className="text-foreground tabular-nums">{health.score}</strong>
               </p>
             </div>
           </div>
@@ -336,25 +322,17 @@ function ClassroomPage() {
               </p>
             </div>
           </div>
-          <div className="h-60">
-            <ResponsiveContainer>
-              <RadarChart data={radar}>
-                <PolarGrid stroke="hsl(240 15% 88%)" />
-                <PolarAngleAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(230 15% 40%)" }} />
-                <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} stroke="hsl(240 15% 80%)" />
-                <Radar
-                  dataKey="score"
-                  stroke="hsl(142 52% 48%)"
-                  fill="hsl(142 52% 48%)"
-                  fillOpacity={0.4}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* The old sub-domain radar was derived from gameplay-signal
+              fields that don't exist in the real dataset — no fabricated
+              per-domain breakdown until a real sub-domain signal exists. */}
+          <NotEnoughDataPanel
+            className="h-60"
+            description="Sub-domain breakdown will appear here once this roster has real per-domain signal."
+          />
         </section>
       </motion.div>
 
-      {/* ───── Monthly trend heatmap ───── */}
+      {/* ───── Monthly trend ───── */}
       <motion.section
         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } } }}
         className="premium-surface rounded-[20px] p-5"
@@ -364,72 +342,14 @@ function ClassroomPage() {
             <h2 className="premium-eyebrow">Heatmap</h2>
             <h3 className="font-heading font-extrabold text-[17px] mt-1.5">Monthly attention trend</h3>
             <p className="text-[11.5px] text-muted-foreground mt-1">
-              Last {MONTH_LABELS.length} monthly check-ins · class avg{" "}
-              <strong className="text-foreground tabular-nums">{windowAvg}</strong> · each row = a
-              student, each cell = that month's check-in score
+              Each row would be a student, each cell that month&apos;s check-in score.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            Low
-            <div className="flex rounded-md overflow-hidden ring-1 ring-border/70">
-              {[20, 40, 60, 80, 95].map((v) => (
-                <span key={v} className="h-3 w-5" style={{ background: heatColor(v) }} />
-              ))}
-            </div>
-            High
-          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-separate border-spacing-1 md:border-spacing-1.5">
-            <thead>
-              <tr>
-                <th className="text-left text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground w-[160px] sticky left-0 bg-card/90 backdrop-blur pr-2">
-                  Student
-                </th>
-                {MONTH_LABELS.map((m) => (
-                  <th
-                    key={m}
-                    className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground text-center"
-                  >
-                    {m}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {heatmapRows.map(({ student: s, monthly }) => (
-                <tr key={s.id}>
-                  <td className="text-[12px] font-medium pr-2 sticky left-0 bg-card/90 backdrop-blur w-[160px]">
-                    <div className="flex items-center gap-2 truncate">
-                      <StudentAvatar student={s} size="sm" className="!h-6 !w-6 text-[10px]" />
-                      <span className="truncate">{s.name}</span>
-                    </div>
-                  </td>
-                  {monthly.map((v, i) =>
-                    v == null ? (
-                      <td
-                        key={i}
-                        title={`${s.name} · ${MONTH_LABELS[i]} · No check-in`}
-                        className="h-7 md:h-8 rounded-md text-[11px] text-center align-middle font-semibold text-muted-foreground/60 border border-dashed border-border/60 bg-muted/20"
-                      >
-                        —
-                      </td>
-                    ) : (
-                      <td
-                        key={i}
-                        title={`${s.name} · ${MONTH_LABELS[i]} · ${v} · monthly check-in`}
-                        className="h-7 md:h-8 rounded-md text-[10px] text-center align-middle font-bold text-white/90 cursor-pointer hover:scale-110 hover:ring-2 hover:ring-primary/60 transition-all"
-                        style={{ background: heatColor(v) }}
-                      >
-                        {v}
-                      </td>
-                    ),
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* No real week-over-week/monthly history exists for this roster
+            yet (see data/mockData.ts) — no fabricated per-month heatmap
+            until real monthly check-in data exists. */}
+        <NotEnoughDataPanel description="Monthly trends will appear here once this roster has more than one check-in on record." />
       </motion.section>
 
       {/* ───── Top / Needs ───── */}
@@ -472,87 +392,49 @@ function SectionDetailDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
-  const stats = useMemo(() => (students.length ? classStats(students) : null), [students]);
-  const radar = useMemo(() => (students.length ? classSubDomainAvg(students) : []), [students]);
-  const sorted = useMemo(() => [...students].sort((a, b) => b.pfi - a.pfi), [students]);
-  const strongest = radar.length ? radar.reduce((a, b) => (b.score > a.score ? b : a)) : null;
-  const weakest = radar.length ? radar.reduce((a, b) => (b.score < a.score ? b : a)) : null;
+  const health = useMemo(() => (students.length ? classHealth(students) : null), [students]);
+  const sorted = useMemo(
+    () => [...students].sort((a, b) => b.studentHealthScore - a.studentHealthScore),
+    [students],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/70">
-          <DialogTitle className="font-heading text-[18px]">
-            Section {section} · detailed view
-          </DialogTitle>
+          <DialogTitle className="font-heading text-[18px]">{section} · detailed view</DialogTitle>
           <DialogDescription>
-            {students.length} students · Avg PFI{" "}
-            <span className="font-semibold text-foreground tabular-nums">{stats?.avgPfi ?? "—"}</span>
-            {strongest && (
-              <>
-                {" · "}strongest{" "}
-                <span className="text-primary font-semibold">{strongest.name}</span>{" "}
-                <span className="tabular-nums">({strongest.score})</span>
-              </>
-            )}
-            {weakest && (
-              <>
-                {" · "}focus on{" "}
-                <span className="text-destructive font-semibold">{weakest.name}</span>{" "}
-                <span className="tabular-nums">({weakest.score})</span>
-              </>
-            )}
+            {students.length} students · Avg health score{" "}
+            <span className="font-semibold text-foreground tabular-nums">{health?.score ?? "—"}</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="p-5 space-y-4 max-h-[70vh] overflow-auto">
-          {stats && (
+          {health && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              <DetailStat label="Avg PFI" value={stats.avgPfi} tone="primary" />
-              <DetailStat label="TEI" value={stats.tei} tone="accent" />
-              <DetailStat label="Engagement" value={`${stats.engagement}%`} tone="warning" />
+              <DetailStat label="Avg health score" value={health.score} tone="primary" />
               <DetailStat
-                label="At-risk"
-                value={stats.atRisk}
-                tone={stats.atRisk > 0 ? "danger" : "primary"}
+                label="Needs support"
+                value={health.distribution["needs-support"]}
+                tone={health.distribution["needs-support"] > 0 ? "danger" : "primary"}
               />
+              <DetailStat label="Watch" value={health.distribution.watch} tone="warning" />
+              <DetailStat label="Excellent" value={health.distribution.excellent} tone="accent" />
             </div>
           )}
 
-          {radar.length > 0 && (
-            <section className="rounded-[14px] border border-border/60 bg-card/50 p-3">
-              <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-1">
-                Sub-domain profile
-              </div>
-              <div className="h-56">
-                <ResponsiveContainer>
-                  <RadarChart data={radar}>
-                    <PolarGrid stroke="hsl(240 15% 88%)" />
-                    <PolarAngleAxis
-                      dataKey="name"
-                      tick={{ fontSize: 10, fill: "hsl(230 15% 40%)" }}
-                    />
-                    <PolarRadiusAxis
-                      domain={[0, 100]}
-                      tick={{ fontSize: 10 }}
-                      stroke="hsl(240 15% 80%)"
-                    />
-                    <Radar
-                      dataKey="score"
-                      stroke="hsl(142 52% 48%)"
-                      fill="hsl(142 52% 48%)"
-                      fillOpacity={0.4}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-          )}
+          {/* The old sub-domain radar was derived from gameplay-signal
+              fields that don't exist in the real dataset — no fabricated
+              per-domain profile until a real sub-domain signal exists. */}
+          <NotEnoughDataPanel
+            title="Not enough data yet"
+            description="A sub-domain profile for this age group will appear here once real per-domain signal exists."
+          />
 
           <section>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Students · ranked by PFI
+                Students · ranked by health score
               </div>
               <span className="text-[11px] text-muted-foreground">{sorted.length} total</span>
             </div>
@@ -571,13 +453,13 @@ function SectionDetailDialog({
                       <div className="font-heading font-extrabold text-[13px] truncate">
                         {s.name}
                       </div>
-                      <div className="text-[11px] text-muted-foreground">Age {s.age}</div>
+                      <div className="text-[11px] text-muted-foreground">{s.ageGroup}</div>
                     </div>
                     <div className="text-right">
                       <div className="font-heading font-extrabold text-[13px] tabular-nums">
-                        {s.pfi}
+                        {s.studentHealthScore}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">PFI</div>
+                      <div className="text-[10px] text-muted-foreground">Health</div>
                     </div>
                   </li>
                 ))}
@@ -662,20 +544,14 @@ function RankList({
             <StudentAvatar student={s} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="font-heading font-extrabold text-[13px] truncate">{s.name}</div>
-              <div className="text-[11px] text-muted-foreground">
-                {s.grade} · Sec {s.section}
-              </div>
+              <div className="text-[11px] text-muted-foreground">{s.ageGroup}</div>
             </div>
-            <div className="font-heading font-extrabold text-[14px] tabular-nums">{s.pfi}</div>
+            <div className="font-heading font-extrabold text-[14px] tabular-nums">
+              {s.studentHealthScore}
+            </div>
           </li>
         ))}
       </ul>
     </section>
   );
-}
-
-function heatColor(v: number) {
-  if (v < 40) return `hsl(0 70% ${72 - v * 0.2}%)`;
-  if (v < 65) return `hsl(38 85% ${72 - (v - 40) * 0.4}%)`;
-  return `hsl(142 52% ${65 - (v - 65) * 0.3}%)`;
 }

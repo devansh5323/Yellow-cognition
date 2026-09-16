@@ -14,46 +14,48 @@ import {
   CartesianGrid,
 } from "recharts";
 import { ShieldAlert, Layers } from "lucide-react";
-import type { Student, RiskLevel } from "@/data/mockData";
+import type { Student } from "@/data/mockData";
 import { STUDENTS } from "@/data/mockData";
+import { scoreBand, SCORE_BANDS, type ScoreBand } from "@/lib/classHealth";
+import { SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
 import { StudentDrillDialog } from "./StudentDrillDialog";
 import { cn } from "@/lib/utils";
 
-const RISK_META: Record<
-  RiskLevel,
+const BAND_META: Record<
+  ScoreBand,
   { label: string; color: string; text: string; bg: string; border: string }
 > = {
-  low: {
-    label: "Low",
-    color: "hsl(142 55% 48%)",
+  excellent: {
+    label: "Excellent",
+    color: SCORE_BAND_TONE.excellent,
     text: "text-primary",
     bg: "bg-primary/10",
     border: "border-primary/25",
   },
-  medium: {
-    label: "Medium",
-    color: "hsl(38 92% 55%)",
+  stable: {
+    label: "Stable",
+    color: SCORE_BAND_TONE.stable,
+    text: "text-blue-600 dark:text-blue-300",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/25",
+  },
+  watch: {
+    label: "Watch",
+    color: SCORE_BAND_TONE.watch,
     text: "text-amber-600 dark:text-amber-300",
     bg: "bg-amber-500/10",
     border: "border-amber-500/25",
   },
-  high: {
-    label: "High",
-    color: "hsl(20 85% 58%)",
-    text: "text-orange-600 dark:text-orange-300",
-    bg: "bg-orange-500/10",
-    border: "border-orange-500/25",
-  },
-  "at-risk": {
-    label: "At-risk",
-    color: "hsl(0 75% 60%)",
+  "needs-support": {
+    label: "Needs Support",
+    color: SCORE_BAND_TONE["needs-support"],
     text: "text-destructive",
     bg: "bg-destructive/10",
     border: "border-destructive/25",
   },
 };
 
-const ORDER: RiskLevel[] = ["low", "medium", "high", "at-risk"];
+const ORDER: ScoreBand[] = SCORE_BANDS.map((b) => b.band);
 
 type Drill = { title: string; students: Student[] } | null;
 type RiskView = "distribution" | "cohort";
@@ -70,43 +72,40 @@ const TOOLTIP_STYLE: React.CSSProperties = {
 export function RiskDonut({ students }: { students: Student[] }) {
   const [view, setView] = useState<RiskView>("distribution");
   const [drill, setDrill] = useState<Drill>(null);
-  const [hovered, setHovered] = useState<RiskLevel | null>(null);
+  const [hovered, setHovered] = useState<ScoreBand | null>(null);
 
   const bands = ORDER.map((b) => ({
     name: b,
-    value: students.filter((s) => s.risk === b).length,
+    value: students.filter((s) => scoreBand(s.studentHealthScore) === b).length,
   }));
   const total = students.length || 1;
-  const needAttention = bands[2].value + bands[3].value; // high + at-risk
+  const needAttention = students.filter((s) => scoreBand(s.studentHealthScore) === "needs-support").length;
   const needAttentionPct = Math.round((needAttention / total) * 100);
 
-  const cohorts = ["3-A", "3-B", "4-A", "4-B"].map((key) => {
-    const [g, sec] = key.split("-");
-    const list = STUDENTS.filter((s) => s.grade === `Grade ${g}` && s.section === sec);
-    return {
-      cohort: key,
-      total: list.length,
-      low: list.filter((s) => s.risk === "low").length,
-      medium: list.filter((s) => s.risk === "medium").length,
-      high: list.filter((s) => s.risk === "high").length,
-      "at-risk": list.filter((s) => s.risk === "at-risk").length,
+  const ageGroups = Array.from(new Set(STUDENTS.map((s) => s.ageGroup))).sort();
+  const cohorts = ageGroups.map((g) => {
+    const list = STUDENTS.filter((s) => s.ageGroup === g);
+    const counts: Record<ScoreBand, number> = {
+      excellent: 0,
+      stable: 0,
+      watch: 0,
+      "needs-support": 0,
     };
+    list.forEach((s) => counts[scoreBand(s.studentHealthScore)]++);
+    return { cohort: g, total: list.length, ...counts };
   });
 
-  const openBand = (band: RiskLevel) => {
+  const openBand = (band: ScoreBand) => {
     setDrill({
-      title: `${RISK_META[band].label} risk students`,
-      students: students.filter((s) => s.risk === band),
+      title: `${BAND_META[band].label} students`,
+      students: students.filter((s) => scoreBand(s.studentHealthScore) === band),
     });
   };
 
-  const openCohortBand = (cohort: string, band: RiskLevel) => {
-    const [g, sec] = cohort.split("-");
+  const openCohortBand = (cohort: string, band: ScoreBand) => {
     setDrill({
-      title: `Grade ${g}-${sec} · ${RISK_META[band].label} risk`,
-      students: STUDENTS.filter(
-        (s) => s.grade === `Grade ${g}` && s.section === sec && s.risk === band,
-      ),
+      title: `${cohort} · ${BAND_META[band].label}`,
+      students: STUDENTS.filter((s) => s.ageGroup === cohort && scoreBand(s.studentHealthScore) === band),
     });
   };
 
@@ -141,31 +140,31 @@ export function RiskDonut({ students }: { students: Student[] }) {
               </div>
               <div className="min-w-0">
                 <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground leading-none">
-                  {isDistribution ? "Distribution" : "By cohort"}
+                  {isDistribution ? "Distribution" : "By age group"}
                 </div>
                 <h3 className="font-heading font-extrabold text-[15.5px] leading-tight mt-0.5">
-                  {isDistribution ? "Risk distribution" : "Risk by cohort"}
+                  {isDistribution ? "Status distribution" : "Status by age group"}
                 </h3>
               </div>
             </div>
 
             <div
               role="tablist"
-              aria-label="Risk view"
+              aria-label="Status view"
               className="inline-flex rounded-lg border border-border bg-card/60 p-0.5 text-[11.5px]"
             >
               <ViewTab active={isDistribution} onClick={() => setView("distribution")}>
                 Distribution
               </ViewTab>
               <ViewTab active={!isDistribution} onClick={() => setView("cohort")}>
-                By cohort
+                By age group
               </ViewTab>
             </div>
           </div>
           <p className="text-[11.5px] text-muted-foreground mt-2">
             {isDistribution
               ? "Click a slice or legend row to view students."
-              : "Click a bar segment to drill into that cohort."}
+              : "Click a bar segment to drill into that age group."}
           </p>
         </div>
 
@@ -186,8 +185,8 @@ export function RiskDonut({ students }: { students: Student[] }) {
                           x2="1"
                           y2="1"
                         >
-                          <stop offset="0%" stopColor={RISK_META[b].color} stopOpacity={1} />
-                          <stop offset="100%" stopColor={RISK_META[b].color} stopOpacity={0.72} />
+                          <stop offset="0%" stopColor={BAND_META[b].color} stopOpacity={1} />
+                          <stop offset="100%" stopColor={BAND_META[b].color} stopOpacity={0.72} />
                         </linearGradient>
                       ))}
                     </defs>
@@ -200,10 +199,10 @@ export function RiskDonut({ students }: { students: Student[] }) {
                       paddingAngle={3}
                       cornerRadius={6}
                       onClick={(d: { name?: string }) =>
-                        d?.name && openBand(d.name as RiskLevel)
+                        d?.name && openBand(d.name as ScoreBand)
                       }
                       onMouseEnter={(d: { name?: string }) =>
-                        d?.name && setHovered(d.name as RiskLevel)
+                        d?.name && setHovered(d.name as ScoreBand)
                       }
                       onMouseLeave={() => setHovered(null)}
                       className="cursor-pointer outline-none"
@@ -228,7 +227,7 @@ export function RiskDonut({ students }: { students: Student[] }) {
                       contentStyle={TOOLTIP_STYLE}
                       formatter={(value: number, name: string) => [
                         `${value} students · ${Math.round((value / total) * 100)}%`,
-                        RISK_META[name as RiskLevel]?.label ?? name,
+                        BAND_META[name as ScoreBand]?.label ?? name,
                       ]}
                     />
                   </PieChart>
@@ -250,7 +249,7 @@ export function RiskDonut({ students }: { students: Student[] }) {
 
               <ul className="space-y-1.5 min-w-[160px]">
                 {bands.map((b) => {
-                  const meta = RISK_META[b.name];
+                  const meta = BAND_META[b.name];
                   const pct = Math.round((b.value / total) * 100);
                   const active = hovered === b.name;
                   return (
@@ -313,8 +312,8 @@ export function RiskDonut({ students }: { students: Student[] }) {
                           x2="1"
                           y2="0"
                         >
-                          <stop offset="0%" stopColor={RISK_META[b].color} stopOpacity={0.95} />
-                          <stop offset="100%" stopColor={RISK_META[b].color} stopOpacity={0.75} />
+                          <stop offset="0%" stopColor={BAND_META[b].color} stopOpacity={0.95} />
+                          <stop offset="100%" stopColor={BAND_META[b].color} stopOpacity={0.75} />
                         </linearGradient>
                       ))}
                     </defs>
@@ -338,14 +337,14 @@ export function RiskDonut({ students }: { students: Student[] }) {
                       stroke="hsl(230 15% 40%)"
                       tickLine={false}
                       axisLine={false}
-                      width={40}
+                      width={64}
                     />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
                       cursor={{ fill: "hsl(142 52% 48% / 0.04)" }}
                       formatter={(value: number, name: string) => [
                         value,
-                        RISK_META[name as RiskLevel]?.label ?? name,
+                        BAND_META[name as ScoreBand]?.label ?? name,
                       ]}
                     />
                     {ORDER.map((band, i) => (
@@ -384,16 +383,16 @@ export function RiskDonut({ students }: { students: Student[] }) {
                 onMouseLeave={() => setHovered(null)}
                 className={cn(
                   "inline-flex items-center gap-1.5 pl-1.5 pr-2.5 h-6 rounded-full border text-[10.5px] font-semibold transition-transform hover:-translate-y-0.5",
-                  RISK_META[b].bg,
-                  RISK_META[b].border,
-                  RISK_META[b].text,
+                  BAND_META[b].bg,
+                  BAND_META[b].border,
+                  BAND_META[b].text,
                 )}
               >
                 <span
                   className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: RISK_META[b].color }}
+                  style={{ background: BAND_META[b].color }}
                 />
-                {RISK_META[b].label}
+                {BAND_META[b].label}
                 <span className="tabular-nums font-bold">{bands.find((x) => x.name === b)?.value ?? 0}</span>
               </button>
             ))}

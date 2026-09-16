@@ -5,7 +5,6 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
-  ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   Gauge,
@@ -25,6 +24,7 @@ import { getOnboarding, type OnboardingGoal } from "@/lib/onboarding";
 import { DRIVER_META, driverScore } from "@/lib/driverMeta";
 import { WELLBEING_STATUS_TONE, wellbeingStatusFromScore } from "@/lib/classWellbeing";
 import { FocusAreaDialog } from "@/components/dashboard/DataReadinessCard";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -64,35 +64,43 @@ const SCORE_BAND_TONE: Record<ScoreBand, string> = {
   "needs-support": RED,
 };
 
-// Fixed demo distribution — mirrors the reference design's student breakdown.
-// Tones come from WELLBEING_STATUS_TONE (the same Strong/Stable/Watch/Needs
-// Support palette the Student Wellbeing driver cards use) rather than this
-// file's own GREEN/BLUE/AMBER/RED — those feed the overall score band's
-// color elsewhere on this card and are a noticeably different (more
-// saturated) blue in particular, so reusing them here would recolor this
-// bar close to, but subtly off from, the driver cards' actual palette.
-const DISTRIBUTION = [
-  { key: "improving", label: "Strong Regulation", tone: WELLBEING_STATUS_TONE.strong, count: 7 },
-  { key: "on-track", label: "Stable Behaviour", tone: WELLBEING_STATUS_TONE.stable, count: 15 },
-  { key: "watch", label: "Watch", tone: WELLBEING_STATUS_TONE.watch, count: 5 },
-  { key: "needs-support", label: "Needs Support", tone: WELLBEING_STATUS_TONE.support, count: 3 },
-] as const;
+// Real per-band student counts (Excellent/Stable/Watch/Needs Support),
+// bucketed from each student's actual studentHealthScore — see
+// classHealth()'s distribution field. Tones come from WELLBEING_STATUS_TONE
+// (the same Strong/Stable/Watch/Needs Support palette the Student Wellbeing
+// driver cards use) rather than this file's own GREEN/BLUE/AMBER/RED, which
+// feed the overall score band's color elsewhere on this card and are a
+// noticeably different (more saturated) blue in particular.
+const DISTRIBUTION_LABEL: Record<ScoreBand, string> = {
+  excellent: "Excellent",
+  stable: "Stable",
+  watch: "Watch",
+  "needs-support": "Needs Support",
+};
+
+const DISTRIBUTION_TONE: Record<ScoreBand, string> = {
+  excellent: WELLBEING_STATUS_TONE.strong,
+  stable: WELLBEING_STATUS_TONE.stable,
+  watch: WELLBEING_STATUS_TONE.watch,
+  "needs-support": WELLBEING_STATUS_TONE.support,
+};
 
 /** One honest line about the picked focus area, ranked against every other
  * driver via the same driverScore() pipeline DriverCards uses — no
  * fabricated commentary, just where this area actually sits relative to the
- * other 6. */
-function focusInsight(focusArea: OnboardingGoal, pillars: Record<PillarKey, number>): string {
-  const scores = (Object.keys(DRIVER_META) as OnboardingGoal[]).map((id) => ({
-    id,
-    score: driverScore(id, pillars),
-  }));
-  const focusScore = scores.find((s) => s.id === focusArea)?.score ?? 0;
-  const higherCount = scores.filter((s) => s.id !== focusArea && s.score > focusScore).length;
+ * other 6 (skipping any that have no real data yet). */
+function focusInsight(focusArea: OnboardingGoal, pillars: Record<PillarKey, number | null>): string {
+  const scores = (Object.keys(DRIVER_META) as OnboardingGoal[])
+    .map((id) => ({ id, score: driverScore(id, pillars) }))
+    .filter((s): s is { id: OnboardingGoal; score: number } => s.score != null);
+  const focusScore = scores.find((s) => s.id === focusArea)?.score;
+  if (focusScore == null) return "Not enough data yet to compare this area against the others.";
+  const others = scores.filter((s) => s.id !== focusArea);
+  const higherCount = others.filter((s) => s.score > focusScore).length;
 
   if (focusScore >= 80) return "Already one of your strongest areas — keep reinforcing it.";
-  if (higherCount === scores.length - 1) return "Your class's lowest-scoring area right now — a solid pick to focus on.";
-  return `${higherCount} of your other ${scores.length - 1} tracked areas are scoring higher.`;
+  if (others.length > 0 && higherCount === others.length) return "Your class's lowest-scoring area right now — a solid pick to focus on.";
+  return `${higherCount} of your other ${others.length} tracked area${others.length === 1 ? "" : "s"} are scoring higher.`;
 }
 
 export function ClassroomHealthScore({
@@ -138,21 +146,26 @@ export function ClassroomHealthScore({
   const band = scoreBand(ch.score);
   const tone = SCORE_BAND_TONE[band];
 
-  const ranked = (Object.entries(ch.pillars) as [PillarKey, number][]).sort((a, b) => b[1] - a[1]);
+  const ranked = (Object.entries(ch.pillars) as [PillarKey, number | null][])
+    .filter((e): e is [PillarKey, number] => e[1] != null)
+    .sort((a, b) => b[1] - a[1]);
   const strongest = ranked[0];
   const weakest = ranked[ranked.length - 1];
-  const strongDelta = ch.pillarDelta[strongest[0]];
-  const weakDelta = ch.pillarDelta[weakest[0]];
 
   // The driver card the teacher picked in "Select focus area" (Data
   // Readiness's step 2) — surfaced here so the score they said matters most
   // is never buried among the other six.
   const focusArea = getOnboarding().focusArea;
   const focusDriver = focusArea ? DRIVER_META[focusArea] : null;
-  const focusScore = focusArea ? driverScore(focusArea, ch.pillars) : 0;
+  const focusScore = focusArea ? driverScore(focusArea, ch.pillars) : null;
 
-  const distribution = DISTRIBUTION;
-  const total = distribution.reduce((sum, d) => sum + d.count, 0);
+  const distribution = (Object.keys(ch.distribution) as ScoreBand[]).map((band) => ({
+    key: band,
+    label: DISTRIBUTION_LABEL[band],
+    tone: DISTRIBUTION_TONE[band],
+    count: ch.distribution[band],
+  }));
+  const total = ch.total;
 
   return (
     <motion.section
@@ -227,21 +240,6 @@ export function ClassroomHealthScore({
             <p className="text-[13px] text-muted-foreground max-w-sm leading-snug">
               {DESCRIPTION_BY_BAND[band]}
             </p>
-            <span
-              className="inline-flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded-full w-fit"
-              style={{
-                background: `color-mix(in srgb, ${ch.delta >= 0 ? GREEN : RED} 14%, transparent)`,
-                color: ch.delta >= 0 ? GREEN : RED,
-              }}
-            >
-              {ch.delta >= 0 ? (
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowDownRight className="h-3.5 w-3.5" />
-              )}
-              {ch.delta >= 0 ? "+" : ""}
-              {ch.delta} points this week
-            </span>
           </div>
         </div>
 
@@ -287,21 +285,25 @@ export function ClassroomHealthScore({
                     {focusDriver.description}
                   </p>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between text-[10.5px] font-bold text-muted-foreground mb-1">
-                    <span>SCORE</span>
-                    <span className="tabular-nums">{focusScore}/100</span>
+                {focusScore != null ? (
+                  <div>
+                    <div className="flex items-center justify-between text-[10.5px] font-bold text-muted-foreground mb-1">
+                      <span>SCORE</span>
+                      <span className="tabular-nums">{focusScore}/100</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-background/80 overflow-hidden">
+                      <motion.span
+                        initial={reduce ? undefined : { scaleX: 0 }}
+                        animate={{ scaleX: focusScore / 100 }}
+                        transition={{ duration: 0.5, ease: EASE }}
+                        className="block h-full w-full origin-left rounded-full"
+                        style={{ background: WELLBEING_STATUS_TONE[wellbeingStatusFromScore(focusScore)] }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-background/80 overflow-hidden">
-                    <motion.span
-                      initial={reduce ? undefined : { scaleX: 0 }}
-                      animate={{ scaleX: focusScore / 100 }}
-                      transition={{ duration: 0.5, ease: EASE }}
-                      className="block h-full w-full origin-left rounded-full"
-                      style={{ background: WELLBEING_STATUS_TONE[wellbeingStatusFromScore(focusScore)] }}
-                    />
-                  </div>
-                </div>
+                ) : (
+                  <NotEnoughData />
+                )}
                 <p
                   className="flex items-start gap-1.5 text-[11px] leading-snug"
                   style={{ color: `color-mix(in srgb, ${focusDriver.tone} 80%, hsl(var(--muted-foreground)))` }}
@@ -331,77 +333,61 @@ export function ClassroomHealthScore({
       <FocusAreaDialog open={focusPromptOpen} onOpenChange={setFocusPromptOpen} />
 
       {/* Strongest area / Needs attention — focus area now lives in the hero above */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
-              style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
-            >
-              <Users className="h-3.5 w-3.5" />
-            </span>
-            <span
-              className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
+      {strongest && weakest && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN }}
+              >
+                <Users className="h-3.5 w-3.5" />
+              </span>
+              <span
+                className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: GREEN }}
+              >
+                Strongest area
+              </span>
+            </div>
+            <h3
+              className="font-heading font-extrabold text-[16px] leading-tight"
               style={{ color: GREEN }}
             >
-              Strongest area
-            </span>
+              {PILLAR_DISPLAY[strongest[0]]}
+            </h3>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Strongest contributor to classroom health.
+            </p>
           </div>
-          <h3
-            className="font-heading font-extrabold text-[16px] leading-tight"
-            style={{ color: GREEN }}
-          >
-            {PILLAR_DISPLAY[strongest[0]]}
-          </h3>
-          <p className="text-[11px] text-muted-foreground leading-snug">
-            Strongest contributor to classroom health.
-          </p>
-          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
-            {strongDelta >= 0 ? (
-              <ArrowUpRight className="h-3 w-3" style={{ color: GREEN }} />
-            ) : (
-              <ArrowDownRight className="h-3 w-3" style={{ color: RED }} />
-            )}
-            {strongDelta >= 0 ? "+" : ""}
-            {strongDelta} vs last week
-          </span>
-        </div>
 
-        <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
-              style={{ background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-            </span>
-            <span
-              className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
+          <div className="rounded-xl border border-border/60 bg-background/50 p-4 space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+              </span>
+              <span
+                className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: AMBER }}
+              >
+                Needs attention
+              </span>
+            </div>
+            <h3
+              className="font-heading font-extrabold text-[16px] leading-tight"
               style={{ color: AMBER }}
             >
-              Needs attention
-            </span>
+              {PILLAR_DISPLAY[weakest[0]]}
+            </h3>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Lowest contributor to classroom health.
+            </p>
           </div>
-          <h3
-            className="font-heading font-extrabold text-[16px] leading-tight"
-            style={{ color: AMBER }}
-          >
-            {PILLAR_DISPLAY[weakest[0]]}
-          </h3>
-          <p className="text-[11px] text-muted-foreground leading-snug">
-            Lowest contributor to classroom health.
-          </p>
-          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border border-border/70 text-muted-foreground">
-            {weakDelta >= 0 ? (
-              <ArrowUpRight className="h-3 w-3" style={{ color: GREEN }} />
-            ) : (
-              <ArrowDownRight className="h-3 w-3" style={{ color: RED }} />
-            )}
-            {weakDelta >= 0 ? "+" : ""}
-            {weakDelta} vs last week
-          </span>
         </div>
-      </div>
+      )}
 
       {/* Student distribution */}
       <div className="mt-5 pt-5 border-t border-border/60">
@@ -471,7 +457,7 @@ export function ClassroomHealthScore({
         </div>
 
         <div className="mt-3 flex w-full items-start text-[12.5px]">
-          {distribution.map((d) => (
+          {distribution.filter((d) => d.count > 0).map((d) => (
             <div
               key={d.key}
               className="flex flex-col gap-1 min-w-0"

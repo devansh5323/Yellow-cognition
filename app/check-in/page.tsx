@@ -113,10 +113,10 @@ function pick<T>(arr: readonly T[]): T {
  * downstream metric (Class Health, driver cards, friction insights) keeps
  * working without the teacher entering anything by hand. */
 function buildRecordedCheckIn(): ClassCheckIn {
-  const roster = STUDENTS.filter((s) => s.grade === GRADE);
-  const rosterFinal = roster.length ? roster : STUDENTS.slice(0, 12);
-
-  const students: StudentBehaviourRating[] = rosterFinal.map((s) => {
+  // The real roster has no grade/section field (only `ageGroup`) — this
+  // simulated "recorded" check-in now just rates the whole class, same as
+  // every other seeded check-in slice.
+  const students: StudentBehaviourRating[] = STUDENTS.map((s) => {
     if (Math.random() < 0.05) {
       return { studentId: s.id, absent: true, ratings: {} };
     }

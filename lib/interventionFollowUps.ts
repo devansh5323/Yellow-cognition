@@ -3,8 +3,43 @@
 // re-flags the same student/reason forever since it's derived live from mock
 // scores). Logging a follow-up here marks that specific flagged reason as
 // addressed so it drops out of the pending queue.
+//
+// `classRiskRadar`/`RISK_INTERVENTIONS`/`RiskReason` used to live in
+// data/mockData.ts, computed from gameplay-signal fields (csi, pfi deltas,
+// attention domains) that don't exist in the real 16-student dataset — see
+// lib/classBehavior.ts for the same removal rationale. They're recreated
+// here instead: `RiskReason` and the generic (non-per-student) intervention
+// catalog are still meaningful static content, but the radar itself now
+// honestly reports zero flagged students until a real per-student risk
+// signal exists, rather than re-deriving one from removed fields.
 
-import { classRiskRadar, RISK_INTERVENTIONS, type RiskReason, type Student } from "@/data/mockData";
+import { STUDENTS, type Student } from "@/data/mockData";
+
+export type RiskReason =
+  | "At Risk (Health Score)"
+  | "Declining Performance"
+  | "Emotional Dips"
+  | "High Impulsivity";
+
+/** Recommended interventions per risk reason — generic pedagogical guidance,
+ * not derived from any per-student signal. */
+export const RISK_INTERVENTIONS: Record<RiskReason, string[]> = {
+  "At Risk (Health Score)": ["Schedule 1:1 check-in", "Notify counselor", "Daily progress tracker"],
+  "Declining Performance": ["Parent contact within 7 days", "Reduce cognitive load", "Re-baseline assessment"],
+  "Emotional Dips": ["Calming corner access", "Mood check-in cards", "Counselor referral if persistent"],
+  "High Impulsivity": ["Movement breaks", "Impulse-Control games daily", "Visual stop-and-think cue"],
+};
+
+/** No real per-student risk signal exists yet in the current dataset — every
+ * reason honestly reports zero flagged students rather than re-deriving a
+ * flag from removed fields (csi, pfi deltas, attention domains). */
+function classRiskRadar(students: Student[] = STUDENTS): { reason: RiskReason; students: Student[] }[] {
+  void students;
+  return (Object.keys(RISK_INTERVENTIONS) as RiskReason[]).map((reason) => ({
+    reason,
+    students: [],
+  }));
+}
 
 export type ImplementationStatus =
   | "Not yet tried"

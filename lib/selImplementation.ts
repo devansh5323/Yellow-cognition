@@ -11,8 +11,7 @@
 // and every summary number and status band below is computed FROM the
 // seed rows, not independently made up.
 
-import { STUDENTS, type Grade } from "@/data/mockData";
-import { classroomKey } from "@/lib/selNeeds";
+import { type Grade } from "@/data/mockData";
 import { allEmergingPatterns, type SelActionItem, type SelCompetency, type Pulse, type PatternInsight } from "@/lib/selPulse";
 
 export type ImplementationStatus = "on-track" | "watch" | "needs-follow-up";
@@ -55,9 +54,14 @@ const SEED_ROWS: SeedRow[] = [
   { classroom: "4B", selFocus: "Coping with Challenges", teacher: "Ms. Priya Sharma", planned: 4, completed: 4 },
 ];
 
+// The real roster's classroomKey is now the student's ageGroup (see
+// selNeeds.ts) — it no longer overlaps with these seed classroom labels
+// ("3A"/"3B"/"4A"/"4B") at all, so a student lookup would never match.
+// The classroom label itself already encodes its grade, so parse that
+// directly rather than a (now-broken) roster lookup.
 function gradeForClassroom(classroom: string): Grade {
-  const student = STUDENTS.find((s) => classroomKey(s) === classroom);
-  return (student?.grade ?? "Grade 3") as Grade;
+  const gradeDigits = classroom.replace(/\D/g, "");
+  return (gradeDigits ? `Grade ${gradeDigits}` : "Grade 3") as Grade;
 }
 
 export function classroomImplementationRows(): ClassroomImplementation[] {

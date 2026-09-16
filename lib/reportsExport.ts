@@ -1,15 +1,30 @@
 import type { Student } from "@/data/mockData";
 
+// Columns below are limited to fields the real 16-student dataset actually
+// has (id, name, ageGroup, parentName, studentHealthScore, and the
+// cognitive-performance/wellbeing sub-scores). Grade/section/pfi/csi/risk/
+// gamesPlayed/gamesAssigned/daysActive/coach have no real equivalent and are
+// dropped rather than exported as fabricated values.
 export function downloadCsv(students: Student[], filename = "yellow-report.csv") {
   const headers = [
-    "id", "name", "grade", "section", "pfi", "csi", "risk",
-    "gamesPlayed", "gamesAssigned", "engagement%", "daysActive", "coach",
+    "id", "name", "ageGroup", "parentName", "studentHealthScore",
+    "cognitivePerformance", "attentionAndFocus", "taskEngagement",
+    "behaviourAndDiscipline", "instructionalFriction", "learningReadiness",
+    "wellbeing",
   ];
   const rows = students.map((s) => [
-    s.id, s.name, s.grade, s.section, s.pfi, s.csi, s.risk,
-    s.gamesPlayed, s.gamesAssigned,
-    Math.round((s.gamesPlayed / s.gamesAssigned) * 100),
-    s.daysActive, s.coach,
+    s.id,
+    s.name,
+    s.ageGroup,
+    s.parentName,
+    s.studentHealthScore,
+    s.cognitivePerformance.score,
+    s.cognitivePerformance.attentionAndFocus ?? "",
+    s.cognitivePerformance.taskEngagement ?? "",
+    s.cognitivePerformance.behaviourAndDiscipline ?? "",
+    s.cognitivePerformance.instructionalFriction ?? "",
+    s.cognitivePerformance.learningReadiness.score ?? "",
+    s.studentWellbeing.score ?? "",
   ]);
   const csv = [headers, ...rows]
     .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))

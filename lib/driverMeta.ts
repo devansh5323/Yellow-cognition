@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { OnboardingGoal } from "@/lib/onboarding";
 import type { PillarKey } from "@/lib/classHealth";
+import { classWellbeingDrivers, type WellbeingDriverKey } from "@/lib/classWellbeing";
 
 const BLUE = "hsl(212 90% 58%)";
 const GREEN = "hsl(142 55% 45%)";
@@ -88,16 +89,17 @@ function isPillarKey(key: OnboardingGoal): key is PillarKey {
   return (PILLAR_KEYS as string[]).includes(key);
 }
 
-// Mirrors DriverCards.tsx's Student Wellbeing scores (72/81/64) — same
-// "hardcoded but plausible" demo data, since there's no real per-class
-// wellbeing model yet.
-const WELLBEING_SCORE: Record<string, number> = {
-  anxiety: 72,
-  "peer-safety": 81,
-  frustration: 64,
-};
+function isWellbeingKey(key: OnboardingGoal): key is WellbeingDriverKey {
+  return key === "anxiety" || key === "peer-safety" || key === "frustration";
+}
 
-export function driverScore(key: OnboardingGoal, pillars: Record<PillarKey, number>): number {
+/** Real score for any of the 7 driver keys — `null` when the underlying
+ * data doesn't cover it yet (e.g. focus/behavior pillars, or a wellbeing
+ * driver with no real per-student signal), never a fabricated fallback. */
+export function driverScore(key: OnboardingGoal, pillars: Record<PillarKey, number | null>): number | null {
   if (isPillarKey(key)) return pillars[key];
-  return WELLBEING_SCORE[key] ?? 0;
+  if (isWellbeingKey(key)) {
+    return classWellbeingDrivers().find((d) => d.key === key)?.score ?? null;
+  }
+  return null;
 }

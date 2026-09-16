@@ -214,7 +214,7 @@ export function searchStudents(query: string, limit = 8): Student[] {
   const q = query.trim().toLowerCase();
   if (!q) return STUDENTS.slice(0, limit);
   return STUDENTS.filter((s) => {
-    const hay = `${s.name} ${s.grade} ${s.section}`.toLowerCase();
+    const hay = `${s.name} ${s.ageGroup}`.toLowerCase();
     return hay.includes(q);
   }).slice(0, limit);
 }

@@ -69,14 +69,14 @@ function SpecialEducationPage() {
     [fullEntries, assignments],
   );
 
-  const gradeOptions = useMemo(() => Array.from(new Set(iepEntries.map((e) => e.student.grade))).sort(), [iepEntries]);
-  const classroomOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(iepEntries.map((e) => `${e.student.grade.replace(/\D/g, "")}${e.student.section}`)),
-      ).sort(),
+  const gradeOptions = useMemo(
+    () => Array.from(new Set(iepEntries.map((e) => e.student.ageGroup))).sort(),
     [iepEntries],
   );
+  // No classroom/section split exists on the real roster — "classroom"
+  // here is the same ageGroup grouping as "grade" (same convention as
+  // lib/selNeeds.ts's classroomKey), rather than a fabricated section.
+  const classroomOptions = gradeOptions;
 
   const [grade, setGrade] = useState<string>("all");
   const [classroom, setClassroom] = useState<string>("all");
@@ -85,9 +85,9 @@ function SpecialEducationPage() {
 
   const entries = useMemo(() => {
     let result = iepEntries;
-    if (grade !== "all") result = result.filter((e) => e.student.grade === grade);
+    if (grade !== "all") result = result.filter((e) => e.student.ageGroup === grade);
     if (classroom !== "all") {
-      result = result.filter((e) => `${e.student.grade.replace(/\D/g, "")}${e.student.section}` === classroom);
+      result = result.filter((e) => e.student.ageGroup === classroom);
     }
     if (reviewStatus !== "all") {
       result = result.filter(

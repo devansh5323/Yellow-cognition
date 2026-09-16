@@ -83,7 +83,7 @@ function SpecialistDashboard() {
   // student's placeholder IEP/504 pathway doesn't shift as filters change).
   const fullEntries = useMemo(() => getCaseloadEntries(), []);
   const assignments = useMemo(() => buildPlaceholderAssignments(fullEntries), [fullEntries]);
-  const gradeOptions = useMemo(() => Array.from(new Set(STUDENTS.map((s) => s.grade))).sort(), []);
+  const gradeOptions = useMemo(() => Array.from(new Set(STUDENTS.map((s) => s.ageGroup))).sort(), []);
   const tierOptions = useMemo(
     () => Array.from(new Set(fullEntries.map((e) => e.tier))).sort() as CaseloadTier[],
     [fullEntries],
@@ -99,7 +99,7 @@ function SpecialistDashboard() {
   // placeholder assignment until a real IEP/504 plan model exists).
   const entries = useMemo(() => {
     let result = fullEntries;
-    if (grade !== "all") result = result.filter((e) => e.student.grade === grade);
+    if (grade !== "all") result = result.filter((e) => e.student.ageGroup === grade);
     if (tier !== "all") result = result.filter((e) => e.tier === tier);
     if (view !== "overview") {
       const wantedPathway = view === "special-education" ? "IEP" : "504";

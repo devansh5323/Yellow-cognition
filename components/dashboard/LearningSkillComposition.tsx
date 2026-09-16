@@ -10,12 +10,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import {
-  LEARNING_AREA_HUE,
-  LEARNING_AREA_LABEL,
-  learningAreaSkillComposition,
-  type LearningAreaKey,
-} from "@/lib/classLearning";
+import { LEARNING_AREA_HUE, LEARNING_AREA_LABEL, type LearningAreaKey } from "@/lib/classLearning";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -37,6 +33,11 @@ const AREA_ORDER: LearningAreaKey[] = [
   "curiosityExploration",
 ];
 
+// The underlying sub-skill breakdown per area (e.g. "Pattern Recognition",
+// "Strategy Planning") needed per-student KSA/indicator/sub-domain signal
+// that doesn't exist in the real dataset yet — each area still names its
+// real class-level identity, just with an honest "not enough data" note in
+// place of a fabricated sub-skill bar.
 export function LearningSkillComposition() {
   const reduce = useReducedMotion();
 
@@ -58,7 +59,6 @@ export function LearningSkillComposition() {
         {AREA_ORDER.map((key, i) => {
           const hue = LEARNING_AREA_HUE[key];
           const Icon = AREA_ICON[key];
-          const skills = learningAreaSkillComposition(key);
           return (
             <motion.div
               key={key}
@@ -79,30 +79,9 @@ export function LearningSkillComposition() {
                 </span>
               </div>
 
-              <ul className="mt-3.5 space-y-2.5">
-                {skills.map((skill) => (
-                  <li key={skill.name}>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[11.5px] font-semibold text-foreground/85 truncate">
-                        {skill.name}
-                      </span>
-                      <span
-                        className="font-heading font-extrabold tabular-nums text-[11.5px] leading-none shrink-0"
-                        style={{ color: hue }}
-                      >
-                        {skill.score}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1 rounded-full bg-muted/50 overflow-hidden">
-                      <span
-                        className="block h-full rounded-full"
-                        style={{ width: `${skill.score}%`, background: hue }}
-                        aria-label={`${skill.name} score ${skill.score}`}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-3.5">
+                <NotEnoughData label="Not enough data yet for this area's skill breakdown" />
+              </div>
             </motion.div>
           );
         })}

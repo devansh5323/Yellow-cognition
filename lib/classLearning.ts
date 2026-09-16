@@ -1,46 +1,20 @@
-// Class Learning Readiness — data + helpers for the Learning Readiness experience.
-// Derives the class-level picture entirely from existing gameplay-adjacent student
-// mocks (KSAs, indicators, sub-domains, attention domains, history) — deliberately
-// NOT from `subjects[]` (report-card-style marks), since this page is framed as
-// "generated from gameplay signals, not academic achievement."
+// Class Learning Readiness — data + helpers for the Learning Readiness
+// experience. Computed directly from real per-student learning-readiness
+// fields (data/realStudents.ts) — the real dataset only covers 5 of the 6
+// areas below (never any real "Curiosity & Exploration" signal), and even
+// those 5 are sparse per student, so every average here skips missing
+// values rather than treating them as zero, and an area with zero real
+// values across the roster surfaces as `null` ("not enough data yet").
 
-import {
-  STUDENTS,
-  studentAttentionDomains,
-  type AttentionDomainKey,
-  type Student,
-} from "@/data/mockData";
+import { STUDENTS, type Student } from "@/data/mockData";
 
 function clamp(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-function avg(nums: number[]): number {
-  if (nums.length === 0) return 0;
+function avg(nums: number[]): number | null {
+  if (nums.length === 0) return null;
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
-}
-
-function ksaScore(s: Student, name: string): number {
-  return s.ksa.find((k) => k.name === name)?.score ?? 60;
-}
-
-function indicatorScore(s: Student, name: string): number {
-  return s.indicators.find((i) => i.name === name)?.score ?? 60;
-}
-
-function subDomainScore(s: Student, name: string): number {
-  return s.subDomains.find((d) => d.name === name)?.score ?? 60;
-}
-
-// `ksa`/`indicators`/`subDomains` are each seeded as `pfi ± small offset +
-// noise` with no systematic per-name variation, so any blend of them
-// regresses to roughly the same class average regardless of which named
-// entries are picked. `studentAttentionDomains()` is the one field with a
-// real fixed per-domain offset baked in — anchoring each area's primary
-// score there is what gives the 6 areas genuine, honest spread at the
-// class level rather than all clustering within a couple of points.
-function domainScore(s: Student, key: AttentionDomainKey): number {
-  return studentAttentionDomains(s)[key];
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -86,7 +60,8 @@ const AREA_ORDER: LearningAreaKey[] = [
 // classroom learning day to day — reading and recall gate independent
 // work, problem solving gates application, reasoning gates conceptual
 // clarity; curiosity and creative expression matter but don't block in the
-// same way, so they carry less weight.
+// same way, so they carry less weight. Renormalized at read-time over
+// whichever areas actually have real data (see weightedAreaAverage below).
 export const LEARNING_AREA_WEIGHT: Record<LearningAreaKey, number> = {
   readingComprehension: 0.2,
   recallRetention: 0.2,
@@ -96,8 +71,16 @@ export const LEARNING_AREA_WEIGHT: Record<LearningAreaKey, number> = {
   creativeExpression: 0.1,
 };
 
-function weightedAreaAverage(scoreFor: (key: LearningAreaKey) => number): number {
-  return clamp(AREA_ORDER.reduce((sum, key) => sum + scoreFor(key) * LEARNING_AREA_WEIGHT[key], 0));
+/** Weighted average over only the areas with a real (non-null) score,
+ * renormalizing the remaining weights so they still sum to 1. */
+function weightedAreaAverage(scoreFor: (key: LearningAreaKey) => number | null): number | null {
+  const present = AREA_ORDER.map((key) => ({ key, score: scoreFor(key) })).filter(
+    (e): e is { key: LearningAreaKey; score: number } => e.score != null,
+  );
+  if (present.length === 0) return null;
+  const weightSum = present.reduce((sum, e) => sum + LEARNING_AREA_WEIGHT[e.key], 0);
+  const weighted = present.reduce((sum, e) => sum + e.score * LEARNING_AREA_WEIGHT[e.key], 0);
+  return clamp(weighted / weightSum);
 }
 
 // Reading & Comprehension, Recall & Retention, and Problem Solving gate
@@ -107,9 +90,10 @@ const FOUNDATIONAL_AREAS: LearningAreaKey[] = ["readingComprehension", "recallRe
 
 /** Tiers escalate rather than stack — a class with one foundational area
  * under 50 is already the worst case (-8), not additionally penalized for
- * also tripping the "any area under 60" and "two areas under 60" tiers. */
-function supportRiskPenalty(scoreFor: (key: LearningAreaKey) => number): number {
-  const scores = FOUNDATIONAL_AREAS.map(scoreFor);
+ * also tripping the "any area under 60" and "two areas under 60" tiers.
+ * Only considers foundational areas that actually have a real score. */
+function supportRiskPenalty(scoreFor: (key: LearningAreaKey) => number | null): number {
+  const scores = FOUNDATIONAL_AREAS.map(scoreFor).filter((v): v is number => v != null);
   const below60 = scores.filter((v) => v < 60).length;
   const below50 = scores.some((v) => v < 50);
 
@@ -129,64 +113,22 @@ export const LEARNING_AREA_HUE: Record<LearningAreaKey, string> = {
   curiosityExploration: "hsl(168 62% 42%)",
 };
 
-function studentLearningAreaScore(s: Student, key: LearningAreaKey): number {
+function studentLearningAreaScore(s: Student, key: LearningAreaKey): number | null {
+  const lr = s.cognitivePerformance.learningReadiness;
   switch (key) {
     case "problemSolving":
-      // Switching + divided attention: holding a strategy while managing
-      // multiple problem steps at once.
-      return clamp(
-        domainScore(s, "swi") * 0.5 +
-          domainScore(s, "div") * 0.2 +
-          ksaScore(s, "Mental Flexibility") * 0.3,
-      );
+      return lr.problemSolving;
     case "reasoning":
-      // Selective + sustained attention: filtering to the relevant detail
-      // and staying with it long enough to connect ideas.
-      return clamp(
-        domainScore(s, "sel") * 0.5 +
-          domainScore(s, "sus") * 0.2 +
-          ksaScore(s, "Working Memory") * 0.3,
-      );
+      return lr.reasoning;
     case "creativeExpression":
-      // Visual attention is the strongest real proxy this dataset has for
-      // generative/expressive output.
-      return clamp(
-        domainScore(s, "vis") * 0.5 +
-          indicatorScore(s, "Adapts self to new rules") * 0.25 +
-          ksaScore(s, "Self - Awareness") * 0.25,
-      );
+      return lr.creativeExpression;
     case "readingComprehension":
-      // Auditory attention: processing spoken instructions and questions.
-      return clamp(
-        domainScore(s, "aud") * 0.5 +
-          indicatorScore(s, "Accurately interprets spoken information") * 0.25 +
-          ksaScore(s, "Active Listening") * 0.25,
-      );
+      return lr.readingComprehension;
     case "recallRetention":
-      // Sustained attention + how steady the student's 4-week history is —
-      // a genuinely different-shaped signal from the domain offsets, so
-      // this area doesn't just track "reasoning" a second time.
-      return clamp(
-        domainScore(s, "sus") * 0.35 +
-          ksaScore(s, "Working Memory") * 0.3 +
-          (100 - historySpread(s)) * 0.35,
-      );
+      return lr.recallRetention;
     case "curiosityExploration":
-      // Divided attention (juggling new things) + behavioural regulation
-      // (bouncing back without shutting down) + frustration tolerance.
-      return clamp(
-        domainScore(s, "div") * 0.4 +
-          domainScore(s, "beh") * 0.3 +
-          ksaScore(s, "Frustration Tolerance") * 0.3,
-      );
+      return null; // no real field exists for this area at all yet
   }
-}
-
-/** Spread across the 4-week intra-month history — a wide swing reads as
- * inconsistent retention week to week. */
-function historySpread(s: Student): number {
-  const weeks = s.history.map((h) => h.pfi);
-  return Math.max(...weeks) - Math.min(...weeks);
 }
 
 export type LearningAreaStat = {
@@ -194,8 +136,7 @@ export type LearningAreaStat = {
   label: string;
   description: string;
   hue: string;
-  score: number;
-  prevScore: number;
+  score: number | null;
   studentCount: number;
 };
 
@@ -226,7 +167,9 @@ const STRUGGLE_THRESHOLD = 55;
 
 export function classLearningAreas(students: Student[] = STUDENTS): LearningAreaStat[] {
   return AREA_ORDER.map((key) => {
-    const scores = students.map((s) => studentLearningAreaScore(s, key));
+    const scores = students
+      .map((s) => studentLearningAreaScore(s, key))
+      .filter((v): v is number => v != null);
     const score = avg(scores);
     const studentCount = scores.filter((v) => v < STRUGGLE_THRESHOLD).length;
     return {
@@ -235,7 +178,6 @@ export function classLearningAreas(students: Student[] = STUDENTS): LearningArea
       description: LEARNING_AREA_DESCRIPTION[key],
       hue: LEARNING_AREA_HUE[key],
       score,
-      prevScore: Math.max(0, score - 3),
       studentCount,
     };
   });
@@ -247,7 +189,7 @@ export function studentsByLearningArea(
 ): Student[] {
   return students
     .map((s) => ({ s, v: studentLearningAreaScore(s, key) }))
-    .filter((x) => x.v < STRUGGLE_THRESHOLD)
+    .filter((x): x is { s: Student; v: number } => x.v != null && x.v < STRUGGLE_THRESHOLD)
     .sort((a, b) => a.v - b.v)
     .map((x) => x.s);
 }
@@ -257,14 +199,15 @@ export function studentsByLearningArea(
  * ───────────────────────────────────────────────────────── */
 
 export type ReadinessSnapshot = {
-  score: number;
+  score: number | null;
   /** Weighted area average before the support-risk adjustment below. */
-  rawScore: number;
+  rawScore: number | null;
   /** Points subtracted because one or more foundational areas are weak. */
   supportRiskPenalty: number;
-  status: ReadinessStatus;
+  status: ReadinessStatus | null;
   total: number;
-  /** Count of students at each status band, for the distribution bar. */
+  /** Count of students at each status band, for the distribution bar —
+   * only counts students who have at least one real learning-area score. */
   statusDistribution: Record<ReadinessStatus, number>;
   areas: LearningAreaStat[];
   strongestAreas: LearningAreaStat[];
@@ -274,9 +217,9 @@ export type ReadinessSnapshot = {
 export function classReadinessSnapshot(students: Student[] = STUDENTS): ReadinessSnapshot {
   const areas = classLearningAreas(students);
   const scoreByKey = new Map(areas.map((a) => [a.key, a.score]));
-  const rawScore = weightedAreaAverage((key) => scoreByKey.get(key) ?? 0);
-  const penalty = supportRiskPenalty((key) => scoreByKey.get(key) ?? 0);
-  const score = clamp(rawScore - penalty);
+  const rawScore = weightedAreaAverage((key) => scoreByKey.get(key) ?? null);
+  const penalty = supportRiskPenalty((key) => scoreByKey.get(key) ?? null);
+  const score = rawScore != null ? clamp(rawScore - penalty) : null;
   const total = students.length;
 
   const statusDistribution: Record<ReadinessStatus, number> = {
@@ -287,16 +230,17 @@ export function classReadinessSnapshot(students: Student[] = STUDENTS): Readines
   };
   for (const s of students) {
     const perStudentScore = weightedAreaAverage((key) => studentLearningAreaScore(s, key));
-    statusDistribution[readinessStatusFromScore(perStudentScore)] += 1;
+    if (perStudentScore != null) statusDistribution[readinessStatusFromScore(perStudentScore)] += 1;
   }
 
-  const ranked = [...areas].sort((a, b) => b.score - a.score);
+  const withScore = areas.filter((a): a is LearningAreaStat & { score: number } => a.score != null);
+  const ranked = [...withScore].sort((a, b) => b.score - a.score);
 
   return {
     score,
     rawScore,
     supportRiskPenalty: penalty,
-    status: readinessStatusFromScore(score),
+    status: score != null ? readinessStatusFromScore(score) : null,
     total,
     statusDistribution,
     areas,
@@ -306,69 +250,8 @@ export function classReadinessSnapshot(students: Student[] = STUDENTS): Readines
 }
 
 /* ─────────────────────────────────────────────────────────
- * Skill composition by area — 4 named sub-skills per area, each mapped to a
- * real per-student signal (no fabricated numbers).
- * ───────────────────────────────────────────────────────── */
-
-export type AreaSkill = {
-  name: string;
-  score: number;
-};
-
-const AREA_SKILL_FIELDS: Record<LearningAreaKey, { name: string; value: (s: Student) => number }[]> = {
-  problemSolving: [
-    { name: "Pattern Recognition", value: (s) => indicatorScore(s, "Shows attention to detail") },
-    { name: "Multi-step Execution", value: (s) => indicatorScore(s, "Follows multiple-step directions") },
-    { name: "Strategy Planning", value: (s) => ksaScore(s, "Mental Flexibility") },
-    { name: "Error Correction", value: (s) => subDomainScore(s, "Impulse Control") },
-  ],
-  reasoning: [
-    { name: "Concept Linking", value: (s) => ksaScore(s, "Working Memory") },
-    { name: "Logical Inference", value: (s) => ksaScore(s, "Mental Flexibility") },
-    { name: "Comparison & Sorting", value: (s) => subDomainScore(s, "Selective Attention") },
-    { name: "Decision Making", value: (s) => ksaScore(s, "Self Regulation") },
-  ],
-  creativeExpression: [
-    { name: "Idea Generation", value: (s) => indicatorScore(s, "Adapts self to new rules") },
-    { name: "Flexible Thinking", value: (s) => ksaScore(s, "Mental Flexibility") },
-    { name: "Original Responses", value: (s) => ksaScore(s, "Self - Awareness") },
-    { name: "Expression Clarity", value: (s) => ksaScore(s, "Social Perception") },
-  ],
-  readingComprehension: [
-    { name: "Instruction Understanding", value: (s) => indicatorScore(s, "Follows multiple-step directions") },
-    { name: "Question Interpretation", value: (s) => indicatorScore(s, "Accurately interprets spoken information") },
-    { name: "Detail Extraction", value: (s) => indicatorScore(s, "Shows attention to detail") },
-    { name: "Passage Comprehension", value: (s) => subDomainScore(s, "Auditory Attention") },
-  ],
-  recallRetention: [
-    { name: "Working Recall", value: (s) => ksaScore(s, "Working Memory") },
-    { name: "Sequence Memory", value: (s) => subDomainScore(s, "Sustained Attention") },
-    { name: "Rule Retention", value: (s) => ksaScore(s, "Behavior Control") },
-    { name: "Retrieval Speed", value: (s) => s.csi },
-  ],
-  curiosityExploration: [
-    {
-      name: "Trying New Approaches",
-      value: (s) => indicatorScore(s, "Demonstrates ability to switch between tasks without resistance"),
-    },
-    { name: "Experimentation", value: (s) => subDomainScore(s, "Divided Attention") },
-    { name: "Persistence in Novelty", value: (s) => ksaScore(s, "Frustration Tolerance") },
-    { name: "Discovery Drive", value: (s) => Math.round((s.pfi + s.csi) / 2) },
-  ],
-};
-
-export function learningAreaSkillComposition(
-  key: LearningAreaKey,
-  students: Student[] = STUDENTS,
-): AreaSkill[] {
-  return AREA_SKILL_FIELDS[key].map(({ name, value }) => ({
-    name,
-    score: avg(students.map(value)),
-  }));
-}
-
-/* ─────────────────────────────────────────────────────────
- * Learning areas → skills — static reference table.
+ * Learning areas → skills — static reference table, independent of any
+ * per-student field (kept as-is; unaffected by the real-data switch).
  * ───────────────────────────────────────────────────────── */
 
 const LEARNING_AREA_SKILLS: Record<LearningAreaKey, string[]> = {

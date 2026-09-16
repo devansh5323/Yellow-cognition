@@ -50,7 +50,7 @@ export function SchoolPillarRow({ kpis }: Props) {
 }
 
 function PillarTile({ kpi }: { kpi: SchoolKpi }) {
-  const statusTone = STATUS_TONE[kpi.status];
+  const statusTone = kpi.status ? STATUS_TONE[kpi.status] : "hsl(230 10% 55%)";
   const positive = kpi.delta >= 0;
   const { count, total } = getKpiAttentionCount(kpi.id);
 
@@ -97,7 +97,7 @@ function PillarTile({ kpi }: { kpi: SchoolKpi }) {
             color: statusTone,
           }}
         >
-          {STATUS_COPY[kpi.status]}
+          {kpi.status ? STATUS_COPY[kpi.status] : "No data"}
         </span>
       </div>
 
@@ -106,30 +106,42 @@ function PillarTile({ kpi }: { kpi: SchoolKpi }) {
           className="font-heading font-extrabold text-[28px] leading-none tabular-nums"
           style={{ color: kpi.tone }}
         >
-          {kpi.id === "rit" && positive && "+"}
-          <AnimatedNumber
-            value={kpi.value}
-            format={(n) => (kpi.id === "rit" ? n.toFixed(1) : String(n))}
-          />
+          {kpi.value == null ? (
+            "—"
+          ) : (
+            <>
+              {kpi.id === "rit" && positive && "+"}
+              <AnimatedNumber
+                value={kpi.value}
+                format={(n) => (kpi.id === "rit" ? n.toFixed(1) : String(n))}
+              />
+            </>
+          )}
         </span>
         <span className="text-[11.5px] font-bold text-muted-foreground/90 leading-none">
           {kpi.unit}
         </span>
-        <span
-          className="inline-flex items-center text-[11px] font-bold tabular-nums ml-1"
-          style={{ color: positive ? "hsl(142 55% 45%)" : "hsl(0 78% 58%)" }}
-        >
-          {positive ? (
-            <ArrowUpRight className="h-3 w-3" />
-          ) : (
-            <ArrowDownRight className="h-3 w-3" />
-          )}
-          {Math.abs(kpi.delta)}
-        </span>
+        {kpi.hasData && (
+          <span
+            className="inline-flex items-center text-[11px] font-bold tabular-nums ml-1"
+            style={{ color: positive ? "hsl(142 55% 45%)" : "hsl(0 78% 58%)" }}
+          >
+            {positive ? (
+              <ArrowUpRight className="h-3 w-3" />
+            ) : (
+              <ArrowDownRight className="h-3 w-3" />
+            )}
+            {Math.abs(kpi.delta)}
+          </span>
+        )}
       </div>
 
       <div className="relative z-[1] pointer-events-none">
-        <CountRow count={count} total={total} tone={kpi.tone} label={kpi.title} />
+        {kpi.hasData ? (
+          <CountRow count={count} total={total} tone={kpi.tone} label={kpi.title} />
+        ) : (
+          <p className="text-[11px] text-muted-foreground">Not enough data yet</p>
+        )}
       </div>
     </div>
   );

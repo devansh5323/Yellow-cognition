@@ -74,12 +74,12 @@ export function CommandPalette() {
           {STUDENTS.slice(0, 24).map((s) => (
             <CommandItem
               key={s.id}
-              value={`${s.name} ${s.grade} ${s.section}`}
+              value={`${s.name} ${s.ageGroup}`}
               onSelect={() => go(() => router.push(`/students/${s.id}?tab=overview`))}
             >
               <GraduationCap className="mr-2 h-4 w-4 text-muted-foreground" />
               <span className="flex-1">{s.name}</span>
-              <span className="text-xs text-muted-foreground">{s.grade} · {s.section}</span>
+              <span className="text-xs text-muted-foreground">{s.ageGroup}</span>
             </CommandItem>
           ))}
         </CommandGroup>

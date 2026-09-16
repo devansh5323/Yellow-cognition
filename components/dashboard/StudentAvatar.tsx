@@ -3,12 +3,34 @@
 import { cn } from "@/lib/utils";
 import type { Student } from "@/data/mockData";
 
+/** Real students no longer carry a stored `initials`/`avatarColor` pair — both
+ * are derived on the fly instead: initials from the name, and a stable color
+ * hashed from the student's id so the same student always renders the same
+ * color across the app without needing to persist one. */
+function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function colorFrom(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue} 55% 45%)`;
+}
+
 export function StudentAvatar({
   student,
   size = "md",
   className,
 }: {
-  student: Pick<Student, "initials" | "avatarColor">;
+  student: Pick<Student, "id" | "name">;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
@@ -25,9 +47,9 @@ export function StudentAvatar({
         sizeCls,
         className,
       )}
-      style={{ backgroundColor: student.avatarColor }}
+      style={{ backgroundColor: colorFrom(student.id) }}
     >
-      {student.initials}
+      {initialsFrom(student.name)}
     </div>
   );
 }

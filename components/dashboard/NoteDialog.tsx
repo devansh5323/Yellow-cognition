@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { RiskBadge } from "@/components/dashboard/RiskBadge";
+import { scoreBand } from "@/lib/classHealth";
 import { addNote, NOTE_CATEGORIES, PRESET_TAGS, addTag } from "@/lib/studentMutations";
 import type { Student } from "@/data/mockData";
 import { toast } from "sonner";
@@ -24,14 +25,19 @@ export function NoteDialog({ student, open, onOpenChange }: Props) {
   const [tag, setTag] = useState<string | undefined>();
   const [share, setShare] = useState(false);
 
-  useEffect(() => {
+  // Reset the draft whenever the dialog transitions closed → open — done
+  // during render (rather than in an effect) so it can't cause an extra
+  // cascading render pass.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setCategory("Focus");
       setBody("");
       setTag(undefined);
       setShare(false);
     }
-  }, [open, student?.id]);
+  }
 
   if (!student) return null;
 
@@ -53,9 +59,9 @@ export function NoteDialog({ student, open, onOpenChange }: Props) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-heading font-bold text-base">{student.name}</h3>
-                <RiskBadge risk={student.risk} />
+                <RiskBadge band={scoreBand(student.studentHealthScore)} />
               </div>
-              <p className="text-xs text-muted-foreground">{student.grade} · Section {student.section}</p>
+              <p className="text-xs text-muted-foreground">{student.ageGroup}</p>
             </div>
           </div>
         </DialogHeader>

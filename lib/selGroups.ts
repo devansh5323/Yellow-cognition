@@ -83,7 +83,7 @@ function seedGroups(): SelGroup[] {
       name: "Emotional Regulation Circle",
       targetSkill: "Emotional regulation",
       facilitator: "Ms. Priya Sharma",
-      studentIds: studentIdsByName(["Aarav Patel", "Kabir Khanna"]),
+      studentIds: studentIdsByName(["Dhriti", "Nivriti"]),
       frequency: "Weekly",
       startDate: daysAgo(28),
       createdAt: daysAgo(28),
@@ -98,7 +98,7 @@ function seedGroups(): SelGroup[] {
       name: "Peer Connections Group",
       targetSkill: "Peer relationships",
       facilitator: "Ms. Riya Kapoor",
-      studentIds: studentIdsByName(["Advik Choudhary", "Anika Saxena", "Kyra Bose"]),
+      studentIds: studentIdsByName(["Kriyaa", "Teju", "Aizah"]),
       frequency: "Biweekly",
       startDate: daysAgo(28),
       createdAt: daysAgo(28),
@@ -325,8 +325,8 @@ export function recommendGroups(groups: SelGroup[]): GroupRecommendation[] {
   const byDriver = new Map<DisruptionKey, Student[]>();
   for (const student of ungrouped) {
     const worst = classDisruptionBreakdown([student])
-      .filter((d) => d.studentCount > 0 && trackedDrivers.has(d.key))
-      .sort((a, b) => a.score - b.score)[0];
+      .filter((d) => d.hasData && d.studentCount > 0 && d.score != null && trackedDrivers.has(d.key))
+      .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))[0];
     if (!worst) continue;
     const list = byDriver.get(worst.key) ?? [];
     list.push(student);

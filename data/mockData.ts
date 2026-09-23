@@ -1,6 +1,7 @@
 // Real student data for the Yellow Teacher Dashboard.
-// `STUDENTS` is the first real-data batch (16 students, Bishop Cottons) — see
-// data/realStudents.ts for the source-of-truth values and provenance. The
+// `STUDENTS` is supplied by the active named demo dataset (Bishop Cotton
+// School today) — see data/bishopCotton.ts and data/realStudents.ts for the
+// source-of-truth values and provenance. The
 // prior 24-student synthetic mock roster (and every helper that only existed
 // to serve its gameplay-signal fields — pfi/csi/subDomains/ksa/indicators/
 // subjects/sessions/history/monthly/attention-domains) has been removed
@@ -8,11 +9,13 @@
 // silently falling back to synthetic data would misrepresent real, named
 // students.
 
-import { REAL_STUDENTS, type RealStudent } from "@/data/realStudents";
+import { activeDemoSchool } from "@/data/bishopCotton";
+import type { RealStudent } from "@/data/realStudents";
 
 export type Student = RealStudent;
 
-export const STUDENTS: Student[] = REAL_STUDENTS;
+export const DEMO_SCHOOL = activeDemoSchool;
+export const STUDENTS: Student[] = activeDemoSchool.students;
 
 export function getStudent(id: string): Student | undefined {
   return STUDENTS.find((s) => s.id === id);
@@ -261,4 +264,3 @@ export const INBOX_ITEMS: InboxItem[] = [
     priority: "low",
   },
 ];
-

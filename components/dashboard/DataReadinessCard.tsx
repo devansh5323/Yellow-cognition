@@ -43,12 +43,6 @@ const BLUE = "hsl(212 90% 58%)";
 const VIOLET = "hsl(260 55% 60%)";
 const AMBER = "hsl(38 92% 55%)";
 
-// Static design placeholder — not wired to real roster/Fumi data yet. The
-// hero bar reads as "how many students have actually connected via Fumi,"
-// not step completion, so it only ever shows 100% once every student has.
-const FUMI_CONNECTED_STUDENTS = 20;
-const FUMI_TOTAL_STUDENTS = 24;
-
 type StartStepId = "classroom" | "focus" | "fumi";
 
 type StartStep = {
@@ -198,7 +192,10 @@ export function DataReadinessCard() {
   // 100%), so it switches to the next thing worth watching: how many
   // students have actually connected via Fumi.
   const readinessPct = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
-  const fumiConnectedPct = Math.round((FUMI_CONNECTED_STUDENTS / FUMI_TOTAL_STUDENTS) * 100);
+  const fumiConnectedStudents = linked;
+  const fumiTotalStudents = total;
+  const fumiConnectedPct =
+    fumiTotalStudents > 0 ? Math.round((fumiConnectedStudents / fumiTotalStudents) * 100) : 0;
   const heroPct = stepsAllDone ? fumiConnectedPct : readinessPct;
   const heroTone = heroPct === 100 ? GREEN : heroPct === 0 ? AMBER : BLUE;
 
@@ -389,7 +386,7 @@ export function DataReadinessCard() {
                 {stepsAllDone ? (
                   fumiConnectedPct < 100 && (
                     <div className="mt-1.5 text-[11px] font-bold text-muted-foreground whitespace-nowrap">
-                      {FUMI_CONNECTED_STUDENTS} of {FUMI_TOTAL_STUDENTS} students connected via Fumi
+                      {fumiConnectedStudents} of {fumiTotalStudents} students connected via Fumi
                     </div>
                   )
                 ) : (

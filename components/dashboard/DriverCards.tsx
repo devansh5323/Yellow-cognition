@@ -16,6 +16,7 @@ import { classHealth } from "@/lib/classHealth";
 import { WellbeingDriverCards } from "@/components/dashboard/WellbeingDriverCards";
 import { WELLBEING_STATUS_TONE, WELLBEING_STATUS_LABEL, wellbeingStatusFromScore } from "@/lib/classWellbeing";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import { activeDemoSchool } from "@/data/bishopCotton";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -44,13 +45,6 @@ function healthBand(score: number): { tone: string; label: string } {
   const status = wellbeingStatusFromScore(score);
   return { tone: WELLBEING_STATUS_TONE[status], label: WELLBEING_STATUS_LABEL[status] };
 }
-
-function average(items: DriverItem[]): number | null {
-  const scored = items.filter((i): i is DriverItem & { score: number } => i.score != null);
-  if (scored.length === 0) return null;
-  return Math.round(scored.reduce((sum, i) => sum + i.score, 0) / scored.length);
-}
-
 
 export function DriverCards({ locked = false }: { locked?: boolean }) {
   const reduce = useReducedMotion();
@@ -154,7 +148,7 @@ function DriverGroup({
   reduce: boolean;
   onSelect?: (key: string) => void;
 }) {
-  const avg = average(items);
+  const avg = onSelect ? activeDemoSchool.metrics.cognitivePerformanceScore.value : null;
   const band = avg != null ? healthBand(avg) : null;
 
   return (

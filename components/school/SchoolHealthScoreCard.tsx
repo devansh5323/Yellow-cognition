@@ -75,7 +75,8 @@ const PILLAR_ICON: Record<SchoolPillarKey, LucideIcon> = {
   teacherEfficiency: Users,
 };
 
-const PILLAR_TONE: Record<SchoolPillarKey, string> = {
+const PILLAR_TONE: Record<SchoolPillarKey | "studentHealthScore", string> = {
+  studentHealthScore: "hsl(212 90% 58%)",
   studentWellbeing: "hsl(142 55% 42%)",
   classroomPerformance: "hsl(262 60% 55%)",
   teacherEfficiency: "hsl(28 88% 54%)",
@@ -112,7 +113,6 @@ export function SchoolHealthScoreCard() {
   const coverage = useMemo(() => schoolHealthCoverage(scopedGrade), [scopedGrade]);
   const pillars = useMemo(() => schoolPillarMetrics(scopedGrade), [scopedGrade]);
   const supportFocus = useMemo(() => schoolSupportFocus(scopedGrade), [scopedGrade]);
-  const trend = useMemo(() => schoolHealthTrend(scopedGrade), [scopedGrade]);
 
   const statusTone = STATUS_TONE[overview.status];
 
@@ -231,7 +231,7 @@ export function SchoolHealthScoreCard() {
                     {overview.drivers.map((d) => (
                       <li key={d.key} className="flex items-center justify-between text-[11.5px]">
                         <span className="text-foreground/85">{d.label}</span>
-                        <span className="font-bold tabular-nums">{d.score}</span>
+                        <span className="font-bold tabular-nums">{d.score != null ? d.score.toFixed(1) : "—"}</span>
                       </li>
                     ))}
                   </ul>
@@ -410,7 +410,7 @@ function ScoreDetailCard({
                 className="font-heading font-black tabular-nums leading-none text-[52px]"
                 style={{ color: statusTone }}
               >
-                {overview.score}
+                {overview.score.toFixed(1)}
               </span>
               <span className="text-[13px] font-extrabold text-muted-foreground/80">/100</span>
             </div>
@@ -576,13 +576,7 @@ function TrendChart({
           <FilterSelect
             icon={CalendarDays}
             value={periodFilter}
-            onChange={(v) => {
-              if (v !== "Weekly") {
-                comingSoon("Alternate trend granularity");
-                return;
-              }
-              setPeriodFilter(v);
-            }}
+            onChange={(v) => setPeriodFilter(v as "Weekly" | "Monthly")}
             options={["Weekly", "Monthly"]}
           />
           <button
@@ -629,7 +623,8 @@ function TrendChart({
   );
 }
 
-const PILLAR_LABEL_SHORT: Record<SchoolPillarKey, string> = {
+const PILLAR_LABEL_SHORT: Record<SchoolPillarKey | "studentHealthScore", string> = {
+  studentHealthScore: "Student Health Score",
   studentWellbeing: "Student Well-being",
   classroomPerformance: "Classroom Performance Index",
   teacherEfficiency: "Teacher Efficiency",

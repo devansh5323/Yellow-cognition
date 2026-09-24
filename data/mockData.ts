@@ -1,6 +1,7 @@
 // Real student data for the Yellow Teacher Dashboard.
-// `STUDENTS` is the first real-data batch (16 students, Bishop Cottons) — see
-// data/realStudents.ts for the source-of-truth values and provenance. The
+// `STUDENTS` is supplied by the active named demo dataset (Bishop Cotton
+// School today) — see data/bishopCotton.ts and data/realStudents.ts for the
+// source-of-truth values and provenance. The
 // prior 24-student synthetic mock roster (and every helper that only existed
 // to serve its gameplay-signal fields — pfi/csi/subDomains/ksa/indicators/
 // subjects/sessions/history/monthly/attention-domains) has been removed
@@ -8,11 +9,13 @@
 // silently falling back to synthetic data would misrepresent real, named
 // students.
 
-import { REAL_STUDENTS, type RealStudent } from "@/data/realStudents";
+import { activeDemoSchool } from "@/data/bishopCotton";
+import type { RealStudent } from "@/data/realStudents";
 
 export type Student = RealStudent;
 
-export const STUDENTS: Student[] = REAL_STUDENTS;
+export const DEMO_SCHOOL = activeDemoSchool;
+export const STUDENTS: Student[] = activeDemoSchool.students;
 
 export function getStudent(id: string): Student | undefined {
   return STUDENTS.find((s) => s.id === id);
@@ -90,142 +93,11 @@ export interface ClassCheckIn {
   students: StudentBehaviourRating[];
 }
 
-// Seed a few past check-ins so the friction page renders meaningfully on
-// first load. Spaced at ~30-day intervals to reflect the monthly check-in
-// cadence; the most recent seed sits within the last few days so the
-// friction page's default window still has data to show. Slices sized for
-// the current 16-student roster (was 24).
-export const SEED_CHECKINS: ClassCheckIn[] = [
-  {
-    id: "seed-1",
-    createdAt: new Date(Date.now() - 120 * 86400000).toISOString(),
-    teacher: "Maya Khan",
-    grade: "Grade 3",
-    section: "A",
-    subject: "Math",
-    classSize: ">20",
-    teachingMins: "20-25",
-    behaviourMins: "6-10",
-    transitionMins: "2-5",
-    disruptions: "5-10",
-    repetitions: "5-10",
-    students: STUDENTS.slice(0, 8).map((s, i) => ({
-      studentId: s.id,
-      ratings: {
-        sustained: ((i * 3) % 5) + 1,
-        onTask: ((i * 2) % 5) + 1,
-        completion: ((i * 5) % 5) + 1,
-        interrupts: ((i * 7) % 5) + 1,
-        multiStep: ((i * 11) % 5) + 1,
-        motor: (i * 13) % 6,
-      },
-    })),
-  },
-  {
-    id: "seed-2",
-    createdAt: new Date(Date.now() - 90 * 86400000).toISOString(),
-    teacher: "Maya Khan",
-    grade: "Grade 3",
-    section: "A",
-    subject: "English",
-    classSize: ">20",
-    teachingMins: "30-35",
-    behaviourMins: "2-5",
-    transitionMins: "<2",
-    disruptions: "<3",
-    repetitions: "3-5",
-    students: STUDENTS.slice(0, 8).map((s, i) => ({
-      studentId: s.id,
-      ratings: {
-        sustained: ((i * 2) % 5) + 1,
-        onTask: ((i * 4) % 5) + 1,
-        completion: ((i * 6) % 5) + 1,
-        interrupts: ((i * 3) % 5) + 1,
-        multiStep: ((i * 9) % 5) + 1,
-        motor: (i * 5) % 6,
-      },
-    })),
-  },
-  {
-    id: "seed-3",
-    createdAt: new Date(Date.now() - 60 * 86400000).toISOString(),
-    teacher: "Arjun Mehta",
-    grade: "Grade 4",
-    section: "B",
-    subject: "Math",
-    classSize: ">20",
-    teachingMins: "<20",
-    behaviourMins: "10-15",
-    transitionMins: "6-10",
-    disruptions: ">10",
-    repetitions: ">10",
-    students: STUDENTS.slice(8, 16).map((s, i) => ({
-      studentId: s.id,
-      ratings: {
-        sustained: ((i * 7) % 5) + 1,
-        onTask: ((i * 11) % 5) + 1,
-        completion: ((i * 3) % 5) + 1,
-        interrupts: ((i * 5) % 5) + 1,
-        multiStep: ((i * 2) % 5) + 1,
-        motor: (i * 4) % 6,
-      },
-    })),
-  },
-  {
-    id: "seed-4",
-    createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-    teacher: "Maya Khan",
-    grade: "Grade 3",
-    section: "A",
-    subject: "Math",
-    classSize: ">20",
-    teachingMins: "30-35",
-    behaviourMins: "2-5",
-    transitionMins: "<2",
-    disruptions: "3-5",
-    repetitions: "3-5",
-    students: STUDENTS.slice(0, 8).map((s, i) => ({
-      studentId: s.id,
-      ratings: {
-        sustained: ((i * 3) % 5) + 2,
-        onTask: ((i * 2) % 5) + 2,
-        completion: ((i * 5) % 5) + 2,
-        interrupts: ((i * 7) % 5) + 1,
-        multiStep: ((i * 11) % 5) + 2,
-        motor: (i * 13) % 5,
-      },
-    })),
-  },
-  {
-    id: "seed-5",
-    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-    teacher: "Riya Kapoor",
-    grade: "Grade 5",
-    section: "A",
-    subject: "Science",
-    classSize: "11-20",
-    teachingMins: "30-35",
-    behaviourMins: "<2",
-    transitionMins: "2-5",
-    disruptions: "<3",
-    repetitions: "<3",
-    students: STUDENTS.slice(4, 12).map((s, i) => ({
-      studentId: s.id,
-      ratings: {
-        sustained: 4,
-        onTask: 4,
-        completion: ((i * 2) % 3) + 3,
-        interrupts: 2,
-        multiStep: 4,
-        motor: 1,
-      },
-    })),
-  },
-];
+// The source contains no historical classroom check-ins.
+export const SEED_CHECKINS: ClassCheckIn[] = [];
 
 // ─────────────────────────────────────────────────────────────
-// Dashboard notifications — small, hand-authored, and honestly derivable
-// from the real roster (health-score extremes), not fabricated deltas.
+// The source contains no dated notification or activity records.
 // ─────────────────────────────────────────────────────────────
 
 export type InboxItem = {
@@ -238,27 +110,4 @@ export type InboxItem = {
   priority: "high" | "medium" | "low";
 };
 
-const lowestHealth = [...STUDENTS].sort((a, b) => a.studentHealthScore - b.studentHealthScore)[0];
-const highestHealth = [...STUDENTS].sort((a, b) => b.studentHealthScore - a.studentHealthScore)[0];
-
-export const INBOX_ITEMS: InboxItem[] = [
-  {
-    id: "i1",
-    kind: "at-risk",
-    title: `${lowestHealth.name} — lowest health score in class`,
-    body: `${Math.round(lowestHealth.studentHealthScore)}/100 this batch. Worth a closer look.`,
-    studentId: lowestHealth.id,
-    time: "8m",
-    priority: "high",
-  },
-  {
-    id: "i2",
-    kind: "celebration",
-    title: `🎉 ${highestHealth.name} — highest health score in class`,
-    body: `${Math.round(highestHealth.studentHealthScore)}/100 this batch — best of the roster.`,
-    studentId: highestHealth.id,
-    time: "3h",
-    priority: "low",
-  },
-];
-
+export const INBOX_ITEMS: InboxItem[] = [];

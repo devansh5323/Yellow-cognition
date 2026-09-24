@@ -90,6 +90,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [invalidShake, setInvalidShake] = useState(0);
 
+  const selectedRoleMeta = ROLES.find((r) => r.key === selectedRole) ?? null;
+
   const PRESET_EMAILS: Record<UserRole, string> = {
     teacher: "teacher@school.edu",
     admin: "admin@school.edu",
@@ -97,8 +99,6 @@ export default function LoginPage() {
     district: "district@school.edu",
     selCoordinator: "sel@school.edu",
   };
-
-  const selectedRoleMeta = ROLES.find((r) => r.key === selectedRole) ?? null;
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const mx = useMotionValue(0);

@@ -2,9 +2,9 @@
 // 2026-09-07 as a MongoDB metrics export + a roster PDF mapping each
 // `user_id` to a name/age group/parent. Every field below is transcribed
 // directly from those two sources; every `null` is a field genuinely not
-// yet computed for that student (never a fabricated placeholder) — one
-// exception: Gunashreya's `attentionAndFocus` was `-2` in the source data
-// (a flagged-bad reading), stored here as `null` per instruction to ignore it.
+// yet computed for that student (never a fabricated placeholder). The source
+// `#DIV/0!` value is stored as `null`; numeric values, including `-2`, are
+// preserved exactly as supplied.
 export type RealStudent = {
   id: string;
   name: string;
@@ -57,10 +57,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 52.24342593,
+      anxietyAndCopingIndex: 52.6725,
+      peerSafetyAndBelonging: 62.5,
+      angerAndEmotionalRegulation: 41.55777778,
     },
   },
   {
@@ -85,10 +85,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 50.23664286,
+      anxietyAndCopingIndex: 42.016,
+      peerSafetyAndBelonging: 68.57142857,
+      angerAndEmotionalRegulation: 40.1225,
     },
   },
   {
@@ -98,7 +98,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Namratha",
     studentHealthScore: 66.64,
     cognitivePerformance: {
-      score: 66.64,
+      score: 66.635,
       attentionAndFocus: null,
       taskEngagement: 68.61,
       behaviourAndDiscipline: null,
@@ -113,10 +113,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 62.77705601,
+      anxietyAndCopingIndex: 64.64737288,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 60.90673913,
     },
   },
   {
@@ -126,7 +126,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Yamuna",
     studentHealthScore: 57.41,
     cognitivePerformance: {
-      score: 57.41,
+      score: 57.415,
       attentionAndFocus: null,
       taskEngagement: 56.08,
       behaviourAndDiscipline: null,
@@ -141,10 +141,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 48.935,
+      anxietyAndCopingIndex: 61.475,
+      peerSafetyAndBelonging: 30,
+      angerAndEmotionalRegulation: 55.33,
     },
   },
   {
@@ -154,7 +154,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Divya",
     studentHealthScore: 60.68,
     cognitivePerformance: {
-      score: 61.36,
+      score: 61.355,
       attentionAndFocus: null,
       taskEngagement: 61.58,
       behaviourAndDiscipline: null,
@@ -169,10 +169,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: 60,
-      anxietyAndCopingIndex: null,
+      score: 66.36481481,
+      anxietyAndCopingIndex: 67.14444444,
       peerSafetyAndBelonging: 60,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 71.95,
     },
   },
   {
@@ -197,10 +197,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 56.41666667,
+      anxietyAndCopingIndex: 81.95,
+      peerSafetyAndBelonging: 15,
+      angerAndEmotionalRegulation: 72.3,
     },
   },
   {
@@ -210,7 +210,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Geetha",
     studentHealthScore: 59.11,
     cognitivePerformance: {
-      score: 59.11,
+      score: 59.115,
       attentionAndFocus: null,
       taskEngagement: 60.77,
       behaviourAndDiscipline: null,
@@ -225,10 +225,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 56.3195635,
+      anxietyAndCopingIndex: 57.17357143,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 55.46555556,
     },
   },
   {
@@ -253,10 +253,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 65.33357143,
+      anxietyAndCopingIndex: 58.625,
+      peerSafetyAndBelonging: 90,
+      angerAndEmotionalRegulation: 47.37571429,
     },
   },
   {
@@ -266,7 +266,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Edith Manuel",
     studentHealthScore: 62.64,
     cognitivePerformance: {
-      score: 62.64,
+      score: 62.645,
       attentionAndFocus: null,
       taskEngagement: 63.43,
       behaviourAndDiscipline: null,
@@ -281,10 +281,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 67.0081746,
+      anxietyAndCopingIndex: 69.35785714,
+      peerSafetyAndBelonging: 64,
+      angerAndEmotionalRegulation: 67.66666667,
     },
   },
   {
@@ -337,10 +337,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 69.41230769,
+      anxietyAndCopingIndex: 65.80461538,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 73.02,
     },
   },
   {
@@ -350,7 +350,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Judith aradhana",
     studentHealthScore: 63.49,
     cognitivePerformance: {
-      score: 63.49,
+      score: 63.495,
       attentionAndFocus: null,
       taskEngagement: 65.21,
       behaviourAndDiscipline: null,
@@ -365,10 +365,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 63.69887931,
+      anxietyAndCopingIndex: 63.61775862,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 63.78,
     },
   },
   {
@@ -393,10 +393,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 73.94814815,
+      anxietyAndCopingIndex: 67.03333333,
+      peerSafetyAndBelonging: 81.11111111,
+      angerAndEmotionalRegulation: 73.7,
     },
   },
   {
@@ -406,7 +406,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Srikanth Raj Urs L",
     studentHealthScore: 51.17,
     cognitivePerformance: {
-      score: 51.17,
+      score: 51.165,
       attentionAndFocus: null,
       taskEngagement: 38.63,
       behaviourAndDiscipline: null,
@@ -421,10 +421,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 39.33333334,
+      anxietyAndCopingIndex: 44.66666667,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 34,
     },
   },
   {
@@ -449,10 +449,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
+      score: 46.62666667,
+      anxietyAndCopingIndex: 50.25,
       peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      angerAndEmotionalRegulation: 43.00333333,
     },
   },
   {
@@ -462,8 +462,8 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Sujatha",
     studentHealthScore: 39.62,
     cognitivePerformance: {
-      score: 39.62,
-      attentionAndFocus: null,
+      score: 39.61666667,
+      attentionAndFocus: -2,
       taskEngagement: 48.25,
       behaviourAndDiscipline: null,
       instructionalFriction: null,
@@ -477,10 +477,10 @@ export const REAL_STUDENTS: RealStudent[] = [
       },
     },
     studentWellbeing: {
-      score: null,
-      anxietyAndCopingIndex: null,
-      peerSafetyAndBelonging: null,
-      angerAndEmotionalRegulation: null,
+      score: 38.99190476,
+      anxietyAndCopingIndex: 52.22571429,
+      peerSafetyAndBelonging: 20,
+      angerAndEmotionalRegulation: 44.75,
     },
   },
 ];

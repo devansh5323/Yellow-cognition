@@ -5,15 +5,16 @@
 // classroom to compare against — every "across grades" / "across teachers"
 // comparison function below has been simplified to reflect that honestly
 // (a single real row, or an empty/no-data result) rather than fabricating
-// more schools worth of classrooms. Two of the four core drivers (Attention
-// & Focus, Behaviour & Discipline) have zero real signal for this roster —
-// see lib/classHealth.ts — so they surface as `null` here too, the same
-// "not enough data yet" convention used on the teacher dashboard, instead of
-// a fabricated number. No week-over-week history exists at school scale
-// either, so every trend/delta field below is `0`/flat rather than a
+// more schools worth of classrooms. Focus and Behaviour now have real
+// signal via data/studentHealthScore.ts's CLASS_AVERAGE (sourced from the
+// Student Health Score CSV) — buildClasses() prefers that over the
+// teacher-roster fallback wherever the CSV has a value. No week-over-week
+// history exists at school scale beyond the WEEKLY_DATA/MONTHLY_DATA CSV
+// series, so every other trend/delta field below is `0`/flat rather than a
 // plausible-looking fake swing.
 
 import { STUDENTS } from "@/data/mockData";
+import { CLASS_AVERAGE, TIER_COUNTS, WEEKLY_DATA, MONTHLY_DATA } from "@/data/studentHealthScore";
 import { classHealth, scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
 import { classWellbeingDrivers } from "@/lib/classWellbeing";
 import { getClassCheckInsThisWeek } from "@/lib/checkInTools";
@@ -102,7 +103,7 @@ function buildTeachers(): SchoolTeacher[] {
       subject: "Homeroom",
       classes: ["Bishop Cottons Girls School — Combined Roster"],
       studentCount: STUDENTS.length,
-      avgPfi: ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : ch.score,
       pfiTrend: 0,
       status: "active",
       lastActiveDays: checkedIn ? 0 : undefined,
@@ -118,10 +119,10 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
   const atRisk = ch.distribution["needs-support"] + ch.distribution.watch;
 
   const drivers: ClassDrivers = {
-    focus: ch.pillars.focus,
-    academic: ch.pillars.academic,
-    behavior: ch.pillars.behavior,
-    task: ch.pillars.task,
+    focus: CLASS_AVERAGE.cognitivePerformance.attentionAndFocus != null ? Number(CLASS_AVERAGE.cognitivePerformance.attentionAndFocus.toFixed(1)) : ch.pillars.focus,
+    academic: CLASS_AVERAGE.cognitivePerformance.learningReadiness.score != null ? Number(CLASS_AVERAGE.cognitivePerformance.learningReadiness.score.toFixed(1)) : ch.pillars.academic,
+    behavior: CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline != null ? Number(CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline.toFixed(1)) : ch.pillars.behavior,
+    task: CLASS_AVERAGE.cognitivePerformance.taskEngagement != null ? Number(CLASS_AVERAGE.cognitivePerformance.taskEngagement.toFixed(1)) : ch.pillars.task,
   };
 
   return [
@@ -133,11 +134,11 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
       teacherId: t.id,
       teacherName: t.name,
       size: STUDENTS.length,
-      avgPfi: ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : ch.score,
       pfiTrend: 0,
       atRisk,
       monthlyCheckIn: checkedIn,
-      engagementPct: ch.pillars.task ?? 0,
+      engagementPct: drivers.task ?? 0,
       drivers,
     },
   ];
@@ -294,7 +295,7 @@ export const SCHOOL_DRIVER_LABEL: Record<SchoolDriverKey, string> = {
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1));
 }
 
 /** Weighted average of a per-class numeric pick, skipping classes where the
@@ -303,7 +304,7 @@ function weightedAvgFor(classes: SchoolClassRow[], pick: (c: SchoolClassRow) => 
   const rows = classes.map((c) => ({ v: pick(c), size: c.size })).filter((r): r is { v: number; size: number } => r.v != null);
   const totalSize = rows.reduce((acc, r) => acc + r.size, 0);
   if (totalSize === 0) return null;
-  return Math.round(rows.reduce((acc, r) => acc + r.v * r.size, 0) / totalSize);
+  return Number((rows.reduce((acc, r) => acc + r.v * r.size, 0) / totalSize).toFixed(1));
 }
 
 // Same 30/30/20/20 weighting as the teacher dashboard's Classroom Health
@@ -322,7 +323,7 @@ export function classComposite(drivers: ClassDrivers): number | null {
   if (present.length === 0) return null;
   const weightSum = present.reduce((sum, [k]) => sum + CLASS_COMPOSITE_WEIGHTS[k], 0);
   const weighted = present.reduce((sum, [k, v]) => sum + v * CLASS_COMPOSITE_WEIGHTS[k], 0);
-  return Math.round(weighted / weightSum);
+  return Number((weighted / weightSum).toFixed(1));
 }
 
 export type ClassroomTier = "strong" | "solid" | "watch" | "needs-support" | "intensive";
@@ -393,8 +394,8 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   const interventionTotal = followUpsCompleted + followUpsDue;
   driverScoreByKey.interventionResponse =
     interventionTotal > 0 ? Math.round((followUpsCompleted / interventionTotal) * 100) : 100;
-  // No real positive-behaviour signal exists independent of the (currently
-  // null) behaviour driver — stays null rather than a fabricated proxy.
+  // No real positive-behaviour signal exists independent of the behaviour
+  // driver — stays null rather than a fabricated proxy.
   driverScoreByKey.positiveBehavior = driverScoreByKey.behavior != null ? Math.min(98, driverScoreByKey.behavior + 5) : null;
 
   const drivers: SchoolDriverScore[] = SCHOOL_DRIVER_ORDER.map((key) => ({
@@ -405,7 +406,14 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   }));
 
   const withScore = drivers.filter((d): d is SchoolDriverScore & { score: number } => d.score != null);
-  const score = avg(withScore.map((d) => d.score)) ?? 0;
+  // Headline score = the Class Average from the Student Health Score CSV
+  // (CLASS_AVERAGE.studentHealthScore, via data/studentHealthScore.ts) —
+  // same source buildTeachers()/buildClasses() already use for avgPfi.
+  // Falls back to averaging the 6 driver cards only if that CSV value is
+  // ever missing, rather than always re-deriving the headline from them —
+  // that re-derived average can swing hard when a single driver like
+  // Intervention Response sits at 0% while most students are fine.
+  const score = CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : avg(withScore.map((d) => d.score)) ?? 0;
   const delta = 0;
   const status = scoreBand(score);
 
@@ -743,13 +751,10 @@ export type SchoolHealthTrendPoint = {
   studentWellbeing: number | null;
   classroomPerformance: number | null;
   teacherEfficiency: number | null;
+  studentHealthScore: number | null;
 };
 
-// No real week-over-week history is tracked at school scale — every point
-// is the same real current value (flat), not a fabricated swing.
-const TREND_WEEK_LABELS = ["Week 1", "Week 2", "Week 3", "Week 4", "This Week"];
-
-export function schoolHealthTrend(grade?: string | null): SchoolHealthTrendPoint[] {
+export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade?: string | null): SchoolHealthTrendPoint[] {
   const metrics = schoolPillarMetrics(grade);
   const byKey = Object.fromEntries(metrics.map((m) => [m.key, m])) as Record<SchoolPillarKey, SchoolPillarMetric>;
   const overallScore = schoolHealthOverview(grade).score;
@@ -760,6 +765,7 @@ export function schoolHealthTrend(grade?: string | null): SchoolHealthTrendPoint
     studentWellbeing: byKey.studentWellbeing.score,
     classroomPerformance: byKey.classroomPerformance.score,
     teacherEfficiency: byKey.teacherEfficiency.score,
+    studentHealthScore: row.studentHealthScore != null ? Number(row.studentHealthScore.toFixed(1)) : null,
   }));
 }
 
@@ -934,19 +940,17 @@ export type SchoolTierDistribution = {
 };
 
 export function schoolTierDistribution(scope: TierScope = {}): SchoolTierDistribution {
-  const classes = scopedSchoolClasses(scope);
-  const totals: ClassTierSplit = { tier1: 0, tier2: 0, tier3: 0 };
-  classes.forEach((c) => {
-    const s = classTierSplit(c);
-    totals.tier1 += s.tier1;
-    totals.tier2 += s.tier2;
-    totals.tier3 += s.tier3;
-  });
-  const totalStudents = totals.tier1 + totals.tier2 + totals.tier3;
+  let counts = TIER_COUNTS.studentHealth;
+  if (scope.driver === "focus") counts = TIER_COUNTS.attentionAndFocus;
+  else if (scope.driver === "academic") counts = TIER_COUNTS.learningReadiness;
+  else if (scope.driver === "task") counts = TIER_COUNTS.taskEngagement;
+  else if (scope.driver === "behavior") counts = TIER_COUNTS.behaviourAndDiscipline;
+
+  const totalStudents = counts.tier1 + counts.tier2 + counts.tier3;
   const bands: TierDistributionBand[] = (["tier1", "tier2", "tier3"] as TierKey[]).map((tier) => ({
     tier,
-    count: totals[tier],
-    pct: totalStudents > 0 ? Math.round((totals[tier] / totalStudents) * 1000) / 10 : 0,
+    count: counts[tier],
+    pct: totalStudents > 0 ? Math.round((counts[tier] / totalStudents) * 1000) / 10 : 0,
     delta: TIER_DELTA[tier],
   }));
   return { totalStudents, bands };

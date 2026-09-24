@@ -27,81 +27,33 @@ export type InviteStats = {
 };
 
 const KEY = "ah_roster";
-// Bumped from `ah_roster_seeded` so existing demos pick up the larger seed
-// that matches the dashboard's class roll (30 students: 24 linked, 4 invited,
-// 2 not yet invited).
-const SEEDED_KEY = "ah_roster_seeded_v2";
+// Bumped so existing demos replace unsupported active/invite history with the
+// source roster while preserving entries the user added themselves.
+const SEEDED_KEY = "ah_roster_seeded_v4_bishop_cotton";
 const LAST_REMINDER_KEY = "ah_reminders_last_sent";
 
 const DAY = 86_400_000;
 const REMINDER_COOLDOWN = DAY;
 
-const EXTRA_STUDENTS: { childName: string; parentName: string }[] = [
-  { childName: "Vihaan Mehta", parentName: "Anjali Mehta" },
-  { childName: "Aanya Verma", parentName: "Rakesh Verma" },
-  { childName: "Reyansh Kapoor", parentName: "Sneha Kapoor" },
-  { childName: "Saanvi Nair", parentName: "Lakshmi Nair" },
-  { childName: "Arjun Banerjee", parentName: "Sourav Banerjee" },
-  { childName: "Myra Joshi", parentName: "Pooja Joshi" },
-];
-
 function makeId(): string {
   return `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function emailFor(name: string): string {
-  return `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@parents.example`;
-}
-
-function phoneFor(idx: number): string {
-  return `+91 98xxx ${String(100 + idx).slice(-3)}`;
-}
-
 function seedData(): RosterStudent[] {
   const now = Date.now();
-  // Active = students whose data feeds the dashboard. Use the STUDENTS mock so
-  // names line up with the class snapshot. Add 4 invited-but-not-active and
-  // 2 pending-invite entries on top, totalling 30.
-  const active: RosterStudent[] = STUDENTS.map((s, i) => {
+  // The source identifies students and parents but contains no Fumi invite or
+  // activation history, so source rows begin in the honest pending state.
+  return STUDENTS.map((s) => {
     const childName = s.name;
-    const parentName = `${s.name.split(" ")[0]}'s parent`;
     return {
-      id: `seed_active_${s.id}`,
+      id: `seed_source_${s.id}`,
       childName,
-      parentName,
-      parentEmail: emailFor(childName.split(" ")[0]),
-      parentPhone: phoneFor(i),
-      status: "active",
-      source: i % 3 === 0 ? "csv" : i % 3 === 1 ? "invite" : "manual",
-      addedAt: now - (10 + i) * DAY,
-      invitedAt: now - (9 + i) * DAY,
-      activatedAt: now - (5 + (i % 4)) * DAY,
+      parentName: s.parentName,
+      status: "pending-invite",
+      source: "csv",
+      addedAt: now,
     };
   });
-
-  const invited: RosterStudent[] = EXTRA_STUDENTS.slice(0, 4).map((e, i) => ({
-    id: `seed_invited_${i + 1}`,
-    childName: e.childName,
-    parentName: e.parentName,
-    parentEmail: emailFor(e.childName.split(" ")[0]),
-    parentPhone: phoneFor(active.length + i),
-    status: "invited",
-    source: "invite",
-    addedAt: now - (3 + i) * DAY,
-    invitedAt: now - (2 + i) * DAY,
-  }));
-
-  const pending: RosterStudent[] = EXTRA_STUDENTS.slice(4, 6).map((e, i) => ({
-    id: `seed_pending_${i + 1}`,
-    childName: e.childName,
-    parentName: e.parentName,
-    parentEmail: emailFor(e.childName.split(" ")[0]),
-    status: "pending-invite",
-    source: "manual",
-    addedAt: now - (1 + i) * DAY,
-  }));
-
-  return [...active, ...invited, ...pending];
 }
 
 function emit() {
@@ -117,10 +69,13 @@ function read(): RosterStudent[] {
     // flips to "1", the user can keep editing the roster freely afterwards.
     const seededAt = window.localStorage.getItem(SEEDED_KEY);
     if (seededAt !== "1") {
-      const seed = seedData();
-      window.localStorage.setItem(KEY, JSON.stringify(seed));
+      const raw = window.localStorage.getItem(KEY);
+      const existing = raw ? (JSON.parse(raw) as RosterStudent[]) : [];
+      const userAdded = existing.filter((student) => !student.id.startsWith("seed_"));
+      const next = [...seedData(), ...userAdded];
+      window.localStorage.setItem(KEY, JSON.stringify(next));
       window.localStorage.setItem(SEEDED_KEY, "1");
-      return seed;
+      return next;
     }
     const raw = window.localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as RosterStudent[];

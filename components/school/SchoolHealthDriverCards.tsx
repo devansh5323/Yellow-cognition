@@ -221,7 +221,7 @@ function DriverCard({
 
       <div className="flex items-center gap-2 mt-3.5 flex-wrap">
         <span className="font-heading font-extrabold text-[28px] tabular-nums leading-none" style={{ color: tone }}>
-          {card.score ?? "—"}
+          {card.score != null ? card.score.toFixed(2) : "—"}
           <span className="text-[13px] font-bold text-muted-foreground/70">/100</span>
         </span>
         <span
@@ -323,7 +323,7 @@ function DriverDetailDrawer({
                         </div>
                         <div className="text-right shrink-0">
                           <div className="font-heading font-bold text-[13px] tabular-nums" style={{ color: tone }}>
-                            {c.drivers[card.key]}
+                            {c.drivers[card.key] != null ? (c.drivers[card.key] as number).toFixed(2) : "—"}
                           </div>
                           <div className="text-[9.5px] text-muted-foreground uppercase tracking-wide">score</div>
                         </div>

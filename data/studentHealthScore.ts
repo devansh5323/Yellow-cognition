@@ -56,6 +56,20 @@ export type TimeSeriesData = {
   studentHealthScore: number | null;
 };
 
+export type DriverTierCounts = {
+  tier1: number;
+  tier2: number;
+  tier3: number;
+};
+
+export type TierDistributionData = {
+  studentHealth: DriverTierCounts;
+  attentionAndFocus: DriverTierCounts;
+  learningReadiness: DriverTierCounts;
+  taskEngagement: DriverTierCounts;
+  behaviourAndDiscipline: DriverTierCounts;
+};
+
 export type ClassAverageData = Omit<Students, 'id' | 'name' | 'ageGroup' | 'parentName'>;
 
 export const STUDENTS: Students[] = [
@@ -1214,6 +1228,16 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "studentHealthScore": 51.48
   }
 ];
+
+
+export const TIER_COUNTS: TierDistributionData = {
+  studentHealth: { tier1: 0, tier2: 15, tier3: 1 },
+  attentionAndFocus: { tier1: 0, tier2: 13, tier3: 3 },
+  learningReadiness: { tier1: 0, tier2: 15, tier3: 1 },
+  taskEngagement: { tier1: 0, tier2: 15, tier3: 1 },
+  behaviourAndDiscipline: { tier1: 1, tier2: 15, tier3: 1 },
+};
+
 
 // This array contains any rows (like Tiers, counts, percentages) that didn't fit into the structures above.
 export const OTHER_ROWS: any[][] = [

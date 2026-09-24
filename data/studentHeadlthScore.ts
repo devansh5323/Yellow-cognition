@@ -1,4 +1,5 @@
-export type RealStudent = {
+export type Students = {
+
   id: string;
   name: string;
   ageGroup: string;
@@ -55,9 +56,9 @@ export type TimeSeriesData = {
   studentHealthScore: number | null;
 };
 
-export type ClassAverageData = Omit<RealStudent, 'id' | 'name' | 'ageGroup' | 'parentName'>;
+export type ClassAverageData = Omit<Students, 'id' | 'name' | 'ageGroup' | 'parentName'>;
 
-export const REAL_STUDENTS: RealStudent[] = [
+export const STUDENTS: Students[] = [
   {
     "id": "69dc85547ec07d4b67b14192",
     "name": "Keren Manuel",

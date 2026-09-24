@@ -40,7 +40,7 @@ function WelcomePage() {
   // Form state — initialized from any partial onboarding progress
   const initial = useMemo(() => getOnboarding(), []);
   const [fullName, setFullName] = useState(initial.profile?.fullName ?? "");
-  const [schoolName, setSchoolName] = useState(initial.profile?.schoolName ?? "");
+  const [schoolName, setSchoolName] = useState(initial.profile?.schoolName ?? "Bishop Cottons Girls School");
   const [board, setBoard] = useState(initial.profile?.board ?? "");
   const [years, setYears] = useState<number>(initial.profile?.yearsTeaching ?? 3);
 

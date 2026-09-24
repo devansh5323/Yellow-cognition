@@ -40,7 +40,7 @@ export function SchoolContextHeader({ context, filters, onFilterChange }: Props)
           <SchoolIcon className="h-3 w-3" /> School performance overview
         </div>
         <h1 className="mt-1.5 font-heading font-extrabold text-[22px] md:text-[26px] leading-tight tracking-tight">
-          Riverside Academy ·{" "}
+          Bishop Cottons Girls School ·{" "}
           <span className="bg-gradient-to-r from-[hsl(142_55%_42%)] via-[hsl(200_60%_50%)] to-[hsl(260_55%_55%)] bg-clip-text text-transparent">
             {context.term} snapshot
           </span>

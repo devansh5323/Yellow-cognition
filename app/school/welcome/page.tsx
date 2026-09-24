@@ -23,7 +23,6 @@ import {
   Smile,
   GraduationCap,
   PartyPopper,
-  ChevronRight,
   Eye,
   CalendarCheck,
   Layers,
@@ -38,7 +37,6 @@ import {
 } from "@/lib/schoolOnboarding";
 import { TeacherInvitePicker, teacherInviteMethodLabel } from "@/components/school/TeacherInvitePicker";
 import type { TeacherInviteMethod } from "@/lib/teacherInvites";
-import { AnimatedNumber } from "@/components/dashboard/AnimatedNumber";
 import { cn } from "@/lib/utils";
 
 export default function Page() {
@@ -79,7 +77,6 @@ const STEPS = [
   { id: "structure", label: "Grades" },
   { id: "teachers", label: "Teachers" },
   { id: "priorities", label: "Priorities" },
-  { id: "reveal", label: "First insight" },
   { id: "ready", label: "Ready" },
 ] as const;
 
@@ -179,15 +176,6 @@ function SchoolWelcomePage() {
     if (max && arr.length >= max) return arr;
     return [...arr, v];
   };
-
-  useEffect(() => {
-    if (step.id !== "reveal") return;
-    const t = window.setTimeout(() => {
-      setDirection(1);
-      setStepIdx((i) => i + 1);
-    }, 6800);
-    return () => window.clearTimeout(t);
-  }, [step.id]);
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background text-foreground">
@@ -374,21 +362,10 @@ function SchoolWelcomePage() {
                 onBack={goBack}
                 onNext={goNext}
                 canAdvance
-                nextLabel="Show me my school"
+                nextLabel="Finish setup"
               >
                 <StepPriorities priorities={priorities} setPriorities={setPriorities} toggle={toggle} />
               </StepShell>
-            )}
-
-            {step.id === "reveal" && (
-              <StepReveal
-                priorities={priorities}
-                schoolName={schoolName || "Your school"}
-                onSkip={() => {
-                  setDirection(1);
-                  setStepIdx((i) => i + 1);
-                }}
-              />
             )}
 
             {step.id === "ready" && (
@@ -858,209 +835,7 @@ function StepPriorities({
   );
 }
 
-/* ─── Step 5 — Reveal ─── */
-
-function StepReveal({
-  priorities,
-  schoolName,
-  onSkip,
-}: {
-  priorities: SchoolPriority[];
-  schoolName: string;
-  onSkip: () => void;
-}) {
-  const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0);
-
-  useEffect(() => {
-    const timers: number[] = [];
-    timers.push(window.setTimeout(() => setPhase(1), 900));
-    timers.push(window.setTimeout(() => setPhase(2), 1900));
-    timers.push(window.setTimeout(() => setPhase(3), 3000));
-    return () => timers.forEach(window.clearTimeout);
-  }, []);
-
-  const labels = priorities
-    .map((p) => PRIORITY_OPTIONS.find((o) => o.id === p)?.label.toLowerCase())
-    .filter(Boolean) as string[];
-
-  const insightLine = priorities.includes("at-risk")
-    ? "3 classes haven't run this month's check-in — Grades 6B, 7A, 8C are most at-risk. Auto-nudge ready."
-    : priorities.includes("parent-engagement")
-    ? "Parent activation is at 62% across the school — an end-of-month invite nudge would lift that next cycle."
-    : priorities.includes("attendance")
-    ? "Attendance dips 18% on Wednesdays after lunch — worth a school-wide energizer."
-    : priorities.includes("teacher-pd")
-    ? "5 teachers haven't reviewed this month's insight yet — a one-click PD digest can land at month-end."
-    : "Your school is settling into a rhythm — the 10–11 am block is the strongest focus window across grades.";
-
-  return (
-    <div className="max-w-3xl mx-auto py-6">
-      <div className="text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 rounded-full border border-[hsl(260_55%_60%)]/30 bg-[hsl(260_55%_60%)]/[0.08] backdrop-blur px-3 py-1.5 text-[11px] font-bold text-[hsl(260_55%_55%)] dark:text-[hsl(260_70%_75%)]"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inset-0 rounded-full bg-[hsl(260_55%_60%)] animate-ping opacity-60" />
-            <span className="relative h-2 w-2 rounded-full bg-[hsl(260_55%_60%)]" />
-          </span>
-          Tuning Yellow to {schoolName}
-        </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
-          className="mt-5 font-heading font-extrabold text-[34px] sm:text-[44px] leading-[1.05] tracking-tight"
-        >
-          Here's what we{" "}
-          <span className="bg-gradient-to-r from-[hsl(260_55%_60%)] via-[hsl(200_60%_50%)] to-[hsl(142_55%_45%)] bg-clip-text text-transparent">
-            already see
-          </span>{" "}
-          across your school.
-        </motion.h1>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-4 text-[13.5px] text-muted-foreground inline-flex items-center gap-1.5 flex-wrap justify-center"
-        >
-          <span>Sample insight tuned to:</span>
-          {labels.length > 0 ? labels.map((g, i) => (
-            <span key={g} className="font-semibold text-foreground">{g}{i < labels.length - 1 ? "," : ""}</span>
-          )) : (
-            <span className="font-semibold text-foreground">school-wide focus</span>
-          )}
-        </motion.div>
-      </div>
-
-      <div className="mt-9 max-w-md mx-auto space-y-2.5">
-        <PrepLine done={phase >= 1} delay={0}>Reading {schoolName}'s structure</PrepLine>
-        <PrepLine done={phase >= 2} delay={1}>Cross-referencing 8 attention domains</PrepLine>
-        <PrepLine done={phase >= 3} delay={2}>Generating your first school insight</PrepLine>
-      </div>
-
-      <AnimatePresence>
-        {phase >= 3 && (
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.96, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-            transition={{ duration: 0.8, ease: EASE }}
-            className="mt-10 relative auth-card rounded-[22px] p-6 sm:p-8 text-left"
-          >
-            <span className="auth-card-ring rounded-[22px]" aria-hidden />
-            <div className="relative">
-              <div className="flex items-center gap-2 text-[10.5px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-                <span className="h-[2px] w-4 bg-gradient-to-r from-[hsl(260_55%_60%)] to-transparent rounded-full" />
-                First school insight · preview
-              </div>
-
-              <div className="mt-5 grid sm:grid-cols-3 gap-4">
-                <Metric label="School avg PFI" value={71} suffix="/100" tone="hsl(142 55% 45%)" />
-                <Metric label="Active teachers" value={14} suffix=" / 18" tone="hsl(200 60% 50%)" raw />
-                <Metric label="Need attention" value={3} suffix=" classes" tone="hsl(0 78% 58%)" raw />
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-[hsl(260_55%_60%)]/25 bg-[hsl(260_55%_60%)]/[0.04] p-4">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-[hsl(260_55%_55%)] dark:text-[hsl(260_70%_75%)] mb-2">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Yellow Recommends
-                </div>
-                <Typewriter text={insightLine} delay={500} />
-              </div>
-
-              <button
-                onClick={onSkip}
-                className="mt-6 inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Skip ahead <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function PrepLine({ done, children, delay }: { done: boolean; children: React.ReactNode; delay: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: delay * 0.2 + 0.4, duration: 0.4 }}
-      className={cn(
-        "flex items-center gap-3 rounded-xl border px-4 py-2.5 transition-colors",
-        done
-          ? "border-[hsl(260_55%_60%)]/30 bg-[hsl(260_55%_60%)]/[0.06] text-foreground"
-          : "border-border/60 bg-card/60 text-muted-foreground",
-      )}
-    >
-      <span
-        className={cn(
-          "h-5 w-5 rounded-full flex items-center justify-center shrink-0 transition-all",
-          done ? "bg-[hsl(260_55%_60%)] text-white" : "bg-muted",
-        )}
-      >
-        {done ? <Check className="h-3 w-3" strokeWidth={3} /> : <span className="typing-dots"><span /><span /><span /></span>}
-      </span>
-      <span className="text-[13px] font-semibold">{children}</span>
-    </motion.div>
-  );
-}
-
-function Metric({
-  label, value, suffix, tone, raw,
-}: { label: string; value: number; suffix?: string; tone: string; raw?: boolean }) {
-  return (
-    <div className="relative rounded-2xl border border-border/60 bg-card/70 p-4 overflow-hidden">
-      <div
-        className="absolute inset-x-0 top-0 h-[2px] opacity-70"
-        style={{ background: `linear-gradient(90deg, transparent, ${tone}, transparent)` }}
-        aria-hidden
-      />
-      <div className="text-[10.5px] font-bold tracking-wide uppercase text-muted-foreground">{label}</div>
-      <div className="mt-2 font-heading font-extrabold text-[26px] leading-none tabular-nums">
-        {raw ? value : <AnimatedNumber value={value} duration={1.4} />}
-        {suffix && <span className="text-[12px] font-bold text-muted-foreground ml-0.5">{suffix}</span>}
-      </div>
-    </div>
-  );
-}
-
-function Typewriter({ text, delay = 0 }: { text: string; delay?: number }) {
-  const reduce = useReducedMotion();
-  const [shown, setShown] = useState(reduce ? text : "");
-  useEffect(() => {
-    if (reduce) return;
-    let i = 0;
-    const startT = window.setTimeout(() => {
-      const id = window.setInterval(() => {
-        i += 2;
-        setShown(text.slice(0, i));
-        if (i >= text.length) window.clearInterval(id);
-      }, 22);
-      (startT as unknown as { _id?: number })._id = id;
-    }, delay);
-    return () => {
-      window.clearTimeout(startT);
-      const inner = (startT as unknown as { _id?: number })._id;
-      if (inner) window.clearInterval(inner);
-    };
-  }, [text, delay, reduce]);
-  const done = shown.length >= text.length;
-  return (
-    <p className="text-[13.5px] leading-relaxed text-foreground">
-      {shown}
-      {!done && <span className="ml-0.5 inline-block h-[1em] w-[2px] bg-[hsl(260_55%_60%)] align-middle animate-pulse" />}
-    </p>
-  );
-}
-
-/* ─── Step 6 — Ready ─── */
+/* ─── Step 5 — Ready ─── */
 
 function StepReady({
   schoolName,

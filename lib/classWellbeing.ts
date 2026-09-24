@@ -1,10 +1,9 @@
 // Class Student Wellbeing — data + helpers for the "Student Wellbeing"
 // driver group. Computed directly from real per-student wellbeing fields
 // (data/realStudents.ts) rather than derived gameplay proxies — the real
-// dataset is sparse here (only 1 of 16 students has any wellbeing signal at
-// all yet), so scores/counts are averaged/filtered over whatever real values
-// exist, and a driver with zero real values across the roster surfaces as
-// `null` ("not enough data yet") instead of a fabricated number.
+// Scores/counts are averaged/filtered over the real values that exist, and a
+// driver with zero source values across the roster surfaces as `null` ("not
+// enough data yet") instead of a fabricated number.
 
 import { STUDENTS, type Student } from "@/data/mockData";
 
@@ -103,6 +102,7 @@ export type WellbeingDriverStat = {
   hue: string;
   score: number | null;
   status: WellbeingStatus | null;
+  dataCount: number;
   studentCount: number;
   mainSignal: string;
 };
@@ -122,6 +122,7 @@ export function classWellbeingDrivers(students: Student[] = STUDENTS): Wellbeing
       hue: WELLBEING_HUE[key],
       score,
       status: score != null ? wellbeingStatusFromScore(score) : null,
+      dataCount: scores.length,
       studentCount,
       mainSignal: MAIN_SIGNAL[key](studentCount, hasData),
     };

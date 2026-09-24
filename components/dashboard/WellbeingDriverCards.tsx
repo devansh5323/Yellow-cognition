@@ -15,6 +15,7 @@ import {
 } from "@/lib/classWellbeing";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import { activeDemoSchool } from "@/data/bishopCotton";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -29,8 +30,7 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
   const drivers = useMemo(() => classWellbeingDrivers(locked ? [] : undefined), [locked]);
   const [drillKey, setDrillKey] = useState<WellbeingDriverKey | null>(null);
 
-  const scored = drivers.filter((d): d is WellbeingDriverStat & { score: number } => d.score != null);
-  const avgScore = scored.length > 0 ? Math.round(scored.reduce((s, d) => s + d.score, 0) / scored.length) : null;
+  const avgScore = locked ? null : activeDemoSchool.metrics.studentWellbeingScore.value;
   const avgStatus = avgScore != null ? wellbeingStatusFromScore(avgScore) : null;
   const avgTone = avgStatus ? WELLBEING_STATUS_TONE[avgStatus] : undefined;
 
@@ -173,7 +173,7 @@ function WellbeingCard({
 
       <div className="mt-3 flex items-center gap-1.5 text-[10.5px] font-semibold text-muted-foreground">
         <Users className="h-3 w-3" />
-        {driver.studentCount} student{driver.studentCount === 1 ? "" : "s"} contributing
+        {driver.dataCount} student{driver.dataCount === 1 ? "" : "s"} contributing
       </div>
       <p className="mt-1 text-[11px] text-foreground/80 leading-snug">{driver.mainSignal}</p>
 

@@ -6,12 +6,17 @@ export type DemoSchoolMetric = {
   value: number | null;
   sourceColumn: string;
   calculation: "source" | "average";
+  sourceCount: number;
+  totalCount: number;
 };
 
 export type DemoSchoolMetrics = {
   schoolHealthScore: DemoSchoolMetric;
   cognitivePerformanceScore: DemoSchoolMetric;
+  attentionAndFocus: DemoSchoolMetric;
   taskEngagement: DemoSchoolMetric;
+  behaviourAndDiscipline: DemoSchoolMetric;
+  instructionalFriction: DemoSchoolMetric;
   learningReadinessScore: DemoSchoolMetric;
   readingComprehension: DemoSchoolMetric;
   recallRetention: DemoSchoolMetric;
@@ -19,7 +24,9 @@ export type DemoSchoolMetrics = {
   reasoning: DemoSchoolMetric;
   creativeExpression: DemoSchoolMetric;
   studentWellbeingScore: DemoSchoolMetric;
+  anxietyAndCopingIndex: DemoSchoolMetric;
   peerSafetyAndBelonging: DemoSchoolMetric;
+  angerAndEmotionalRegulation: DemoSchoolMetric;
 };
 
 export type DemoDataMapping = {

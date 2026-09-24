@@ -1,20 +1,24 @@
-// Real classroom data — first batch, shared 2026-09-07, covering 16 real
-// students. This is a partial delivery: only the fields below have real
-// values so far. Every consumer keeps falling back to its existing
-// mock-derived computation for anything not listed here (Attention and
-// Focus, Behaviour and Discipline, Instructional Friction, Anxiety and
-// Coping Index, Anger and Emotional Regulation, Curiosity & Exploration —
-// either not yet provided or a known-bad value to ignore for now).
+import { activeDemoSchool } from "@/data/bishopCotton";
+
+const metrics = activeDemoSchool.metrics;
+
+// Compatibility view for older consumers. Values are derived from the active
+// demo dataset so this module cannot drift from the student source rows.
 export const REAL_CLASS_METRICS = {
-  classHealthScore: 56,
-  cognitivePerformanceScore: 56,
-  taskEngagement: 57,
-  learningReadinessScore: 58,
-  readingComprehension: 58,
-  recallRetention: 61,
-  problemSolving: 20,
-  reasoning: 61,
-  creativeExpression: 63,
-  studentWellbeingScore: 60,
-  peerSafetyAndBelonging: 60,
+  classHealthScore: metrics.schoolHealthScore.value,
+  cognitivePerformanceScore: metrics.cognitivePerformanceScore.value,
+  attentionAndFocus: metrics.attentionAndFocus.value,
+  taskEngagement: metrics.taskEngagement.value,
+  behaviourAndDiscipline: metrics.behaviourAndDiscipline.value,
+  instructionalFriction: metrics.instructionalFriction.value,
+  learningReadinessScore: metrics.learningReadinessScore.value,
+  readingComprehension: metrics.readingComprehension.value,
+  recallRetention: metrics.recallRetention.value,
+  problemSolving: metrics.problemSolving.value,
+  reasoning: metrics.reasoning.value,
+  creativeExpression: metrics.creativeExpression.value,
+  studentWellbeingScore: metrics.studentWellbeingScore.value,
+  anxietyAndCopingIndex: metrics.anxietyAndCopingIndex.value,
+  peerSafetyAndBelonging: metrics.peerSafetyAndBelonging.value,
+  angerAndEmotionalRegulation: metrics.angerAndEmotionalRegulation.value,
 } as const;

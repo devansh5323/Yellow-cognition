@@ -404,7 +404,11 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   }));
 
   const withScore = drivers.filter((d): d is SchoolDriverScore & { score: number } => d.score != null);
-  const score = avg(withScore.map((d) => d.score)) ?? 0;
+  // Headline score = the real average studentHealthScore across the roster
+  // (classHealth().score), not a re-average of the 6 driver cards below —
+  // those can swing hard when one driver (e.g. Intervention Response) sits
+  // at 0% even though most students are fine.
+  const score = classHealth().score;
   const delta = 0;
   const status = scoreBand(score);
 

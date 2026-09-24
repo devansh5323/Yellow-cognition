@@ -5,12 +5,12 @@
 // classroom to compare against — every "across grades" / "across teachers"
 // comparison function below has been simplified to reflect that honestly
 // (a single real row, or an empty/no-data result) rather than fabricating
-// more schools worth of classrooms. Two of the four core drivers (Attention
-// & Focus, Behaviour & Discipline) have zero real signal for this roster —
-// see lib/classHealth.ts — so they surface as `null` here too, the same
-// "not enough data yet" convention used on the teacher dashboard, instead of
-// a fabricated number. No week-over-week history exists at school scale
-// either, so every trend/delta field below is `0`/flat rather than a
+// more schools worth of classrooms. Focus and Behaviour now have real
+// signal via data/studentHealthScore.ts's CLASS_AVERAGE (sourced from the
+// Student Health Score CSV) — buildClasses() prefers that over the
+// teacher-roster fallback wherever the CSV has a value. No week-over-week
+// history exists at school scale beyond the WEEKLY_DATA/MONTHLY_DATA CSV
+// series, so every other trend/delta field below is `0`/flat rather than a
 // plausible-looking fake swing.
 
 import { STUDENTS } from "@/data/mockData";
@@ -393,8 +393,8 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   const interventionTotal = followUpsCompleted + followUpsDue;
   driverScoreByKey.interventionResponse =
     interventionTotal > 0 ? Math.round((followUpsCompleted / interventionTotal) * 100) : 100;
-  // No real positive-behaviour signal exists independent of the (currently
-  // null) behaviour driver — stays null rather than a fabricated proxy.
+  // No real positive-behaviour signal exists independent of the behaviour
+  // driver — stays null rather than a fabricated proxy.
   driverScoreByKey.positiveBehavior = driverScoreByKey.behavior != null ? Math.min(98, driverScoreByKey.behavior + 5) : null;
 
   const drivers: SchoolDriverScore[] = SCHOOL_DRIVER_ORDER.map((key) => ({
@@ -405,7 +405,14 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   }));
 
   const withScore = drivers.filter((d): d is SchoolDriverScore & { score: number } => d.score != null);
-  const score = avg(withScore.map((d) => d.score)) ?? 0;
+  // Headline score = the Class Average from the Student Health Score CSV
+  // (CLASS_AVERAGE.studentHealthScore, via data/studentHealthScore.ts) —
+  // same source buildTeachers()/buildClasses() already use for avgPfi.
+  // Falls back to averaging the 6 driver cards only if that CSV value is
+  // ever missing, rather than always re-deriving the headline from them —
+  // that re-derived average can swing hard when a single driver like
+  // Intervention Response sits at 0% while most students are fine.
+  const score = CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore * 100) / 100: avg(withScore.map((d) => d.score)) ?? 0;
   const delta = 0;
   const status = scoreBand(score);
 

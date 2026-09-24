@@ -14,7 +14,7 @@
 // plausible-looking fake swing.
 
 import { STUDENTS } from "@/data/mockData";
-import { CLASS_AVERAGE, TIER_COUNTS, WEEKLY_DATA, MONTHLY_DATA } from "@/data/studentHealthScore";
+import { CLASS_AVERAGE, TIER_COUNTS, WEEKLY_DATA, MONTHLY_DATA, type TimeSeriesData } from "@/data/studentHealthScore";
 import { classHealth, scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
 import { getClassCheckInsThisWeek } from "@/lib/checkInTools";
 import { getStats } from "@/lib/roster";
@@ -78,6 +78,30 @@ export type SchoolKpis = {
   followUpsDue: number;
   dataReadinessPct: number;
 };
+
+/* ─────────────────────────────────────────────────────────
+ * Period-over-period deltas — driven by the real WEEKLY_DATA / MONTHLY_DATA
+ * series. "week" compares the latest week in WEEKLY_DATA to the one before
+ * it; "month" does the same over MONTHLY_DATA. Any field with fewer than
+ * two real (non-null) data points returns a null delta rather than a
+ * fabricated 0, so callers can still tell "flat" apart from "no history yet".
+ * ───────────────────────────────────────────────────────── */
+export type TrendPeriod = "week" | "month";
+
+function seriesFor(period: TrendPeriod): TimeSeriesData[] {
+  return period === "month" ? MONTHLY_DATA : WEEKLY_DATA;
+}
+
+function latestWithDelta(period: TrendPeriod, pick: (row: TimeSeriesData) => number | null): { latest: number | null; delta: number | null } {
+  const rows = seriesFor(period)
+    .map(pick)
+    .filter((v): v is number => v != null);
+  if (rows.length === 0) return { latest: null, delta: null };
+  const latest = rows[rows.length - 1];
+  if (rows.length < 2) return { latest, delta: null };
+  const previous = rows[rows.length - 2];
+  return { latest, delta: Number((latest - previous).toFixed(1)) };
+}
 
 function initialsOf(name: string): string {
   return name
@@ -376,16 +400,32 @@ export type SchoolHealthOverview = {
   distribution: ClassroomDistributionBand[];
 };
 
+// Which WEEKLY_DATA/MONTHLY_DATA field is the real time-series proxy for
+// each core driver, used only to compute period-over-period deltas (the
+// driver's own *score* still comes from the CSV-derived CLASS_AVERAGE via
+// buildClasses(), same as before).
+const DRIVER_TREND_FIELD: Record<PillarKey, keyof TimeSeriesData> = {
+  focus: "attentionAndFocusAvg",
+  academic: "learningAndReadiness",
+  behavior: "behaviorAndDisciplineScore",
+  task: "taskEngagementScore",
+};
+
 /** `grade` is accepted for API compatibility with the old multi-grade
  * model but has no effect — there's only one class, so filtering by grade
- * either matches it or (for an unknown grade) returns nothing. */
-export function schoolHealthOverview(grade?: string | null): SchoolHealthOverview {
+ * either matches it or (for an unknown grade) returns nothing. `period`
+ * selects which real series (WEEKLY_DATA or MONTHLY_DATA) period-over-period
+ * deltas are computed from; defaults to "week" to match prior behaviour. */
+export function schoolHealthOverview(grade?: string | null, period: TrendPeriod = "week"): SchoolHealthOverview {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
 
   const perClassKeys: PillarKey[] = ["focus", "academic", "behavior", "task"];
   const driverScoreByKey = {} as Record<SchoolDriverKey, number | null>;
+  const driverDeltaByKey = {} as Record<SchoolDriverKey, number>;
   perClassKeys.forEach((key) => {
     driverScoreByKey[key] = weightedAvgFor(classes, (c) => c.drivers[key]);
+    const field = DRIVER_TREND_FIELD[key];
+    driverDeltaByKey[key] = latestWithDelta(period, (row) => row[field] as number | null).delta ?? 0;
   });
 
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
@@ -396,12 +436,17 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   // No real positive-behaviour signal exists independent of the behaviour
   // driver — stays null rather than a fabricated proxy.
   driverScoreByKey.positiveBehavior = driverScoreByKey.behavior != null ? Math.min(98, driverScoreByKey.behavior + 5) : null;
+  // No real historical series backs these two (intervention response comes
+  // from this week's check-in state, not a time series; positive behaviour
+  // is a derived proxy) — their deltas stay 0 rather than fabricated.
+  driverDeltaByKey.interventionResponse = 0;
+  driverDeltaByKey.positiveBehavior = driverDeltaByKey.behavior;
 
   const drivers: SchoolDriverScore[] = SCHOOL_DRIVER_ORDER.map((key) => ({
     key,
     label: SCHOOL_DRIVER_LABEL[key],
     score: driverScoreByKey[key],
-    delta: 0,
+    delta: driverDeltaByKey[key],
   }));
 
   const withScore = drivers.filter((d): d is SchoolDriverScore & { score: number } => d.score != null);
@@ -413,7 +458,9 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   // that re-derived average can swing hard when a single driver like
   // Intervention Response sits at 0% while most students are fine.
   const score = CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : avg(withScore.map((d) => d.score)) ?? 0;
-  const delta = 0;
+  // Real period-over-period delta for the headline score, from the same
+  // WEEKLY_DATA/MONTHLY_DATA series the trend chart below already plots.
+  const delta = latestWithDelta(period, (row) => row.studentHealthScore).delta ?? 0;
   const status = scoreBand(score);
 
   const ranked = [...withScore].sort((a, b) => b.score - a.score);
@@ -573,12 +620,15 @@ export type SchoolPillarMetric = {
   coverageUnit: "classrooms" | "teachers";
 };
 
-export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[] {
+export function schoolPillarMetrics(grade?: string | null, period: TrendPeriod = "week"): SchoolPillarMetric[] {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
   const kpis = getSchoolKpis();
 
   const behaviorScore = weightedAvgFor(classes, (c) => c.drivers.behavior);
   const studentWellbeingScore = behaviorScore != null ? Math.min(98, behaviorScore + 5) : null;
+  // Student Well-being tracks the behaviour driver 1:1 (score + 5), so its
+  // real period-over-period delta is the behaviour series' delta too.
+  const studentWellbeingDelta = latestWithDelta(period, (row) => row.behaviorAndDisciplineScore).delta ?? 0;
 
   const academicScore = weightedAvgFor(classes, (c) => c.drivers.academic);
   const focusScore = weightedAvgFor(classes, (c) => c.drivers.focus);
@@ -595,6 +645,24 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
     perfEntries.length > 0
       ? Math.round(perfEntries.reduce((s, [k, v]) => s + v * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfWeightSum)
       : null;
+
+  // Same weighting applied to each pillar's real series delta, renormalized
+  // over whichever ones actually moved between the two latest periods.
+  const perfFieldByKey: Record<keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, keyof TimeSeriesData> = {
+    academic: "learningAndReadiness",
+    focus: "attentionAndFocusAvg",
+    task: "taskEngagementScore",
+  };
+  const perfDeltaEntries = (
+    Object.keys(CLASSROOM_PERFORMANCE_WEIGHTS) as (keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS)[]
+  )
+    .map((k) => [k, latestWithDelta(period, (row) => row[perfFieldByKey[k]] as number | null).delta] as const)
+    .filter((e): e is [keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, number] => e[1] != null);
+  const perfDeltaWeightSum = perfDeltaEntries.reduce((s, [k]) => s + CLASSROOM_PERFORMANCE_WEIGHTS[k], 0);
+  const classroomPerformanceDelta =
+    perfDeltaEntries.length > 0
+      ? Math.round(perfDeltaEntries.reduce((s, [k, d]) => s + d * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfDeltaWeightSum)
+      : 0;
 
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
@@ -617,6 +685,15 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
     teacherEfficiency: teacherEfficiencyScore,
   };
 
+  // Teacher Efficiency has no matching real time series (it's derived from
+  // this period's follow-up check-in state, not a CSV column) — its delta
+  // stays 0 rather than a fabricated number.
+  const deltaByKey: Record<SchoolPillarKey, number> = {
+    studentWellbeing: studentWellbeingDelta,
+    classroomPerformance: classroomPerformanceDelta,
+    teacherEfficiency: 0,
+  };
+
   const coverageByKey: Record<SchoolPillarKey, { used: number; total: number; pct: number; unit: "classrooms" | "teachers" }> = {
     studentWellbeing: { used: classroomCoverageUsed, total: classroomCoverageTotal, pct: classroomCoveragePct, unit: "classrooms" },
     classroomPerformance: { used: classroomCoverageUsed, total: classroomCoverageTotal, pct: classroomCoveragePct, unit: "classrooms" },
@@ -631,7 +708,7 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
       label: SCHOOL_PILLAR_LABEL[key],
       score,
       status: score != null ? scoreBand(score) : null,
-      delta: 0,
+      delta: deltaByKey[key],
       coverageUsed: coverage.used,
       coverageTotal: coverage.total,
       coveragePct: coverage.pct,
@@ -751,7 +828,7 @@ export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade
     studentWellbeing: byKey.studentWellbeing.score,
     classroomPerformance: byKey.classroomPerformance.score,
     teacherEfficiency: byKey.teacherEfficiency.score,
-    studentHealthScore: row.studentHealthScore != null ? Number(row.studentHealthScore.toFixed(1)) : null,
+    studentHealthScore: row.studentHealthScore,
   }));
 }
 

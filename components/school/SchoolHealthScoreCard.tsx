@@ -44,6 +44,7 @@ import {
   type SchoolHealthCoverage,
   type SchoolHealthOverview,
   type SupportFocusRow,
+  type TrendPeriod,
 } from "@/lib/schoolData";
 import { SCORE_BANDS, type ScoreBand } from "@/lib/classHealth";
 import { cn } from "@/lib/utils";
@@ -103,10 +104,11 @@ export function SchoolHealthScoreCard() {
   });
 
   const scopedGrade = gradeFilter === "All Grades" ? null : gradeFilter.replace("Grade ", "");
+  const trendPeriod: TrendPeriod = periodFilter === "This Month" ? "month" : "week";
 
-  const overview = useMemo(() => schoolHealthOverview(scopedGrade), [scopedGrade]);
+  const overview = useMemo(() => schoolHealthOverview(scopedGrade, trendPeriod), [scopedGrade, trendPeriod]);
   const coverage = useMemo(() => schoolHealthCoverage(scopedGrade), [scopedGrade]);
-  const pillars = useMemo(() => schoolPillarMetrics(scopedGrade), [scopedGrade]);
+  const pillars = useMemo(() => schoolPillarMetrics(scopedGrade, trendPeriod), [scopedGrade, trendPeriod]);
   const supportFocus = useMemo(() => schoolSupportFocus(scopedGrade), [scopedGrade]);
 
   const statusTone = STATUS_TONE[overview.status];
@@ -161,8 +163,8 @@ export function SchoolHealthScoreCard() {
                   icon={CalendarDays}
                   value={periodFilter}
                   onChange={(v) => {
-                    if (v !== "This Week") {
-                      comingSoon("Historical date ranges");
+                    if (v === "Custom range") {
+                      comingSoon("Custom date ranges");
                       return;
                     }
                     setPeriodFilter(v);
@@ -195,6 +197,7 @@ export function SchoolHealthScoreCard() {
                 pillars={pillars}
                 supportFocus={supportFocus}
                 statusTone={statusTone}
+                periodLabel={trendPeriod === "month" ? "last month" : "last week"}
               />
 
               <TrendChart
@@ -372,12 +375,14 @@ function ScoreDetailCard({
   pillars,
   supportFocus,
   statusTone,
+  periodLabel,
 }: {
   overview: SchoolHealthOverview;
   coverage: SchoolHealthCoverage;
   pillars: SchoolPillarMetric[];
   supportFocus: SupportFocusRow[];
   statusTone: string;
+  periodLabel: string;
 }) {
   const classroomsPct =
     coverage.classroomsTotal > 0 ? Math.round((coverage.classroomsUsed / coverage.classroomsTotal) * 100) : 0;
@@ -416,7 +421,7 @@ function ScoreDetailCard({
               className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums"
               style={{ color: overview.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
             >
-              {overview.delta >= 0 ? "↑" : "↓"} {Math.abs(overview.delta)} from last week
+              {overview.delta >= 0 ? "↑" : "↓"} {Math.abs(overview.delta)} from {periodLabel}
             </span>
           </div>
         </div>

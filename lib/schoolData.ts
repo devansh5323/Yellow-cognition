@@ -14,6 +14,7 @@
 // plausible-looking fake swing.
 
 import { STUDENTS } from "@/data/mockData";
+import { CLASS_AVERAGE, TIER_COUNTS, WEEKLY_DATA, MONTHLY_DATA } from "@/data/studentHealthScore";
 import { classHealth, scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
 import { getClassCheckInsThisWeek } from "@/lib/checkInTools";
 import { getStats } from "@/lib/roster";
@@ -101,7 +102,7 @@ function buildTeachers(): SchoolTeacher[] {
       subject: "Homeroom",
       classes: ["Bishop Cottons — Combined Roster"],
       studentCount: STUDENTS.length,
-      avgPfi: ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore) : ch.score,
       pfiTrend: 0,
       status: "active",
       lastActiveDays: checkedIn ? 0 : undefined,
@@ -117,10 +118,10 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
   const atRisk = ch.distribution["needs-support"] + ch.distribution.watch;
 
   const drivers: ClassDrivers = {
-    focus: ch.pillars.focus,
-    academic: ch.pillars.academic,
-    behavior: ch.pillars.behavior,
-    task: ch.pillars.task,
+    focus: CLASS_AVERAGE.cognitivePerformance.attentionAndFocus != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.attentionAndFocus) : ch.pillars.focus,
+    academic: CLASS_AVERAGE.cognitivePerformance.learningReadiness.score != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.learningReadiness.score) : ch.pillars.academic,
+    behavior: CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline) : ch.pillars.behavior,
+    task: CLASS_AVERAGE.cognitivePerformance.taskEngagement != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.taskEngagement) : ch.pillars.task,
   };
 
   return [
@@ -132,11 +133,11 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
       teacherId: t.id,
       teacherName: t.name,
       size: STUDENTS.length,
-      avgPfi: ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore) : ch.score,
       pfiTrend: 0,
       atRisk,
       monthlyCheckIn: checkedIn,
-      engagementPct: ch.pillars.task ?? 0,
+      engagementPct: drivers.task ?? 0,
       drivers,
     },
   ];
@@ -728,21 +729,26 @@ export type SchoolHealthTrendPoint = {
   studentWellbeing: number | null;
   classroomPerformance: number | null;
   teacherEfficiency: number | null;
+  studentHealthScore: number | null;
 };
 
-// No real week-over-week history is tracked at school scale — every point
-// is the same real current value (flat), not a fabricated swing.
-const TREND_WEEK_LABELS = ["Week 1", "Week 2", "Week 3", "Week 4", "This Week"];
-
-export function schoolHealthTrend(grade?: string | null): SchoolHealthTrendPoint[] {
+export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade?: string | null): SchoolHealthTrendPoint[] {
   const metrics = schoolPillarMetrics(grade);
   const byKey = Object.fromEntries(metrics.map((m) => [m.key, m])) as Record<SchoolPillarKey, SchoolPillarMetric>;
+  
+  const sourceData = period === "Weekly" ? WEEKLY_DATA : MONTHLY_DATA;
+  
+  const formatLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
-  return TREND_WEEK_LABELS.map((weekLabel) => ({
-    weekLabel,
+  return sourceData.map((row) => ({
+    weekLabel: `${formatLabel(row.startDate)} - ${formatLabel(row.endDate)}`,
     studentWellbeing: byKey.studentWellbeing.score,
     classroomPerformance: byKey.classroomPerformance.score,
     teacherEfficiency: byKey.teacherEfficiency.score,
+    studentHealthScore: row.studentHealthScore,
   }));
 }
 
@@ -917,19 +923,17 @@ export type SchoolTierDistribution = {
 };
 
 export function schoolTierDistribution(scope: TierScope = {}): SchoolTierDistribution {
-  const classes = scopedSchoolClasses(scope);
-  const totals: ClassTierSplit = { tier1: 0, tier2: 0, tier3: 0 };
-  classes.forEach((c) => {
-    const s = classTierSplit(c);
-    totals.tier1 += s.tier1;
-    totals.tier2 += s.tier2;
-    totals.tier3 += s.tier3;
-  });
-  const totalStudents = totals.tier1 + totals.tier2 + totals.tier3;
+  let counts = TIER_COUNTS.studentHealth;
+  if (scope.driver === "focus") counts = TIER_COUNTS.attentionAndFocus;
+  else if (scope.driver === "academic") counts = TIER_COUNTS.learningReadiness;
+  else if (scope.driver === "task") counts = TIER_COUNTS.taskEngagement;
+  else if (scope.driver === "behavior") counts = TIER_COUNTS.behaviourAndDiscipline;
+
+  const totalStudents = counts.tier1 + counts.tier2 + counts.tier3;
   const bands: TierDistributionBand[] = (["tier1", "tier2", "tier3"] as TierKey[]).map((tier) => ({
     tier,
-    count: totals[tier],
-    pct: totalStudents > 0 ? Math.round((totals[tier] / totalStudents) * 1000) / 10 : 0,
+    count: counts[tier],
+    pct: totalStudents > 0 ? Math.round((counts[tier] / totalStudents) * 1000) / 10 : 0,
     delta: TIER_DELTA[tier],
   }));
   return { totalStudents, bands };

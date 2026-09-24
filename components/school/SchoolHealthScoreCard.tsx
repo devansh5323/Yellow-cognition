@@ -76,7 +76,8 @@ const PILLAR_ICON: Record<SchoolPillarKey, LucideIcon> = {
   teacherEfficiency: Users,
 };
 
-const PILLAR_TONE: Record<SchoolPillarKey, string> = {
+const PILLAR_TONE: Record<SchoolPillarKey | "studentHealthScore", string> = {
+  studentHealthScore: "hsl(212 90% 58%)",
   studentWellbeing: "hsl(142 55% 42%)",
   classroomPerformance: "hsl(262 60% 55%)",
   teacherEfficiency: "hsl(28 88% 54%)",
@@ -94,7 +95,8 @@ export function SchoolHealthScoreCard() {
   const [gradeFilter, setGradeFilter] = useState("All Grades");
   const [subjectFilter, setSubjectFilter] = useState("All Subjects");
   const [periodFilter, setPeriodFilter] = useState("This Week");
-  const [visible, setVisible] = useState<Record<SchoolPillarKey, boolean>>({
+  const [visible, setVisible] = useState<Record<SchoolPillarKey | "studentHealthScore", boolean>>({
+    studentHealthScore: true,
     studentWellbeing: true,
     classroomPerformance: true,
     teacherEfficiency: true,
@@ -106,7 +108,6 @@ export function SchoolHealthScoreCard() {
   const coverage = useMemo(() => schoolHealthCoverage(scopedGrade), [scopedGrade]);
   const pillars = useMemo(() => schoolPillarMetrics(scopedGrade), [scopedGrade]);
   const supportFocus = useMemo(() => schoolSupportFocus(scopedGrade), [scopedGrade]);
-  const trend = useMemo(() => schoolHealthTrend(scopedGrade), [scopedGrade]);
 
   const statusTone = STATUS_TONE[overview.status];
 
@@ -197,7 +198,7 @@ export function SchoolHealthScoreCard() {
               />
 
               <TrendChart
-                trend={trend}
+                scopedGrade={scopedGrade}
                 visible={visible}
                 onToggle={(key) => setVisible((v) => ({ ...v, [key]: !v[key] }))}
               />
@@ -511,16 +512,18 @@ function ScoreDetailCard({
 }
 
 function TrendChart({
-  trend,
+  scopedGrade,
   visible,
   onToggle,
 }: {
-  trend: ReturnType<typeof schoolHealthTrend>;
-  visible: Record<SchoolPillarKey, boolean>;
-  onToggle: (key: SchoolPillarKey) => void;
+  scopedGrade: string | null;
+  visible: Record<SchoolPillarKey | "studentHealthScore", boolean>;
+  onToggle: (key: SchoolPillarKey | "studentHealthScore") => void;
 }) {
-  const [periodFilter, setPeriodFilter] = useState("Weekly");
-  const keys: SchoolPillarKey[] = ["studentWellbeing", "classroomPerformance", "teacherEfficiency"];
+  const [periodFilter, setPeriodFilter] = useState<"Weekly" | "Monthly">("Weekly");
+  const keys: (SchoolPillarKey | "studentHealthScore")[] = ["studentHealthScore", "studentWellbeing", "classroomPerformance", "teacherEfficiency"];
+  
+  const trend = useMemo(() => schoolHealthTrend(periodFilter, scopedGrade), [periodFilter, scopedGrade]);
 
   return (
     <div className="rounded-xl border border-border/60 bg-background/40 p-4">
@@ -549,13 +552,7 @@ function TrendChart({
           <FilterSelect
             icon={CalendarDays}
             value={periodFilter}
-            onChange={(v) => {
-              if (v !== "Weekly") {
-                comingSoon("Alternate trend granularity");
-                return;
-              }
-              setPeriodFilter(v);
-            }}
+            onChange={(v) => setPeriodFilter(v as "Weekly" | "Monthly")}
             options={["Weekly", "Monthly"]}
           />
           <button
@@ -607,7 +604,8 @@ function TrendChart({
   );
 }
 
-const PILLAR_LABEL_SHORT: Record<SchoolPillarKey, string> = {
+const PILLAR_LABEL_SHORT: Record<SchoolPillarKey | "studentHealthScore", string> = {
+  studentHealthScore: "Student Health Score",
   studentWellbeing: "Student Well-being",
   classroomPerformance: "Classroom Performance Index",
   teacherEfficiency: "Teacher Efficiency",

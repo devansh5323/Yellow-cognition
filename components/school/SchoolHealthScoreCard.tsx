@@ -29,7 +29,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   coverageLabelFor,
@@ -82,6 +81,17 @@ const PILLAR_TONE: Record<SchoolPillarKey, string> = {
   teacherEfficiency: "hsl(28 88% 54%)",
 };
 
+// The Trend chart offers a 4th series beyond the 3 complementary pillars
+// above: the overall School Health Score itself (the same composite the
+// big number at the top of this card shows), so leaders can see it trend
+// alongside its own breakdown. Kept as its own union rather than folded
+// into SchoolPillarKey, since that type also drives schoolPillarMetrics()
+// and the 3-card "Complementary scores" grid, which intentionally excludes
+// the overall composite.
+type TrendSeriesKey = SchoolPillarKey | "schoolHealthScore";
+const SCHOOL_HEALTH_SCORE_TONE = "hsl(217 85% 58%)";
+const TREND_TONE: Record<TrendSeriesKey, string> = { ...PILLAR_TONE, schoolHealthScore: SCHOOL_HEALTH_SCORE_TONE };
+
 function comingSoon(action: string) {
   toast("Coming soon", { description: `${action} isn't available yet.` });
 }
@@ -94,11 +104,7 @@ export function SchoolHealthScoreCard() {
   const [gradeFilter, setGradeFilter] = useState("All Grades");
   const [subjectFilter, setSubjectFilter] = useState("All Subjects");
   const [periodFilter, setPeriodFilter] = useState("This Week");
-  const [visible, setVisible] = useState<Record<SchoolPillarKey, boolean>>({
-    studentWellbeing: true,
-    classroomPerformance: true,
-    teacherEfficiency: true,
-  });
+  const [activePillar, setActivePillar] = useState<TrendSeriesKey>("schoolHealthScore");
 
   const scopedGrade = gradeFilter === "All Grades" ? null : gradeFilter.replace("Grade ", "");
 
@@ -196,11 +202,7 @@ export function SchoolHealthScoreCard() {
                 statusTone={statusTone}
               />
 
-              <TrendChart
-                trend={trend}
-                visible={visible}
-                onToggle={(key) => setVisible((v) => ({ ...v, [key]: !v[key] }))}
-              />
+              <TrendChart trend={trend} activePillar={activePillar} onSelect={setActivePillar} />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -321,15 +323,23 @@ function CoverageStat({
 
 function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
   const Icon = PILLAR_ICON[metric.key];
-  const tone = PILLAR_TONE[metric.key];
+  const hasData = metric.score != null;
+  // No real tone/color for a metric with nothing behind it yet — an inactive
+  // grey rather than the pillar's usual color, so an empty card reads as
+  // "not enough data" instead of looking like a real (if low) score.
+  const tone = hasData ? PILLAR_TONE[metric.key] : "var(--muted-foreground)";
 
   return (
     <div
       className="rounded-xl border p-3 min-w-0"
-      style={{
-        borderColor: `color-mix(in srgb, ${tone} 22%, var(--border))`,
-        background: `color-mix(in srgb, ${tone} 5%, transparent)`,
-      }}
+      style={
+        hasData
+          ? {
+              borderColor: `color-mix(in srgb, ${tone} 22%, var(--border))`,
+              background: `color-mix(in srgb, ${tone} 5%, transparent)`,
+            }
+          : { borderColor: "var(--border)", background: "var(--muted)", opacity: 0.6 }
+      }
     >
       <div className="flex items-center gap-2">
         <span
@@ -342,15 +352,17 @@ function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
           <div className="text-[10.5px] font-bold text-foreground/85 leading-tight truncate">{metric.label}</div>
           <div className="flex items-baseline gap-1.5 mt-0.5">
             <span className="font-heading font-extrabold text-[18px] tabular-nums leading-none" style={{ color: tone }}>
-              {metric.score != null ? `${metric.score}%` : "—"}
+              {hasData ? `${metric.score}%` : "—"}
             </span>
-            {metric.score != null && (
+            {hasData ? (
               <span
                 className="inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums"
                 style={{ color: metric.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
               >
                 {metric.delta >= 0 ? "↑" : "↓"} {Math.abs(metric.delta)}%
               </span>
+            ) : (
+              <span className="text-[10px] font-bold text-muted-foreground">Not enough data</span>
             )}
           </div>
         </div>
@@ -358,7 +370,7 @@ function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
       <div className="h-1 w-full rounded-full bg-muted/60 mt-2.5 overflow-hidden">
         <div
           className="h-full rounded-full"
-          style={{ width: `${metric.score != null ? Math.min(100, metric.score) : 0}%`, background: tone }}
+          style={{ width: `${hasData ? Math.min(100, metric.score!) : 0}%`, background: tone }}
         />
       </div>
     </div>
@@ -512,15 +524,20 @@ function ScoreDetailCard({
 
 function TrendChart({
   trend,
-  visible,
-  onToggle,
+  activePillar,
+  onSelect,
 }: {
   trend: ReturnType<typeof schoolHealthTrend>;
-  visible: Record<SchoolPillarKey, boolean>;
-  onToggle: (key: SchoolPillarKey) => void;
+  activePillar: TrendSeriesKey;
+  onSelect: (key: TrendSeriesKey) => void;
 }) {
   const [periodFilter, setPeriodFilter] = useState("Weekly");
-  const keys: SchoolPillarKey[] = ["studentWellbeing", "classroomPerformance", "teacherEfficiency"];
+  const keys: TrendSeriesKey[] = [
+    "schoolHealthScore",
+    "studentWellbeing",
+    "classroomPerformance",
+    "teacherEfficiency",
+  ];
 
   return (
     <div className="rounded-xl border border-border/60 bg-background/40 p-4">
@@ -530,22 +547,32 @@ function TrendChart({
           <Info className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {keys.map((key) => (
-            <label key={key} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-              <Checkbox
-                checked={visible[key]}
-                onCheckedChange={() => onToggle(key)}
-                style={
-                  visible[key]
-                    ? { borderColor: PILLAR_TONE[key], background: PILLAR_TONE[key] }
-                    : { borderColor: PILLAR_TONE[key] }
-                }
-              />
-              <span className="text-[11.5px] font-bold" style={{ color: PILLAR_TONE[key] }}>
-                {PILLAR_LABEL_SHORT[key]}
-              </span>
-            </label>
-          ))}
+          {keys.map((key) => {
+            const active = key === activePillar;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onSelect(key)}
+                aria-pressed={active}
+                className="inline-flex items-center gap-1.5 cursor-pointer select-none"
+              >
+                <span
+                  className="h-3.5 w-3.5 rounded-full border-2 transition-colors"
+                  style={{
+                    borderColor: TREND_TONE[key],
+                    background: active ? TREND_TONE[key] : "transparent",
+                  }}
+                />
+                <span
+                  className="text-[11.5px] font-bold transition-opacity"
+                  style={{ color: TREND_TONE[key], opacity: active ? 1 : 0.5 }}
+                >
+                  {TREND_LABEL[key]}
+                </span>
+              </button>
+            );
+          })}
           <FilterSelect
             icon={CalendarDays}
             value={periodFilter}
@@ -585,21 +612,16 @@ function TrendChart({
                 fontSize: 12,
               }}
             />
-            {keys.map(
-              (key) =>
-                visible[key] && (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    name={PILLAR_LABEL_SHORT[key]}
-                    stroke={PILLAR_TONE[key]}
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: PILLAR_TONE[key], strokeWidth: 0 }}
-                    label={{ position: "top", fontSize: 10, fill: PILLAR_TONE[key], fontWeight: 700 }}
-                  />
-                ),
-            )}
+            <Line
+              key={activePillar}
+              type="monotone"
+              dataKey={activePillar}
+              name={TREND_LABEL[activePillar]}
+              stroke={TREND_TONE[activePillar]}
+              strokeWidth={2.5}
+              dot={{ r: 4, fill: TREND_TONE[activePillar], strokeWidth: 0 }}
+              label={{ position: "top", fontSize: 10, fill: TREND_TONE[activePillar], fontWeight: 700 }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -611,4 +633,9 @@ const PILLAR_LABEL_SHORT: Record<SchoolPillarKey, string> = {
   studentWellbeing: "Student Well-being",
   classroomPerformance: "Classroom Performance Index",
   teacherEfficiency: "Teacher Efficiency",
+};
+
+const TREND_LABEL: Record<TrendSeriesKey, string> = {
+  ...PILLAR_LABEL_SHORT,
+  schoolHealthScore: "School Health Score",
 };

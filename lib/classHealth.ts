@@ -3,10 +3,9 @@
 // `studentHealthScore` is already the real composite the source data
 // provides, so this file averages/counts over real fields instead of
 // re-deriving a weighted score from gameplay signals that no longer exist.
-// Two of the four historical "pillars" (Attention & Focus, Behaviour &
-// Discipline) have zero real signal across the current 16-student batch —
-// they surface as `null` ("not enough data yet") rather than a fabricated
-// number. There is also no real week-over-week history in this data, so
+// Behaviour & Discipline has no source values in the current 16-student
+// batch, so it surfaces as `null` ("not enough data yet") rather than a
+// fabricated number. There is also no real week-over-week history, so
 // every previous/delta/trend concept from the old mock-driven model has
 // been removed rather than kept with a fake value.
 
@@ -27,7 +26,7 @@ export function pillarLabel(p: PillarKey) {
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
 }
 
 function pillarValue(s: Student, p: PillarKey): number | null {

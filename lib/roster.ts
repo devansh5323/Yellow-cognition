@@ -27,9 +27,9 @@ export type InviteStats = {
 };
 
 const KEY = "ah_roster";
-// Bumped so existing demos drop the old 30-student synthetic roster and pick
-// up only the Bishop Cotton students present in the source dataset.
-const SEEDED_KEY = "ah_roster_seeded_v3_bishop_cotton";
+// Bumped so existing demos replace unsupported active/invite history with the
+// source roster while preserving entries the user added themselves.
+const SEEDED_KEY = "ah_roster_seeded_v4_bishop_cotton";
 const LAST_REMINDER_KEY = "ah_reminders_last_sent";
 
 const DAY = 86_400_000;
@@ -41,20 +41,17 @@ function makeId(): string {
 
 function seedData(): RosterStudent[] {
   const now = Date.now();
-  // Active = students whose data feeds the dashboard. Keep this roster to the
-  // Bishop Cotton source rows only; do not add synthetic invited/pending
-  // students that are not present in the spreadsheet.
-  return STUDENTS.map((s, i) => {
+  // The source identifies students and parents but contains no Fumi invite or
+  // activation history, so source rows begin in the honest pending state.
+  return STUDENTS.map((s) => {
     const childName = s.name;
     return {
-      id: `seed_active_${s.id}`,
+      id: `seed_source_${s.id}`,
       childName,
       parentName: s.parentName,
-      status: "active",
+      status: "pending-invite",
       source: "csv",
-      addedAt: now - (10 + i) * DAY,
-      invitedAt: now - (9 + i) * DAY,
-      activatedAt: now - (5 + (i % 4)) * DAY,
+      addedAt: now,
     };
   });
 }
@@ -72,10 +69,13 @@ function read(): RosterStudent[] {
     // flips to "1", the user can keep editing the roster freely afterwards.
     const seededAt = window.localStorage.getItem(SEEDED_KEY);
     if (seededAt !== "1") {
-      const seed = seedData();
-      window.localStorage.setItem(KEY, JSON.stringify(seed));
+      const raw = window.localStorage.getItem(KEY);
+      const existing = raw ? (JSON.parse(raw) as RosterStudent[]) : [];
+      const userAdded = existing.filter((student) => !student.id.startsWith("seed_"));
+      const next = [...seedData(), ...userAdded];
+      window.localStorage.setItem(KEY, JSON.stringify(next));
       window.localStorage.setItem(SEEDED_KEY, "1");
-      return seed;
+      return next;
     }
     const raw = window.localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as RosterStudent[];

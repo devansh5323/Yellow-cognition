@@ -12,7 +12,7 @@ import {
 } from "@/data/mockData";
 
 const KEY = "attentionhero.checkins.v1";
-const SEED_KEY = "attentionhero.checkins.seeded.v3";
+const SEED_KEY = "attentionhero.checkins.seeded.v4_bishop_cotton";
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -21,8 +21,10 @@ function isBrowser() {
 function ensureSeeded() {
   if (!isBrowser()) return;
   if (window.localStorage.getItem(SEED_KEY)) return;
-  // Re-seed on version bump so demo data stays meaningful (e.g. spans the last few months).
-  window.localStorage.setItem(KEY, JSON.stringify(SEED_CHECKINS));
+  const raw = window.localStorage.getItem(KEY);
+  const existing = raw ? (JSON.parse(raw) as ClassCheckIn[]) : [];
+  const userCreated = existing.filter((checkIn) => !checkIn.id.startsWith("seed-"));
+  window.localStorage.setItem(KEY, JSON.stringify([...SEED_CHECKINS, ...userCreated]));
   window.localStorage.setItem(SEED_KEY, "1");
 }
 
@@ -199,20 +201,20 @@ export function getHoursSaved(): {
       ? 0
       : rows.reduce((a, c) => a + midLostMins(c.behaviourMins) + midLostMins(c.transitionMins), 0) / rows.length;
 
-  const behaviourBefore = avgLost(prior) || 11.5;
-  const behaviourAfter = avgLost(recent) || Math.max(behaviourBefore - 5.3, 3.1);
-  const teachersReporting = new Set(recent.map((c) => c.teacher)).size || 4;
-  const classesPerWeek = Math.max(recent.length, 18);
+  const behaviourBefore = avgLost(prior);
+  const behaviourAfter = avgLost(recent);
+  const teachersReporting = new Set(recent.map((c) => c.teacher)).size;
+  const classesPerWeek = recent.length;
   const studentIds = new Set<string>();
   for (const c of recent) for (const s of c.students) studentIds.add(s.studentId);
-  const studentsCovered = studentIds.size || 108;
+  const studentsCovered = studentIds.size;
 
   const minsSavedPerClass = Math.max(behaviourBefore - behaviourAfter, 0);
   const hoursSaved = Math.round(((minsSavedPerClass * classesPerWeek * teachersReporting) / 60) * 10) / 10;
 
   return {
-    hoursSaved: hoursSaved || 13.2,
-    attentionUpPct: 52,
+    hoursSaved,
+    attentionUpPct: 0,
     studentsCovered,
     behaviourBefore: Math.round(behaviourBefore * 10) / 10,
     behaviourAfter: Math.round(behaviourAfter * 10) / 10,

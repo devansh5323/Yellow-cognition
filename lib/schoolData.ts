@@ -102,7 +102,7 @@ function buildTeachers(): SchoolTeacher[] {
       subject: "Homeroom",
       classes: ["Bishop Cottons — Combined Roster"],
       studentCount: STUDENTS.length,
-      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore) : ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(2)) : ch.score,
       pfiTrend: 0,
       status: "active",
       lastActiveDays: checkedIn ? 0 : undefined,
@@ -118,10 +118,10 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
   const atRisk = ch.distribution["needs-support"] + ch.distribution.watch;
 
   const drivers: ClassDrivers = {
-    focus: CLASS_AVERAGE.cognitivePerformance.attentionAndFocus != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.attentionAndFocus) : ch.pillars.focus,
-    academic: CLASS_AVERAGE.cognitivePerformance.learningReadiness.score != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.learningReadiness.score) : ch.pillars.academic,
-    behavior: CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline) : ch.pillars.behavior,
-    task: CLASS_AVERAGE.cognitivePerformance.taskEngagement != null ? Math.round(CLASS_AVERAGE.cognitivePerformance.taskEngagement) : ch.pillars.task,
+    focus: CLASS_AVERAGE.cognitivePerformance.attentionAndFocus != null ? Number(CLASS_AVERAGE.cognitivePerformance.attentionAndFocus.toFixed(2)) : ch.pillars.focus,
+    academic: CLASS_AVERAGE.cognitivePerformance.learningReadiness.score != null ? Number(CLASS_AVERAGE.cognitivePerformance.learningReadiness.score.toFixed(2)) : ch.pillars.academic,
+    behavior: CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline != null ? Number(CLASS_AVERAGE.cognitivePerformance.behaviourAndDiscipline.toFixed(2)) : ch.pillars.behavior,
+    task: CLASS_AVERAGE.cognitivePerformance.taskEngagement != null ? Number(CLASS_AVERAGE.cognitivePerformance.taskEngagement.toFixed(2)) : ch.pillars.task,
   };
 
   return [
@@ -133,7 +133,7 @@ function buildClasses(teachers: SchoolTeacher[]): SchoolClassRow[] {
       teacherId: t.id,
       teacherName: t.name,
       size: STUDENTS.length,
-      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore) : ch.score,
+      avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(2)) : ch.score,
       pfiTrend: 0,
       atRisk,
       monthlyCheckIn: checkedIn,
@@ -294,7 +294,7 @@ export const SCHOOL_DRIVER_LABEL: Record<SchoolDriverKey, string> = {
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
 }
 
 /** Weighted average of a per-class numeric pick, skipping classes where the
@@ -303,7 +303,7 @@ function weightedAvgFor(classes: SchoolClassRow[], pick: (c: SchoolClassRow) => 
   const rows = classes.map((c) => ({ v: pick(c), size: c.size })).filter((r): r is { v: number; size: number } => r.v != null);
   const totalSize = rows.reduce((acc, r) => acc + r.size, 0);
   if (totalSize === 0) return null;
-  return Math.round(rows.reduce((acc, r) => acc + r.v * r.size, 0) / totalSize);
+  return Number((rows.reduce((acc, r) => acc + r.v * r.size, 0) / totalSize).toFixed(2));
 }
 
 // Same 30/30/20/20 weighting as the teacher dashboard's Classroom Health
@@ -322,7 +322,7 @@ export function classComposite(drivers: ClassDrivers): number | null {
   if (present.length === 0) return null;
   const weightSum = present.reduce((sum, [k]) => sum + CLASS_COMPOSITE_WEIGHTS[k], 0);
   const weighted = present.reduce((sum, [k, v]) => sum + v * CLASS_COMPOSITE_WEIGHTS[k], 0);
-  return Math.round(weighted / weightSum);
+  return Number((weighted / weightSum).toFixed(2));
 }
 
 export type ClassroomTier = "strong" | "solid" | "watch" | "needs-support" | "intensive";
@@ -412,7 +412,7 @@ export function schoolHealthOverview(grade?: string | null): SchoolHealthOvervie
   // ever missing, rather than always re-deriving the headline from them —
   // that re-derived average can swing hard when a single driver like
   // Intervention Response sits at 0% while most students are fine.
-  const score = CLASS_AVERAGE.studentHealthScore != null ? Math.round(CLASS_AVERAGE.studentHealthScore * 100) / 100: avg(withScore.map((d) => d.score)) ?? 0;
+  const score = CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(2)) : avg(withScore.map((d) => d.score)) ?? 0;
   const delta = 0;
   const status = scoreBand(score);
 

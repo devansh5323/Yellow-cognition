@@ -1198,7 +1198,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": null,
     "impulseControl": null,
     "angerAndEmotionalRegulation": null,
-    "studentHealthScore": null
+    "studentHealthScore": 50.23
   },
   {
     "startDate": "2026-08-24",

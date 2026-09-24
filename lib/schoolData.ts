@@ -541,7 +541,7 @@ export type SchoolDriverCard = {
   coverageLabel: ReturnType<typeof coverageLabelFor>;
 };
 
-export function schoolDriverCards(grade?: string | null): SchoolDriverCard[] {
+export function schoolDriverCards(grade?: string | null, period: TrendPeriod = "week"): SchoolDriverCard[] {
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
   const CORE_KEYS: PillarKey[] = ["focus", "academic", "behavior", "task"];
 
@@ -572,7 +572,7 @@ export function schoolDriverCards(grade?: string | null): SchoolDriverCard[] {
       label: SCHOOL_DRIVER_LABEL[key],
       score,
       status,
-      delta: 0,
+      delta: latestWithDelta(period, (row) => row[DRIVER_TREND_FIELD[key]] as number | null).delta ?? 0,
       classroomsContributing: classes.length,
       needAttentionCount,
       pattern: score == null ? "Not enough data yet for this driver." : isGood ? DRIVER_GOOD_PATTERN[key] : driverNeedsAttentionPattern(key),

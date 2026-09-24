@@ -754,13 +754,30 @@ export type SchoolHealthTrendPoint = {
   studentHealthScore: number | null;
 };
 
+function formatWeekLabel(startDate: string, endDate: string): string {
+  const fmt = (iso: string) => {
+    const [, m, d] = iso.split("-").map(Number);
+    return `${MONTH_SHORT[m - 1]} ${d}`;
+  };
+  return `${fmt(startDate)} - ${fmt(endDate)}`;
+}
+
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Only `studentHealthScore` has a real per-period value in the CSV
+// (WEEKLY_DATA/MONTHLY_DATA) — the 3 sub-pillars and the overall composite
+// have no real week-over-week history at school scale, so they stay flat
+// (today's value repeated) across every point, same as before.
 export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade?: string | null): SchoolHealthTrendPoint[] {
   const metrics = schoolPillarMetrics(grade);
   const byKey = Object.fromEntries(metrics.map((m) => [m.key, m])) as Record<SchoolPillarKey, SchoolPillarMetric>;
   const overallScore = schoolHealthOverview(grade).score;
+  const rows = period === "Monthly" ? MONTHLY_DATA : WEEKLY_DATA;
 
-  return TREND_WEEK_LABELS.map((weekLabel) => ({
-    weekLabel,
+  return rows.map((row) => ({
+    weekLabel: formatWeekLabel(row.startDate, row.endDate),
     schoolHealthScore: overallScore,
     studentWellbeing: byKey.studentWellbeing.score,
     classroomPerformance: byKey.classroomPerformance.score,

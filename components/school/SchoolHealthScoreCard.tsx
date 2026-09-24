@@ -202,7 +202,7 @@ export function SchoolHealthScoreCard() {
                 statusTone={statusTone}
               />
 
-              <TrendChart trend={trend} activePillar={activePillar} onSelect={setActivePillar} />
+              <TrendChart grade={scopedGrade} activePillar={activePillar} onSelect={setActivePillar} />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -523,15 +523,16 @@ function ScoreDetailCard({
 }
 
 function TrendChart({
-  trend,
+  grade,
   activePillar,
   onSelect,
 }: {
-  trend: ReturnType<typeof schoolHealthTrend>;
+  grade: string | null;
   activePillar: TrendSeriesKey;
   onSelect: (key: TrendSeriesKey) => void;
 }) {
-  const [periodFilter, setPeriodFilter] = useState("Weekly");
+  const [periodFilter, setPeriodFilter] = useState<"Weekly" | "Monthly">("Weekly");
+  const trend = useMemo(() => schoolHealthTrend(periodFilter, grade), [periodFilter, grade]);
   const keys: TrendSeriesKey[] = [
     "schoolHealthScore",
     "studentWellbeing",

@@ -230,7 +230,7 @@ export function SchoolHealthScoreCard() {
                     {overview.drivers.map((d) => (
                       <li key={d.key} className="flex items-center justify-between text-[11.5px]">
                         <span className="text-foreground/85">{d.label}</span>
-                        <span className="font-bold tabular-nums">{d.score}</span>
+                        <span className="font-bold tabular-nums">{d.score != null ? d.score.toFixed(2) : "—"}</span>
                       </li>
                     ))}
                   </ul>
@@ -399,7 +399,7 @@ function ScoreDetailCard({
                 className="font-heading font-black tabular-nums leading-none text-[52px]"
                 style={{ color: statusTone }}
               >
-                {overview.score}
+                {overview.score.toFixed(2)}
               </span>
               <span className="text-[13px] font-extrabold text-muted-foreground/80">/100</span>
             </div>

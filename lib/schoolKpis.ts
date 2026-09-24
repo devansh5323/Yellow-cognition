@@ -184,7 +184,7 @@ function buildLRS(): SchoolKpi {
     {
       id: "readiness-areas",
       label: "Learning Readiness Areas",
-      description: "Weighted average across the 6 learning-readiness areas tracked for this class.",
+      description: "Average of the source Learning Readiness Score values available for this class.",
       value: readiness.rawScore,
       unit: "/ 100",
       delta: 0,

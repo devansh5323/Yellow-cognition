@@ -98,7 +98,7 @@ function ImplementationTracker() {
           display={(v) => (v === "all" ? "All Grades" : v)}
         />
         <FilterSelect label="Subject" value="all" options={["all"]} onChange={() => {}} display={() => "All Subjects"} disabled />
-        <FilterSelect label="School" value="Riverside Academy" options={["Riverside Academy"]} onChange={() => {}} disabled />
+        <FilterSelect label="School" value="Bishop Cottons Girls School" options={["Bishop Cottons Girls School"]} onChange={() => {}} disabled />
       </div>
 
       {/* Summary */}

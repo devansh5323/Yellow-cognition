@@ -246,7 +246,7 @@ function ProfileCard() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <SettingsField label="Full name" defaultValue="Maya Khan" />
         <SettingsField label="Email" defaultValue="maya.khan@school.edu" />
-        <SettingsField label="School" defaultValue="Riverside Academy" />
+        <SettingsField label="School" defaultValue="Bishop Cottons Girls School" />
         <SettingsField label="Primary class" defaultValue="Grade 3 — Section A" />
       </div>
     </>

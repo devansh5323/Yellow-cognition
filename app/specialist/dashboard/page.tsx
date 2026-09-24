@@ -64,7 +64,7 @@ const EASE = [0.2, 0.7, 0.2, 1] as const;
 // Single-school app — no multi-school data model exists yet, so this filter
 // is a real (if currently inert) display of the one real school rather
 // than a fabricated switcher.
-const SCHOOL_NAME = "Riverside Academy";
+const SCHOOL_NAME = "Bishop Cottons Girls School";
 
 type ViewKey = "overview" | "special-education" | "504";
 

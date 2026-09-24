@@ -19,7 +19,7 @@ export function ParentCommsCard({ onSaved }: { onSaved?: () => void } = {}) {
   const [monthlyOn, setMonthlyOn] = useState(true);
   const [atRiskOn, setAtRiskOn] = useState(false);
   const [optOut, setOptOut] = useState(true);
-  const [sender, setSender] = useState("Riverside Academy");
+  const [sender, setSender] = useState("Bishop Cottons Girls School");
 
   const save = () => {
     markSchoolTaskDone("configure-parent-comms");

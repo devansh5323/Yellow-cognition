@@ -108,7 +108,7 @@ function CardShell({ children }: { children: React.ReactNode }) {
 }
 
 function ProfileCard() {
-  const [name, setName] = useState("Riverside Academy");
+  const [name, setName] = useState("Bishop Cottons Girls School");
   const [city, setCity] = useState("Bengaluru, India");
   const [type, setType] = useState("Private");
   const [website, setWebsite] = useState("riversideacademy.edu");

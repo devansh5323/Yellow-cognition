@@ -91,7 +91,7 @@ function SchoolWelcomePage() {
   const [direction, setDirection] = useState<1 | -1>(1);
 
   const initial = useMemo(() => getSchoolOnboarding(), []);
-  const [schoolName, setSchoolName] = useState(initial.profile?.schoolName ?? "");
+  const [schoolName, setSchoolName] = useState(initial.profile?.schoolName ?? "Bishop Cottons Girls School");
   const [schoolType, setSchoolType] = useState<SchoolType>(initial.profile?.schoolType ?? "private");
   const [city, setCity] = useState(initial.profile?.city ?? "");
   const [country, setCountry] = useState(initial.profile?.country ?? "India");
@@ -136,7 +136,7 @@ function SchoolWelcomePage() {
   const persistDraft = () => {
     setSchoolOnboarding({
       profile: {
-        schoolName: schoolName.trim() || "Your School",
+        schoolName: schoolName.trim() || "Bishop Cottons Girls School",
         schoolType,
         city: city.trim(),
         country: country.trim(),
@@ -601,7 +601,7 @@ function StepSchool({
     <div className="space-y-6">
       <div className="grid sm:grid-cols-2 gap-4">
         <Field label="School name">
-          <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Riverside Academy" autoFocus />
+          <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="Bishop Cottons Girls School" autoFocus />
         </Field>
         <div>
           <div className="text-[12.5px] font-semibold text-foreground/80 mb-1.5">School type</div>

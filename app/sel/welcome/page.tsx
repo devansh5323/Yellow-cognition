@@ -38,7 +38,7 @@ const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 // Single real school in this app's data model (see SelAppShell.tsx) —
 // "pre-fill from the school system" means this, not a free-text guess.
-const SCHOOL_NAME = "Riverside Academy";
+const SCHOOL_NAME = "Bishop Cottons Girls School";
 
 const POSITIONS: SelPosition[] = ["selCoordinator", "counsellor", "specialEducator"];
 

@@ -43,7 +43,7 @@ const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 // Single-school app — no multi-school data model exists, so this is a real
 // (if inert) display of the one real school rather than a fabricated switcher.
-const SCHOOL_NAME = "Riverside Academy";
+const SCHOOL_NAME = "Bishop Cottons Girls School";
 
 export function SelAppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);

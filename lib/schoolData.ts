@@ -16,6 +16,7 @@
 import { STUDENTS } from "@/data/mockData";
 import { CLASS_AVERAGE, TIER_COUNTS, WEEKLY_DATA, MONTHLY_DATA } from "@/data/studentHealthScore";
 import { classHealth, scoreBand, type PillarKey, type ScoreBand } from "@/lib/classHealth";
+import { classWellbeingDrivers } from "@/lib/classWellbeing";
 import { getClassCheckInsThisWeek } from "@/lib/checkInTools";
 import { getStats } from "@/lib/roster";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
@@ -100,7 +101,7 @@ function buildTeachers(): SchoolTeacher[] {
       email: `${TEACHER_NAME.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
       initials: initialsOf(TEACHER_NAME),
       subject: "Homeroom",
-      classes: ["Bishop Cottons — Combined Roster"],
+      classes: ["Bishop Cottons Girls School — Combined Roster"],
       studentCount: STUDENTS.length,
       avgPfi: CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : ch.score,
       pfiTrend: 0,
@@ -577,8 +578,19 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
   const classes = grade ? getSchoolClasses().filter((c) => c.grade === grade) : getSchoolClasses();
   const kpis = getSchoolKpis();
 
-  const behaviorScore = weightedAvgFor(classes, (c) => c.drivers.behavior);
-  const studentWellbeingScore = behaviorScore != null ? Math.min(98, behaviorScore + 5) : null;
+  // Was derived from the Behavior & Discipline class driver (behaviorScore
+  // + 5) — a leftover mock-data proxy that's always null now (that driver
+  // has zero real signal across the roster, see classBehavior.ts). The real
+  // source for this pillar is each student's own studentWellbeing fields
+  // (sparse but non-zero — see classWellbeing.ts), averaged across whichever
+  // of its 3 sub-drivers actually have real data.
+  const wellbeingDriverScores = classWellbeingDrivers(STUDENTS)
+    .map((d) => d.score)
+    .filter((v): v is number => v != null);
+  const studentWellbeingScore =
+    classes.length > 0 && wellbeingDriverScores.length > 0
+      ? Math.round(wellbeingDriverScores.reduce((a, b) => a + b, 0) / wellbeingDriverScores.length)
+      : null;
 
   const academicScore = weightedAvgFor(classes, (c) => c.drivers.academic);
   const focusScore = weightedAvgFor(classes, (c) => c.drivers.focus);
@@ -599,8 +611,14 @@ export function schoolPillarMetrics(grade?: string | null): SchoolPillarMetric[]
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
   const interventionTotal = followUpsCompleted + followUpsDue;
-  const teacherEfficiencyScore =
-    interventionTotal > 0 ? Math.round((followUpsCompleted / interventionTotal) * 100) : 100;
+  // With only one real classroom in this dataset, interventionTotal is
+  // always 0 or 1 — a single done-or-not data point, not a meaningful
+  // percentage (a real "0%"/"100%" would just be whichever way this one
+  // classroom's follow-up happens to be this week). Stays null until
+  // there's enough real classrooms for a ratio to mean anything, same
+  // precedent as the school-KPI-level "Teacher Efficiency Index" (see
+  // schoolKpis.ts), which is null for the identical reason.
+  const teacherEfficiencyScore = interventionTotal > 1 ? Math.round((followUpsCompleted / interventionTotal) * 100) : null;
 
   const classroomCoverageTotal = classes.length;
   const classroomCoverageUsed = classes.filter((c) => c.monthlyCheckIn).length;
@@ -729,6 +747,7 @@ export function schoolSupportFocus(grade?: string | null): SupportFocusRow[] {
 
 export type SchoolHealthTrendPoint = {
   weekLabel: string;
+  schoolHealthScore: number | null;
   studentWellbeing: number | null;
   classroomPerformance: number | null;
   teacherEfficiency: number | null;
@@ -738,16 +757,11 @@ export type SchoolHealthTrendPoint = {
 export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade?: string | null): SchoolHealthTrendPoint[] {
   const metrics = schoolPillarMetrics(grade);
   const byKey = Object.fromEntries(metrics.map((m) => [m.key, m])) as Record<SchoolPillarKey, SchoolPillarMetric>;
-  
-  const sourceData = period === "Weekly" ? WEEKLY_DATA : MONTHLY_DATA;
-  
-  const formatLabel = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  const overallScore = schoolHealthOverview(grade).score;
 
-  return sourceData.map((row) => ({
-    weekLabel: `${formatLabel(row.startDate)} - ${formatLabel(row.endDate)}`,
+  return TREND_WEEK_LABELS.map((weekLabel) => ({
+    weekLabel,
+    schoolHealthScore: overallScore,
     studentWellbeing: byKey.studentWellbeing.score,
     classroomPerformance: byKey.classroomPerformance.score,
     teacherEfficiency: byKey.teacherEfficiency.score,

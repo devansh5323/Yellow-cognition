@@ -30,6 +30,7 @@ import {
 } from "@/lib/schoolData";
 import { SCORE_BANDS, type PillarKey, type ScoreBand } from "@/lib/classHealth";
 import { cn } from "@/lib/utils";
+import { formatPct1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -235,7 +236,7 @@ function DriverCard({
         className="inline-flex items-center gap-1 text-[11px] font-bold tabular-nums mt-1"
         style={{ color: card.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
       >
-        {card.delta >= 0 ? "↑" : "↓"} {Math.abs(card.delta)}% from last week
+        {card.delta >= 0 ? "↑" : "↓"} {formatPct1(card.delta)}% from last week
       </div>
 
       <div className="mt-3.5 pt-3.5 border-t border-border/60">

@@ -576,8 +576,7 @@ export function schoolDriverCards(grade?: string | null, period: TrendPeriod = "
       label: SCHOOL_DRIVER_LABEL[key],
       score,
       status,
-      delta: latestWithDelta(period, (row) => row[DRIVER_TREND_FIELD[key]] as number | null).delta ?? 0,
-      classroomsContributing: classes.length,
+      delta: latestWithDelta(period, (row) => row[DRIVER_TREND_FIELD[key]] as number | null).deltaPct ?? 0,      classroomsContributing: classes.length,
       needAttentionCount,
       pattern: score == null ? "Not enough data yet for this driver." : isGood ? DRIVER_GOOD_PATTERN[key] : driverNeedsAttentionPattern(key),
       mostVisibleIn,
@@ -901,15 +900,7 @@ export function gradeOverviewRows(period: TrendPeriod = "week"): GradeOverviewRo
       const tier2Count = tier === "watch" ? 1 : 0;
       const tier3Count = tier === "needs-support" || tier === "intensive" ? 1 : 0;
 
-      // Real week-over-week delta, weighted the same way as the score itself.
-      const deltaEntries = (Object.keys(CLASS_COMPOSITE_WEIGHTS) as PillarKey[])
-        .map((k) => [k, latestWithDelta(period, (row) => row[DRIVER_TREND_FIELD[k]] as number | null).delta] as const)
-        .filter((e): e is [PillarKey, number] => e[1] != null);
-      const deltaWeightSum = deltaEntries.reduce((s, [k]) => s + CLASS_COMPOSITE_WEIGHTS[k], 0);
-      const delta =
-        deltaEntries.length > 0
-          ? Number((deltaEntries.reduce((s, [k, d]) => s + d * CLASS_COMPOSITE_WEIGHTS[k], 0) / deltaWeightSum).toFixed(1))
-          : 0;
+      const delta = latestWithDelta(period, (row) => row.studentHealthScore).deltaPct ?? 0;  
 
       return [
         {

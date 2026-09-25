@@ -43,7 +43,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Akku (Akansha)",
     ageGroup: "11-12 yrs",
     parentName: "Abishek Wesley",
-    studentHealthScore: 63.49,
+    studentHealthScore: 47.46296297,
     cognitivePerformance: {
       score: 42.6825,
       attentionAndFocus: 41.11,
@@ -71,7 +71,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "C Jersha",
     ageGroup: "11-12 yrs",
     parentName: "Jansi R",
-    studentHealthScore: 57.41,
+    studentHealthScore: 46.39082143,
     cognitivePerformance: {
       score: 42.545,
       attentionAndFocus: 40.12,
@@ -99,7 +99,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Dhriti",
     ageGroup: "11-12 yrs",
     parentName: "Namratha",
-    studentHealthScore: 60.68,
+    studentHealthScore: 59.78477801,
     cognitivePerformance: {
       score: 56.7925,
       attentionAndFocus: 55.95,
@@ -127,7 +127,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Nivriti",
     ageGroup: "10-11 yrs",
     parentName: "Yamuna",
-    studentHealthScore: 59.11,
+    studentHealthScore: 49.87,
     cognitivePerformance: {
       score: 50.805,
       attentionAndFocus: 46.66,
@@ -155,7 +155,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Kriyaa",
     ageGroup: "10-11 yrs",
     parentName: "Divya",
-    studentHealthScore: 56.45,
+    studentHealthScore: 61.28115741,
     cognitivePerformance: {
       score: 56.1975,
       attentionAndFocus: 52.17,
@@ -183,7 +183,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Lakshita D.K",
     ageGroup: "10-11 yrs",
     parentName: "Shreedharani",
-    studentHealthScore: 47.46,
+    studentHealthScore: 58.41208334,
     cognitivePerformance: {
       score: 60.4075,
       attentionAndFocus: 55.39,
@@ -211,7 +211,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Teju",
     ageGroup: "11-12 yrs",
     parentName: "Geetha",
-    studentHealthScore: 66.64,
+    studentHealthScore: 55.66103175,
     cognitivePerformance: {
       score: 55.0025,
       attentionAndFocus: 51.83,
@@ -239,7 +239,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Aizah",
     ageGroup: "11-12 yrs",
     parentName: "Zahra Yaseen",
-    studentHealthScore: 62.64,
+    studentHealthScore: 53.11053572,
     cognitivePerformance: {
       score: 40.8875,
       attentionAndFocus: 37.12,
@@ -267,7 +267,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Keren Manuel",
     ageGroup: "9-10 yrs",
     parentName: "Edith Manuel",
-    studentHealthScore: 52.94,
+    studentHealthScore: 61.8003373,
     cognitivePerformance: {
       score: 56.5925,
       attentionAndFocus: 52.79,
@@ -295,7 +295,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "ASH",
     ageGroup: "11-12 yrs",
     parentName: "Priya Solomon",
-    studentHealthScore: 51.17,
+    studentHealthScore: 66.66365385,
     cognitivePerformance: {
       score: 63.915,
       attentionAndFocus: 60.22,
@@ -323,7 +323,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Judy",
     ageGroup: "11-12 yrs",
     parentName: "Judith aradhana",
-    studentHealthScore: 40.08,
+    studentHealthScore: 60.68193966,
     cognitivePerformance: {
       score: 57.665,
       attentionAndFocus: 54.98,
@@ -351,7 +351,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Manya",
     ageGroup: "10-11 yrs",
     parentName: "Dilmeet",
-    studentHealthScore: 66.11,
+    studentHealthScore: 65.40407408,
     cognitivePerformance: {
       score: 56.86,
       attentionAndFocus: 53.63,
@@ -379,7 +379,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Yuktha S urs",
     ageGroup: "10-11 yrs",
     parentName: "Srikanth Raj Urs L",
-    studentHealthScore: 51.41,
+    studentHealthScore: 35.99666667,
     cognitivePerformance: {
       score: 32.66,
       attentionAndFocus: 32.52,
@@ -407,7 +407,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Ananya",
     ageGroup: "11-12 yrs",
     parentName: "Anisha",
-    studentHealthScore: 65.75,
+    studentHealthScore: 47.05333334,
     cognitivePerformance: {
       score: 47.48,
       attentionAndFocus: 47.5,
@@ -435,7 +435,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Gunashreya",
     ageGroup: "11-12 yrs",
     parentName: "Sujatha",
-    studentHealthScore: 58.05,
+    studentHealthScore: 41.06220238,
     cognitivePerformance: {
       score: 43.1325,
       attentionAndFocus: 39.48,
@@ -463,7 +463,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Jhanu",
     ageGroup: "11-12 yrs",
     parentName: "Jhanavi",
-    studentHealthScore: 39.62,
+    studentHealthScore: 60.06522059,
     cognitivePerformance: {
       score: 56.645,
       attentionAndFocus: 53,

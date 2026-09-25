@@ -55,7 +55,12 @@ export type TimeSeriesData = {
   impulseControl: number | null;
   angerAndEmotionalRegulation: number | null;
   classroomPerformanceIndex: number | null;
-  studentWellbeing: number | null;
+  studentWellbeing: {
+    score: number | null;
+    anxietyAndCopingIndex: number | null;
+    peerSafetyAndBelonging: number | null;
+    angerAndEmotionalRegulation: number | null;
+  } | null;
   studentHealthScore: number | null;
 };
 
@@ -594,9 +599,14 @@ export const MONTHLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 51.85,
     "impulseControl": 50.57,
     "angerAndEmotionalRegulation": 51.2,
-    "studentHealthScore": 50.785,
+    "studentHealthScore": 53.8925,
     "classroomPerformanceIndex": 50.785,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 57,
+      "anxietyAndCopingIndex": 58.76,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 55.53
+    }
   },
   {
     "startDate": "2026-05-01",
@@ -623,9 +633,14 @@ export const MONTHLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 49.22,
     "impulseControl": 60.29,
     "angerAndEmotionalRegulation": 51.16,
-    "studentHealthScore": 54.12,
+    "studentHealthScore": 58.755,
     "classroomPerformanceIndex": 54.12,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 63.39,
+      "anxietyAndCopingIndex": 63.45,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 63.5
+    }
   },
   {
     "startDate": "2026-06-01",
@@ -652,9 +667,14 @@ export const MONTHLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 41.03,
     "impulseControl": 61.25,
     "angerAndEmotionalRegulation": 42.75,
-    "studentHealthScore": 48.0425,
+    "studentHealthScore": 50.59625,
     "classroomPerformanceIndex": 48.0425,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 53.15,
+      "anxietyAndCopingIndex": 58.49,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 52.48
+    }
   },
   {
     "startDate": "2026-07-01",
@@ -681,9 +701,14 @@ export const MONTHLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 48.44,
     "impulseControl": 67.78,
     "angerAndEmotionalRegulation": 46.57,
-    "studentHealthScore": 56.615,
+    "studentHealthScore": 59.2675,
     "classroomPerformanceIndex": 56.615,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 61.92,
+      "anxietyAndCopingIndex": 63.27,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 61.52
+    }
   },
   {
     "startDate": "2026-08-01",
@@ -710,9 +735,14 @@ export const MONTHLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 51.44,
     "impulseControl": 48.68,
     "angerAndEmotionalRegulation": 55.57,
-    "studentHealthScore": 53.965,
+    "studentHealthScore": 57.3575,
     "classroomPerformanceIndex": 53.965,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 60.75,
+      "anxietyAndCopingIndex": 65.93,
+      "peerSafetyAndBelonging": 53.4,
+      "angerAndEmotionalRegulation": 62.55
+    }
   }
 ];
 
@@ -742,9 +772,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 50.83,
     "impulseControl": 47.02,
     "angerAndEmotionalRegulation": 50.68,
-    "studentHealthScore": 51.18,
+    "studentHealthScore": 53.545,
     "classroomPerformanceIndex": 51.18,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 55.91,
+      "anxietyAndCopingIndex": 57.67,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 54.5
+    }
   },
   {
     "startDate": "2026-04-20",
@@ -771,9 +806,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 57.48,
     "impulseControl": 58.54,
     "angerAndEmotionalRegulation": 57.38,
-    "studentHealthScore": 55.395,
+    "studentHealthScore": 58.6875,
     "classroomPerformanceIndex": 55.395,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 61.98,
+      "anxietyAndCopingIndex": 62.02,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 62.06
+    }
   },
   {
     "startDate": "2026-04-27",
@@ -800,9 +840,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 56.43,
     "impulseControl": 55.31,
     "angerAndEmotionalRegulation": 52.79,
-    "studentHealthScore": 51.8625,
+    "studentHealthScore": 56.20125,
     "classroomPerformanceIndex": 51.8625,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 60.54,
+      "anxietyAndCopingIndex": 61.9,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 58.79
+    }
   },
   {
     "startDate": "2026-05-04",
@@ -829,9 +874,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 58.37,
     "impulseControl": 57.94,
     "angerAndEmotionalRegulation": 60.89,
-    "studentHealthScore": 54.4975,
+    "studentHealthScore": 59.63875,
     "classroomPerformanceIndex": 54.4975,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 64.78,
+      "anxietyAndCopingIndex": 64.44,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 65.12
+    }
   },
   {
     "startDate": "2026-05-11",
@@ -858,9 +908,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 53.85,
     "impulseControl": 62.53,
     "angerAndEmotionalRegulation": 52.02,
-    "studentHealthScore": 54.15,
+    "studentHealthScore": 57.99,
     "classroomPerformanceIndex": 54.15,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 61.83,
+      "anxietyAndCopingIndex": 63,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 60.38
+    }
   },
   {
     "startDate": "2026-05-18",
@@ -887,9 +942,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 48.88,
     "impulseControl": 61.46,
     "angerAndEmotionalRegulation": 45.52,
-    "studentHealthScore": 53.6225,
+    "studentHealthScore": 58.86625,
     "classroomPerformanceIndex": 53.6225,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 64.11,
+      "anxietyAndCopingIndex": 63.7,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 64.89
+    }
   },
   {
     "startDate": "2026-05-25",
@@ -916,9 +976,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 58.03,
     "impulseControl": 63.26,
     "angerAndEmotionalRegulation": 57.65,
-    "studentHealthScore": 58.6775,
+    "studentHealthScore": 61.39375,
     "classroomPerformanceIndex": 58.6775,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 64.11,
+      "anxietyAndCopingIndex": 64.21,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 64.12
+    }
   },
   {
     "startDate": "2026-06-01",
@@ -945,9 +1010,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 58.09,
     "impulseControl": 60.63,
     "angerAndEmotionalRegulation": 56.67,
-    "studentHealthScore": 55.465,
+    "studentHealthScore": 59.8725,
     "classroomPerformanceIndex": 55.465,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 64.28,
+      "anxietyAndCopingIndex": 64.78,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 65.2
+    }
   },
   {
     "startDate": "2026-06-08",
@@ -974,9 +1044,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 62.57,
     "impulseControl": 65.66,
     "angerAndEmotionalRegulation": 58.68,
-    "studentHealthScore": 57.7475,
+    "studentHealthScore": 61.83875,
     "classroomPerformanceIndex": 57.7475,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 65.93,
+      "anxietyAndCopingIndex": 66.91,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 64.95
+    }
   },
   {
     "startDate": "2026-06-15",
@@ -1003,9 +1078,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 61.58,
     "impulseControl": 68.14,
     "angerAndEmotionalRegulation": 58.75,
-    "studentHealthScore": 60.2925,
+    "studentHealthScore": 62.74625,
     "classroomPerformanceIndex": 60.2925,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 65.2,
+      "anxietyAndCopingIndex": 64.77,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 65.64
+    }
   },
   {
     "startDate": "2026-06-22",
@@ -1019,7 +1099,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "creativeExpression": 61.07,
     "taskEngagementScore": 42.74,
     "consistency": 50.65,
-    "taskInitiation": null,
+    "taskInitiation": 63.96,
     "independentExecution": 67.94,
     "responseToChallenge": 64.73,
     "persistence": 38.31,
@@ -1030,11 +1110,16 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "nonCompliance": 72.22,
     "participationControl": 50.42,
     "peerSafetyAndBelonging": 48.68,
-    "impulseControl": null,
+    "impulseControl": 68.14,
     "angerAndEmotionalRegulation": 38,
-    "studentHealthScore": 48.8375,
+    "studentHealthScore": 41.86875,
     "classroomPerformanceIndex": 48.8375,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 34.9,
+      "anxietyAndCopingIndex": 64.77,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 34.9
+    }
   },
   {
     "startDate": "2026-06-29",
@@ -1061,9 +1146,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 41.02,
     "impulseControl": 63.57,
     "angerAndEmotionalRegulation": 39.42,
-    "studentHealthScore": 50.1025,
+    "studentHealthScore": 52.21125,
     "classroomPerformanceIndex": 50.1025,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 54.32,
+      "anxietyAndCopingIndex": 59.55,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 54.12
+    }
   },
   {
     "startDate": "2026-07-06",
@@ -1090,9 +1180,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 59.66,
     "impulseControl": 76.99,
     "angerAndEmotionalRegulation": 57.35,
-    "studentHealthScore": 59.4325,
+    "studentHealthScore": 62.23125,
     "classroomPerformanceIndex": 59.4325,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 65.03,
+      "anxietyAndCopingIndex": 65.31,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 67.98
+    }
   },
   {
     "startDate": "2026-07-13",
@@ -1119,9 +1214,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 70.17,
     "impulseControl": 73.49,
     "angerAndEmotionalRegulation": 63.04,
-    "studentHealthScore": 65.575,
+    "studentHealthScore": 65.2175,
     "classroomPerformanceIndex": 65.575,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 64.86,
+      "anxietyAndCopingIndex": 65.64,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 68.46
+    }
   },
   {
     "startDate": "2026-07-20",
@@ -1135,7 +1235,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "creativeExpression": 64.13,
     "taskEngagementScore": 57.44,
     "consistency": 72.72,
-    "taskInitiation": null,
+    "taskInitiation": 64.12,
     "independentExecution": 69.95,
     "responseToChallenge": 66.14,
     "persistence": 66.83,
@@ -1148,9 +1248,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 70.74,
     "impulseControl": 73.26,
     "angerAndEmotionalRegulation": 66.83,
-    "studentHealthScore": 65.705,
+    "studentHealthScore": 64.7875,
     "classroomPerformanceIndex": 65.705,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 63.87,
+      "anxietyAndCopingIndex": 64,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 68.67
+    }
   },
   {
     "startDate": "2026-07-27",
@@ -1164,7 +1269,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "creativeExpression": 69.43,
     "taskEngagementScore": 54.59,
     "consistency": 76.15,
-    "taskInitiation": null,
+    "taskInitiation": 64.12,
     "independentExecution": 66.67,
     "responseToChallenge": 69,
     "persistence": 61.86,
@@ -1177,9 +1282,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 31.6,
     "impulseControl": 77.04,
     "angerAndEmotionalRegulation": 30.85,
-    "studentHealthScore": 54.2825,
+    "studentHealthScore": 60.66625,
     "classroomPerformanceIndex": 54.2825,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 67.05,
+      "anxietyAndCopingIndex": 66.89,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 67.54
+    }
   },
   {
     "startDate": "2026-08-03",
@@ -1206,9 +1316,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 65.54,
     "impulseControl": 73.69,
     "angerAndEmotionalRegulation": 64.79,
-    "studentHealthScore": 67.1925,
+    "studentHealthScore": 68.32125,
     "classroomPerformanceIndex": 67.1925,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 69.45,
+      "anxietyAndCopingIndex": 70.06,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 68.84
+    }
   },
   {
     "startDate": "2026-08-10",
@@ -1222,7 +1337,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "creativeExpression": 74.16,
     "taskEngagementScore": 41.45,
     "consistency": 87.7,
-    "taskInitiation": null,
+    "taskInitiation": 66.03,
     "independentExecution": 76.29,
     "responseToChallenge": 47.68,
     "persistence": 42.55,
@@ -1235,38 +1350,48 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 35.37,
     "impulseControl": 67.13,
     "angerAndEmotionalRegulation": 34.27,
-    "studentHealthScore": 50.23,
+    "studentHealthScore": 48.17,
     "classroomPerformanceIndex": 50.23,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 46.11,
+      "anxietyAndCopingIndex": 45.79,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 70.17
+    }
   },
   {
     "startDate": "2026-08-17",
     "endDate": "2026-08-23",
-    "attentionAndFocusAvg": null,
-    "learningAndReadiness": null,
-    "readingAndComprehension": null,
-    "recallAndRetention": null,
-    "problemSolving": null,
-    "reasoning": null,
-    "creativeExpression": null,
-    "taskEngagementScore": null,
-    "consistency": null,
-    "taskInitiation": null,
-    "independentExecution": null,
-    "responseToChallenge": null,
-    "persistence": null,
-    "planningAndTimeManagement": null,
-    "completion": null,
-    "behaviorAndDisciplineScore": null,
-    "offTaskBehavior": null,
-    "nonCompliance": null,
-    "participationControl": null,
-    "peerSafetyAndBelonging": null,
-    "impulseControl": null,
-    "angerAndEmotionalRegulation": null,
-    "studentHealthScore": 50.23,
+    "attentionAndFocusAvg": 42.89,
+    "learningAndReadiness": 72.84,
+    "readingAndComprehension": 83.2,
+    "recallAndRetention": 76.69,
+    "problemSolving": 54.66,
+    "reasoning": 75.48,
+    "creativeExpression": 74.16,
+    "taskEngagementScore": 41.45,
+    "consistency": 87.7,
+    "taskInitiation": 66.03,
+    "independentExecution": 76.29,
+    "responseToChallenge": 47.68,
+    "persistence": 42.55,
+    "planningAndTimeManagement": 66.72,
+    "completion": 0.94,
+    "behaviorAndDisciplineScore": 43.74,
+    "offTaskBehavior": 64.6,
+    "nonCompliance": 90,
+    "participationControl": 50.62,
+    "peerSafetyAndBelonging": 35.37,
+    "impulseControl": 67.13,
+    "angerAndEmotionalRegulation": 34.27,
+    "studentHealthScore": 48.17,
     "classroomPerformanceIndex": 50.23,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 46.11,
+      "anxietyAndCopingIndex": 45.79,
+      "peerSafetyAndBelonging": 64,
+      "angerAndEmotionalRegulation": 70.17
+    }
   },
   {
     "startDate": "2026-08-24",
@@ -1285,7 +1410,7 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "responseToChallenge": 59.58,
     "persistence": 53.68,
     "planningAndTimeManagement": 53.56,
-    "completion": null,
+    "completion": 0.94,
     "behaviorAndDisciplineScore": 50.47,
     "offTaskBehavior": 30,
     "nonCompliance": 41.56,
@@ -1293,9 +1418,14 @@ export const WEEKLY_DATA: TimeSeriesData[] = [
     "peerSafetyAndBelonging": 50.83,
     "impulseControl": 42.34,
     "angerAndEmotionalRegulation": 54.52,
-    "studentHealthScore": 51.48,
+    "studentHealthScore": 54.58,
     "classroomPerformanceIndex": 51.48,
-    "studentWellbeing": 0
+    "studentWellbeing": {
+      "score": 57.68,
+      "anxietyAndCopingIndex": 68.75,
+      "peerSafetyAndBelonging": 53.4,
+      "angerAndEmotionalRegulation": 60.56
+    }
   }
 ];
 

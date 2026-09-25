@@ -855,9 +855,9 @@ export function schoolHealthTrend(period: "Weekly" | "Monthly" = "Weekly", grade
 
   return rows.map((row) => ({
     weekLabel: formatWeekLabel(row.startDate, row.endDate),
-    schoolHealthScore: overallScore,
-    studentWellbeing: byKey.studentWellbeing.score,
-    classroomPerformance: byKey.classroomPerformance.score,
+    schoolHealthScore: row.studentHealthScore ?? overallScore,
+    studentWellbeing: row.studentWellbeing?.score ?? byKey.studentWellbeing.score,
+    classroomPerformance: row.classroomPerformanceIndex ?? byKey.classroomPerformance.score,
     teacherEfficiency: byKey.teacherEfficiency.score,
     studentHealthScore: row.studentHealthScore,
   }));

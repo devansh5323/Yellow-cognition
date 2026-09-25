@@ -93,15 +93,19 @@ function seriesFor(period: TrendPeriod): TimeSeriesData[] {
   return period === "month" ? MONTHLY_DATA : WEEKLY_DATA;
 }
 
-function latestWithDelta(period: TrendPeriod, pick: (row: TimeSeriesData) => number | null): { latest: number | null; delta: number | null } {
-  const rows = seriesFor(period)
-    .map(pick)
-    .filter((v): v is number => v != null);
-  if (rows.length === 0) return { latest: null, delta: null };
+
+function latestWithDelta(
+  period: TrendPeriod,
+  pick: (row: TimeSeriesData) => number | null,
+): { latest: number | null; delta: number | null; deltaPct: number | null } {
+  const rows = seriesFor(period).map(pick).filter((v): v is number => v != null);
+  if (rows.length === 0) return { latest: null, delta: null, deltaPct: null };
   const latest = rows[rows.length - 1];
-  if (rows.length < 2) return { latest, delta: null };
+  if (rows.length < 2) return { latest, delta: null, deltaPct: null };
   const previous = rows[rows.length - 2];
-  return { latest, delta: Number((latest - previous).toFixed(1)) };
+  const delta = Number((latest - previous).toFixed(1));
+  const deltaPct = previous !== 0 ? Number((((latest - previous) / previous) * 100).toFixed(1)) : null;
+  return { latest, delta, deltaPct };
 }
 
 function initialsOf(name: string): string {
@@ -640,8 +644,8 @@ export function schoolPillarMetrics(grade?: string | null, period: TrendPeriod =
       : null;
   // Student Well-being tracks the behaviour driver 1:1 (score + 5), so its
   // real period-over-period delta is the behaviour series' delta too.
-  const studentWellbeingDelta = latestWithDelta(period, (row) => row.behaviorAndDisciplineScore).delta ?? 0;
 
+  const studentWellbeingDelta = latestWithDelta(period, (row) => row.studentWellbeing?.score ?? null).deltaPct ?? 0;
   const academicScore = weightedAvgFor(classes, (c) => c.drivers.academic);
   const focusScore = weightedAvgFor(classes, (c) => c.drivers.focus);
   const taskScore = weightedAvgFor(classes, (c) => c.drivers.task);
@@ -658,23 +662,8 @@ export function schoolPillarMetrics(grade?: string | null, period: TrendPeriod =
       ? Math.round(perfEntries.reduce((s, [k, v]) => s + v * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfWeightSum)
       : null;
 
-  // Same weighting applied to each pillar's real series delta, renormalized
-  // over whichever ones actually moved between the two latest periods.
-  const perfFieldByKey: Record<keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, keyof TimeSeriesData> = {
-    academic: "learningAndReadiness",
-    focus: "attentionAndFocusAvg",
-    task: "taskEngagementScore",
-  };
-  const perfDeltaEntries = (
-    Object.keys(CLASSROOM_PERFORMANCE_WEIGHTS) as (keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS)[]
-  )
-    .map((k) => [k, latestWithDelta(period, (row) => row[perfFieldByKey[k]] as number | null).delta] as const)
-    .filter((e): e is [keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, number] => e[1] != null);
-  const perfDeltaWeightSum = perfDeltaEntries.reduce((s, [k]) => s + CLASSROOM_PERFORMANCE_WEIGHTS[k], 0);
-  const classroomPerformanceDelta =
-    perfDeltaEntries.length > 0
-      ? Math.round(perfDeltaEntries.reduce((s, [k, d]) => s + d * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfDeltaWeightSum)
-      : 0;
+
+  const classroomPerformanceDelta = latestWithDelta(period, (row) => row.classroomPerformanceIndex).deltaPct ?? 0;
 
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;
@@ -884,47 +873,62 @@ export type GradeOverviewRow = {
   classIds: string[];
 };
 
-export function gradeOverviewRows(): GradeOverviewRow[] {
+export function gradeOverviewRows(period: TrendPeriod = "week"): GradeOverviewRow[] {
   const classes = getSchoolClasses();
   const CORE_KEYS: PillarKey[] = ["focus", "academic", "behavior", "task"];
 
   return classes.length === 0
     ? []
     : (() => {
-        const c = classes[0];
-        const healthScore = classComposite(c.drivers) ?? c.avgPfi;
-        const status = scoreBand(healthScore);
+      
+      const c = classes[0];
+      const healthScore = CLASS_AVERAGE.studentHealthScore != null ? Number(CLASS_AVERAGE.studentHealthScore.toFixed(1)) : classComposite(c.drivers) ?? c.avgPfi;
+      const status = scoreBand(healthScore);
 
-        const driverScores = CORE_KEYS.map((key) => ({ key, score: c.drivers[key] })).filter(
-          (d): d is { key: PillarKey; score: number } => d.score != null,
-        );
-        const ranked = [...driverScores].sort((a, b) => b.score - a.score);
-        const strongestDriver = ranked[0]?.key ?? null;
-        const weakest = ranked[ranked.length - 1];
-        const areaNeedingAttention = weakest && weakest.score < DRIVER_ATTENTION_CUTOFF ? weakest.key : null;
+      const driverScores = CORE_KEYS.map((key) => ({ key, score: c.drivers[key] })).filter(
+        (d): d is { key: PillarKey; score: number } => d.score != null,
+      );
+      const ranked = [...driverScores].sort((a, b) => b.score - a.score);
 
-        const tier = classroomTierFor(classComposite(c.drivers)).tier;
-        const tier2Count = tier === "watch" ? 1 : 0;
-        const tier3Count = tier === "needs-support" || tier === "intensive" ? 1 : 0;
+      // (see #2 below)
+      const strongestCandidate = ranked[0] ?? null;
+      const strongestDriver = strongestCandidate && strongestCandidate.score > 70 ? strongestCandidate.key : null;
 
-        return [
-          {
-            grade: c.grade,
-            gradeLabel: c.name,
-            healthScore,
-            status,
-            delta: 0,
-            strongestDriver,
-            areaNeedingAttention,
-            tier2Count,
-            tier3Count,
-            dataReadinessPct: c.monthlyCheckIn ? 100 : 0,
-            classroomsContributing: 1,
-            supportTier: tier,
-            classIds: [c.id],
-          },
-        ];
-      })();
+      const weakest = ranked[ranked.length - 1];
+      const areaNeedingAttention = weakest && weakest.score < DRIVER_ATTENTION_CUTOFF ? weakest.key : null;
+
+      const tier = classroomTierFor(classComposite(c.drivers)).tier;
+      const tier2Count = tier === "watch" ? 1 : 0;
+      const tier3Count = tier === "needs-support" || tier === "intensive" ? 1 : 0;
+
+      // Real week-over-week delta, weighted the same way as the score itself.
+      const deltaEntries = (Object.keys(CLASS_COMPOSITE_WEIGHTS) as PillarKey[])
+        .map((k) => [k, latestWithDelta(period, (row) => row[DRIVER_TREND_FIELD[k]] as number | null).delta] as const)
+        .filter((e): e is [PillarKey, number] => e[1] != null);
+      const deltaWeightSum = deltaEntries.reduce((s, [k]) => s + CLASS_COMPOSITE_WEIGHTS[k], 0);
+      const delta =
+        deltaEntries.length > 0
+          ? Number((deltaEntries.reduce((s, [k, d]) => s + d * CLASS_COMPOSITE_WEIGHTS[k], 0) / deltaWeightSum).toFixed(1))
+          : 0;
+
+      return [
+        {
+          grade: c.grade,
+          gradeLabel: c.name,
+          healthScore,
+          status,
+          delta,
+          strongestDriver,
+          areaNeedingAttention,
+          tier2Count,
+          tier3Count,
+          dataReadinessPct: c.monthlyCheckIn ? 100 : 0,
+          classroomsContributing: 1,
+          supportTier: tier,
+          classIds: [c.id],
+        },
+      ];
+    })();
 }
 
 export const SUGGESTED_ACTIONS_BY_DRIVER: Record<PillarKey, string[]> = {

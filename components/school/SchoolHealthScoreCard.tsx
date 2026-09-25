@@ -637,5 +637,5 @@ const PILLAR_LABEL_SHORT: Record<SchoolPillarKey | "studentHealthScore", string>
 };
 const TREND_LABEL: Record<TrendSeriesKey, string> = {
   ...PILLAR_LABEL_SHORT,
-  schoolHealthScore: "Student Health Score",
+  schoolHealthScore: "School Health Score",
 };

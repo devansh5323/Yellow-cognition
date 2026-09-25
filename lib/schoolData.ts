@@ -93,15 +93,19 @@ function seriesFor(period: TrendPeriod): TimeSeriesData[] {
   return period === "month" ? MONTHLY_DATA : WEEKLY_DATA;
 }
 
-function latestWithDelta(period: TrendPeriod, pick: (row: TimeSeriesData) => number | null): { latest: number | null; delta: number | null } {
-  const rows = seriesFor(period)
-    .map(pick)
-    .filter((v): v is number => v != null);
-  if (rows.length === 0) return { latest: null, delta: null };
+
+function latestWithDelta(
+  period: TrendPeriod,
+  pick: (row: TimeSeriesData) => number | null,
+): { latest: number | null; delta: number | null; deltaPct: number | null } {
+  const rows = seriesFor(period).map(pick).filter((v): v is number => v != null);
+  if (rows.length === 0) return { latest: null, delta: null, deltaPct: null };
   const latest = rows[rows.length - 1];
-  if (rows.length < 2) return { latest, delta: null };
+  if (rows.length < 2) return { latest, delta: null, deltaPct: null };
   const previous = rows[rows.length - 2];
-  return { latest, delta: Number((latest - previous).toFixed(1)) };
+  const delta = Number((latest - previous).toFixed(1));
+  const deltaPct = previous !== 0 ? Number((((latest - previous) / previous) * 100).toFixed(1)) : null;
+  return { latest, delta, deltaPct };
 }
 
 function initialsOf(name: string): string {
@@ -640,8 +644,8 @@ export function schoolPillarMetrics(grade?: string | null, period: TrendPeriod =
       : null;
   // Student Well-being tracks the behaviour driver 1:1 (score + 5), so its
   // real period-over-period delta is the behaviour series' delta too.
-  const studentWellbeingDelta = latestWithDelta(period, (row) => row.behaviorAndDisciplineScore).delta ?? 0;
 
+  const studentWellbeingDelta = latestWithDelta(period, (row) => row.studentWellbeing?.score ?? null).deltaPct ?? 0;
   const academicScore = weightedAvgFor(classes, (c) => c.drivers.academic);
   const focusScore = weightedAvgFor(classes, (c) => c.drivers.focus);
   const taskScore = weightedAvgFor(classes, (c) => c.drivers.task);
@@ -658,23 +662,8 @@ export function schoolPillarMetrics(grade?: string | null, period: TrendPeriod =
       ? Math.round(perfEntries.reduce((s, [k, v]) => s + v * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfWeightSum)
       : null;
 
-  // Same weighting applied to each pillar's real series delta, renormalized
-  // over whichever ones actually moved between the two latest periods.
-  const perfFieldByKey: Record<keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, keyof TimeSeriesData> = {
-    academic: "learningAndReadiness",
-    focus: "attentionAndFocusAvg",
-    task: "taskEngagementScore",
-  };
-  const perfDeltaEntries = (
-    Object.keys(CLASSROOM_PERFORMANCE_WEIGHTS) as (keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS)[]
-  )
-    .map((k) => [k, latestWithDelta(period, (row) => row[perfFieldByKey[k]] as number | null).delta] as const)
-    .filter((e): e is [keyof typeof CLASSROOM_PERFORMANCE_WEIGHTS, number] => e[1] != null);
-  const perfDeltaWeightSum = perfDeltaEntries.reduce((s, [k]) => s + CLASSROOM_PERFORMANCE_WEIGHTS[k], 0);
-  const classroomPerformanceDelta =
-    perfDeltaEntries.length > 0
-      ? Math.round(perfDeltaEntries.reduce((s, [k, d]) => s + d * CLASSROOM_PERFORMANCE_WEIGHTS[k], 0) / perfDeltaWeightSum)
-      : 0;
+  
+   const classroomPerformanceDelta = latestWithDelta(period, (row) => row.classroomPerformanceIndex).deltaPct ?? 0;
 
   const followUpsCompleted = classes.filter((c) => c.atRisk > 0 && c.monthlyCheckIn).length;
   const followUpsDue = classes.filter((c) => c.atRisk > 0 && !c.monthlyCheckIn).length;

@@ -1551,3 +1551,36 @@ export const OTHER_ROWS: any[][] = [
     12.5
   ]
 ];
+
+export const WEEKLY_GROWTH_PERCENTAGE = {
+  attentionAndFocusAvg: 7.950571229,
+  learningAndReadiness: -28.02031851,
+  readingAndComprehension: -40.52884615,
+  recallAndRetention: -34.64597731,
+  problemSolving: 1.939260885,
+  reasoning: -30.44515103,
+  creativeExpression: -38.18770227,
+  taskEngagementScore: 36.83956574,
+  consistency: -29.68072976,
+  taskInitiation: -39.42147509,
+  independentExecution: -18.25927382,
+  responseToChallenge: 24.95805369,
+  persistence: 26.15746181,
+  planningAndTimeManagement: -19.72422062,
+  completion: 0,
+  behaviorAndDisciplineScore: 15.38637403,
+  offTaskBehavior: -53.56037152,
+  nonCompliance: -53.82222222,
+  participationControl: 9.067562228,
+  peerSafetyAndBelonging: 43.70935821,
+  impulseControl: -36.92834798,
+  angerAndEmotionalRegulation: 59.08958273,
+  classroomPerformanceIndex: 2.488552658,
+  studentWellbeing: {
+    score: 25.0921709,
+    anxietyAndCopingIndex: 50.14195239,
+    peerSafetyAndBelonging: -16.5625,
+    angerAndEmotionalRegulation: -13.69531139
+  },
+  studentHealthScore: 13.30703758
+};

@@ -155,7 +155,11 @@ export function ClassroomHealthScore({
   // The driver card the teacher picked in "Select focus area" (Data
   // Readiness's step 2) — surfaced here so the score they said matters most
   // is never buried among the other six.
-  const focusArea = getOnboarding().focusArea;
+  const [focusArea, setFocusArea] = useState<OnboardingGoal | null>(null);
+
+  useEffect(() => {
+    setFocusArea(getOnboarding().focusArea ?? null);
+  }, []);
   const focusDriver = focusArea ? DRIVER_META[focusArea] : null;
   const focusScore = focusArea ? driverScore(focusArea, ch.pillars) : null;
 

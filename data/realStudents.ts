@@ -157,7 +157,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     parentName: "Divya",
     studentHealthScore: 56.45,
     cognitivePerformance: {
-      score: 89.1975,
+      score: 56.1975,
       attentionAndFocus: 52.17,
       taskEngagement: 53.79,
       behaviourAndDiscipline: 63.16,

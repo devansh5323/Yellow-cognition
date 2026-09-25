@@ -104,7 +104,7 @@ function latestWithDelta(
   if (rows.length < 2) return { latest, delta: null, deltaPct: null };
   const previous = rows[rows.length - 2];
   const delta = Number((latest - previous).toFixed(1));
-  const deltaPct = previous !== 0 ? Number((((latest - previous) / previous) * 100).toFixed(1)) : null;
+  const deltaPct = previous !== 0 ? ((latest - previous) / previous) * 100 : null;
   return { latest, delta, deltaPct };
 }
 

@@ -611,6 +611,7 @@ function TrendChart({
                 boxShadow: "0 10px 28px -12px hsl(230 50% 18% / 0.25)",
                 fontSize: 12,
               }}
+              formatter={(value: number) => value.toFixed(1)}
             />
             <Line
               key={activePillar}
@@ -625,7 +626,7 @@ function TrendChart({
                 fontSize: 10,
                 fill: TREND_TONE[activePillar],
                 fontWeight: 700,
-                formatter: (v: number) => v.toFixed(2),
+                formatter: (v: number) => v.toFixed(1),
               }}
             />
           </LineChart>

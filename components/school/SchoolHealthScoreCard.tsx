@@ -47,6 +47,7 @@ import {
 } from "@/lib/schoolData";
 import { SCORE_BANDS, type ScoreBand } from "@/lib/classHealth";
 import { cn } from "@/lib/utils";
+import { formatPct1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -362,7 +363,7 @@ function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
                 className="inline-flex items-center gap-0.5 text-[10px] font-bold tabular-nums"
                 style={{ color: metric.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
               >
-                {metric.delta >= 0 ? "↑" : "↓"} {Math.abs(metric.delta)}%
+                {metric.delta >= 0 ? "↑" : "↓"} {formatPct1(metric.delta)}%
               </span>
             ) : (
               <span className="text-[10px] font-bold text-muted-foreground">Not enough data</span>

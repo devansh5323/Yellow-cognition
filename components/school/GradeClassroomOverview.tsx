@@ -44,6 +44,7 @@ import {
 } from "@/lib/schoolData";
 import { type PillarKey, type ScoreBand } from "@/lib/classHealth";
 import { cn } from "@/lib/utils";
+import { formatSignedPct } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -385,8 +386,7 @@ function GradeRow({ row, onView }: { row: GradeOverviewRow; onView: () => void }
           className="inline-flex items-center gap-0.5 font-bold tabular-nums"
           style={{ color: row.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
         >
-          {row.delta >= 0 ? "↑" : "↓"} {row.delta >= 0 ? "+" : ""}
-          {row.delta}
+          {row.delta >= 0 ? "↑" : "↓"} {formatSignedPct(row.delta)}
         </span>
       </td>
       <td className="p-2.5">
@@ -551,8 +551,8 @@ function GradeDetailDrawer({
   const classesInGrade = row ? classes.filter((c) => row.classIds.includes(c.id)) : [];
   const history = row
     ? SCHOOL_RECENT_EVENTS.filter(
-        (e) => e.title.includes(`Grade ${row.grade}`) || e.body.includes(`Grade ${row.grade}`),
-      )
+      (e) => e.title.includes(`Grade ${row.grade}`) || e.body.includes(`Grade ${row.grade}`),
+    )
     : [];
   const statusTone = row ? STATUS_TONE[row.status] : "";
 
@@ -583,11 +583,10 @@ function GradeDetailDrawer({
                   <span className="text-[13px] font-bold text-muted-foreground/70">/100</span>
                 </div>
                 <span
-                  className="inline-flex items-center gap-1 text-[11.5px] font-bold tabular-nums"
+                  className="inline-flex items-center gap-0.5 font-bold tabular-nums"
                   style={{ color: row.delta >= 0 ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}
                 >
-                  {row.delta >= 0 ? "↑" : "↓"} {row.delta >= 0 ? "+" : ""}
-                  {row.delta} from last week
+                  {row.delta >= 0 ? "↑" : "↓"} {formatSignedPct(row.delta)}
                 </span>
               </div>
 

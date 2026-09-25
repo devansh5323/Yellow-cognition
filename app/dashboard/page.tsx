@@ -56,9 +56,11 @@ function DashboardPage() {
   // Lazily read once on mount so the ref below starts in sync with reality
   // (not a hardcoded default) — otherwise a plain page reload mid-journey
   // would look like a fake "transition" and re-fire toasts/scrolls.
-  const [stage, setStage] = useState<FtueStage>(() =>
-    typeof window === "undefined" ? "cards" : computeFtueStage(),
-  );
+  const [stage, setStage] = useState<FtueStage>("cards");
+
+  useEffect(() => {
+    setStage(computeFtueStage());
+  }, []);
 
   // Arriving straight from finishing the Classroom Log walkthrough (see
   // app/check-in/page.tsx's redirect) — scroll to Class Health Score
@@ -192,7 +194,17 @@ function DashboardPage() {
     </div>
   );
 }
+import { REAL_STUDENTS } from "@/data/realStudents";
+import { classHealth } from "@/lib/classHealth";
+import { activeDemoSchool } from "@/data/bishopCotton";
 
+// Inside DashboardPage, before return:
+console.table({
+  realStudentCount: REAL_STUDENTS.length,
+  realFirstStudentScore: REAL_STUDENTS[0]?.studentHealthScore,
+  classroomAverage: classHealth().score,
+  bishopCottonAverage: activeDemoSchool.metrics.schoolHealthScore.value,
+});
 export default function Page() {
   return (
     <AppShell>

@@ -338,9 +338,9 @@ function PillarMiniCard({ metric }: { metric: SchoolPillarMetric }) {
       style={
         hasData
           ? {
-              borderColor: `color-mix(in srgb, ${tone} 22%, var(--border))`,
-              background: `color-mix(in srgb, ${tone} 5%, transparent)`,
-            }
+            borderColor: `color-mix(in srgb, ${tone} 22%, var(--border))`,
+            background: `color-mix(in srgb, ${tone} 5%, transparent)`,
+          }
           : { borderColor: "var(--border)", background: "var(--muted)", opacity: 0.6 }
       }
     >
@@ -620,7 +620,13 @@ function TrendChart({
               stroke={TREND_TONE[activePillar]}
               strokeWidth={2.5}
               dot={{ r: 4, fill: TREND_TONE[activePillar], strokeWidth: 0 }}
-              label={{ position: "top", fontSize: 10, fill: TREND_TONE[activePillar], fontWeight: 700 }}
+              label={{
+                position: "top",
+                fontSize: 10,
+                fill: TREND_TONE[activePillar],
+                fontWeight: 700,
+                formatter: (v: number) => v.toFixed(2),
+              }}
             />
           </LineChart>
         </ResponsiveContainer>

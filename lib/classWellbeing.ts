@@ -5,7 +5,10 @@
 // driver with zero source values across the roster surfaces as `null` ("not
 // enough data yet") instead of a fabricated number.
 
-import { STUDENTS, type Student } from "@/data/mockData";
+import { REAL_STUDENTS, type RealStudent } from "@/data/realStudents";
+
+const STUDENTS = REAL_STUDENTS;
+type Student = RealStudent;
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;

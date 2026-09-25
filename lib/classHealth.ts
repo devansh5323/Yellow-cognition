@@ -9,7 +9,10 @@
 // every previous/delta/trend concept from the old mock-driven model has
 // been removed rather than kept with a fake value.
 
-import { STUDENTS, type Student } from "@/data/mockData";
+import { REAL_STUDENTS, type RealStudent } from "@/data/realStudents";
+
+const STUDENTS = REAL_STUDENTS;
+type Student = RealStudent;
 
 export type PillarKey = "academic" | "focus" | "behavior" | "task";
 

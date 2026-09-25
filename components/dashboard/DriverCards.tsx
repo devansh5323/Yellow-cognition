@@ -151,6 +151,8 @@ function DriverGroup({
   const avg = onSelect ? activeDemoSchool.metrics.cognitivePerformanceScore.value : null;
   const band = avg != null ? healthBand(avg) : null;
 
+  console.log("Cognitive Performance average:", avg);
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-7 flex flex-col gap-5">
       <div

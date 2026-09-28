@@ -24,6 +24,9 @@ import { dataSourcesSnapshot } from "@/lib/classFocus";
 import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import { BEHAVIOR_STATUS_LABEL, BEHAVIOR_STATUS_TONE } from "@/lib/classBehavior";
+import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
+import { STUDENTS } from "@/data/mockData";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -90,8 +93,8 @@ export function BehaviorDriverCards({ stats }: { stats: DisruptionStat[] }) {
           What kind of behaviour is happening
         </h3>
         <p className="text-[12px] text-muted-foreground mt-0.5 max-w-prose">
-          The main behaviour and regulation categories we track — no real per-student signal
-          exists yet to score them.
+          The main behaviour and regulation categories we track — scores are real (this week&apos;s
+          class-level data); per-card student counts are a demo estimate.
         </p>
         {evidenceSources.length > 0 && (
           <ul className="flex flex-wrap gap-1.5 mt-2">
@@ -171,11 +174,35 @@ function DriverCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-bold text-foreground/90 leading-tight">{stat.label}</div>
-          <NotEnoughData className="mt-1.5" />
+          {stat.hasData ? (
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <span className="font-heading font-extrabold text-[20px] tabular-nums leading-none" style={{ color: tone }}>
+                {stat.score}
+              </span>
+              {stat.status && (
+                <span
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  style={{ background: `color-mix(in srgb, ${BEHAVIOR_STATUS_TONE[stat.status]} 14%, transparent)`, color: BEHAVIOR_STATUS_TONE[stat.status] }}
+                >
+                  {BEHAVIOR_STATUS_LABEL[stat.status]}
+                </span>
+              )}
+            </div>
+          ) : (
+            <NotEnoughData className="mt-1.5" />
+          )}
         </div>
       </div>
 
       <p className="mt-2 text-[11.5px] leading-snug text-muted-foreground">{stat.description}</p>
+
+      {stat.hasData && (
+        <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+          <Users className="h-3 w-3 shrink-0" />
+          {stat.studentCount} of {STUDENTS.length} students
+          {stat.studentCountIsDemo && <DemoDataBadge className="!px-1.5 !py-0.5 !text-[9px]" />}
+        </div>
+      )}
 
       <div className="mt-auto pt-3 flex items-center gap-2 flex-wrap">
         <button

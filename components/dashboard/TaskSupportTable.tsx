@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
-import { TASK_STATUS_LABEL, TASK_STATUS_TONE, type TaskSupport } from "@/lib/classTask";
+import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
+import { TASK_STATUS_TONE, demoTaskSupportDetail, type TaskSupport } from "@/lib/classTask";
 
 export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
   return (
@@ -20,9 +21,10 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
             Students needing task support
           </h3>
           <p className="text-[11.5px] text-muted-foreground mt-0.5">
-            Ranked by real task engagement score, lowest first.
+            Ranked by real task engagement score, lowest first. Major area / suggested focus per student is a demo estimate.
           </p>
         </div>
+        <DemoDataBadge label="Per-area detail is demo" />
       </header>
 
       {items.length === 0 ? (
@@ -34,24 +36,26 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] min-w-[560px]">
+          <table className="w-full text-[13px] min-w-[860px]">
             <thead className="bg-muted/50 text-muted-foreground border-b border-border/70">
               <tr className="text-left">
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Student</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[120px]">
-                  Score
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[100px]">Score</th>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[170px]">
+                  Major Area Needing Support
                 </th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[180px]">
-                  Status
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[200px]">
+                  What This Looks Like
                 </th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[100px] text-right">
-                  <span className="sr-only">Actions</span>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em] w-[200px]">
+                  Suggested Focus
                 </th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
                 const tone = TASK_STATUS_TONE[item.status];
+                const detail = demoTaskSupportDetail(item.student.id);
                 return (
                   <tr
                     key={item.student.id}
@@ -70,10 +74,6 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                     </td>
 
                     <td className="p-3 align-middle">
-                      <span className="text-[12.5px] font-bold tabular-nums">{item.score}/100</span>
-                    </td>
-
-                    <td className="p-3 align-middle">
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.10em]"
                         style={{
@@ -84,17 +84,20 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                         }}
                       >
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
-                        {TASK_STATUS_LABEL[item.status]}
+                        {item.score}
                       </span>
                     </td>
 
-                    <td className="p-3 align-middle text-right">
-                      <Link
-                        href={`/students/${item.student.id}?tab=overview`}
-                        className="text-[12px] font-bold text-primary hover:underline"
-                      >
-                        View student
-                      </Link>
+                    <td className="p-3 align-middle text-[12px] font-semibold text-foreground/85">{detail.majorAreaLabel}</td>
+                    <td className="p-3 align-middle text-[11.5px] text-muted-foreground leading-snug">{detail.whatThisLooksLike}</td>
+                    <td className="p-3 align-middle">
+                      <div className="flex flex-wrap gap-1">
+                        {detail.suggestedFocus.map((skill) => (
+                          <span key={skill} className="inline-flex items-center rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-semibold">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 );

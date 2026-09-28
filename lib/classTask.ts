@@ -1,13 +1,28 @@
 // Class Task Engagement — data + helpers for the Task Engagement experience.
-// The real per-student dataset (data/realStudents.ts) covers a single
-// top-line `taskEngagement` score per student — no category breakdown
-// (initiation/persistence/planning/etc.), no trend history, and no
-// per-category skill diagnosis exists in real data, so those have been
-// removed rather than kept with fabricated numbers. Only what the real
-// data actually supports survives here: a real class average, and a real
-// per-student ranking for the support table.
+//
+// data/realStudents.ts covers a single top-line `taskEngagement` score per
+// student (real, used for the snapshot and the support ranking below). For
+// the category breakdown, data/studentHealthScore.ts's weekly/monthly CSV
+// series (WEEKLY_DATA/MONTHLY_DATA) has real CLASS-LEVEL scores for exactly
+// the 7 task-engagement areas below (taskInitiation, persistence,
+// completion, consistency, planningAndTimeManagement, independentExecution,
+// responseToChallenge) — same pattern lib/classBehavior.ts uses. What's
+// still missing: a per-student breakdown BY area (only one overall
+// taskEngagement number per student exists) — so "major area needing
+// support" per student in the support table stays a seeded DEMO estimate,
+// clearly tagged (see components/dashboard/DemoDataBadge.tsx), never
+// silently presented as real.
 
 import { STUDENTS, type Student } from "@/data/mockData";
+import { WEEKLY_DATA, MONTHLY_DATA, type TimeSeriesData } from "@/data/studentHealthScore";
+
+function rand(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+function idSeed(id: string): number {
+  return id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+}
 
 export type TaskStatus = "strong" | "stable" | "reinforcement" | "support";
 
@@ -208,4 +223,251 @@ export function taskCheckInScore(answers: Record<string, string>): {
   const offset = weighted + 2 * TASK_CHECKIN_QUESTIONS.length;
   const pct = Math.round((offset / Math.max(1, range)) * 100);
   return { score: weighted, max, pct };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Task Engagement Breakdown — real, class-level. 7 areas, each mapped to
+ * its matching field in the WEEKLY_DATA/MONTHLY_DATA CSV series.
+ * ───────────────────────────────────────────────────────── */
+
+export type TaskAreaKey =
+  | "initiation"
+  | "persistence"
+  | "completion"
+  | "consistency"
+  | "planning"
+  | "independent-execution"
+  | "response-to-challenge";
+
+export const TASK_AREA_ORDER: TaskAreaKey[] = [
+  "initiation",
+  "persistence",
+  "completion",
+  "consistency",
+  "planning",
+  "independent-execution",
+  "response-to-challenge",
+];
+
+export const TASK_AREA_LABEL: Record<TaskAreaKey, string> = {
+  initiation: "Task Initiation",
+  persistence: "Task Persistence",
+  completion: "Task Completion",
+  consistency: "Task Consistency",
+  planning: "Planning & Time Management",
+  "independent-execution": "Independent Execution",
+  "response-to-challenge": "Response to Challenge",
+};
+
+export const TASK_AREA_DESCRIPTION: Record<TaskAreaKey, string> = {
+  initiation: "Starting tasks independently and without delay.",
+  persistence: "Staying engaged and continuing even when tasks get difficult.",
+  completion: "Finishing tasks accurately and submitting on time.",
+  consistency: "Maintaining steady engagement across tasks and days.",
+  planning: "Planning steps, managing time, and meeting deadlines.",
+  "independent-execution": "Working independently with minimal guidance.",
+  "response-to-challenge": "Adapting to difficulty and handling challenging tasks.",
+};
+
+export const TASK_AREA_SKILLS: Record<TaskAreaKey, string[]> = {
+  initiation: ["Processing Speed", "Procedural Knowledge", "Self-Regulation"],
+  persistence: ["Sustained Attention", "Frustration Tolerance", "Working Memory"],
+  completion: ["Working Memory", "Planning", "Monitoring"],
+  consistency: ["Behavioral Control", "Monitoring"],
+  planning: ["Planning", "Time Sharing", "Working Memory"],
+  "independent-execution": ["Procedural Knowledge", "Self-Regulation", "Mental Flexibility"],
+  "response-to-challenge": ["Adaptive Thinking", "Frustration Tolerance", "Complex Problem Solving"],
+};
+
+const TASK_AREA_FIELD: Record<TaskAreaKey, keyof TimeSeriesData> = {
+  initiation: "taskInitiation",
+  persistence: "persistence",
+  completion: "completion",
+  consistency: "consistency",
+  planning: "planningAndTimeManagement",
+  "independent-execution": "independentExecution",
+  "response-to-challenge": "responseToChallenge",
+};
+
+export type TaskAreaStat = {
+  key: TaskAreaKey;
+  label: string;
+  description: string;
+  hasData: boolean;
+  score: number | null;
+  status: TaskStatus | null;
+  weeklyChange: number | null;
+};
+
+function latestTaskAreaScores(): Record<TaskAreaKey, number | null> {
+  const latest = WEEKLY_DATA[WEEKLY_DATA.length - 1];
+  const out = {} as Record<TaskAreaKey, number | null>;
+  for (const key of TASK_AREA_ORDER) {
+    const v = latest?.[TASK_AREA_FIELD[key]];
+    out[key] = typeof v === "number" ? Math.round(v) : null;
+  }
+  return out;
+}
+
+function taskAreaWeeklyChange(key: TaskAreaKey): number | null {
+  if (WEEKLY_DATA.length < 2) return null;
+  const last = WEEKLY_DATA[WEEKLY_DATA.length - 1]?.[TASK_AREA_FIELD[key]];
+  const prev = WEEKLY_DATA[WEEKLY_DATA.length - 2]?.[TASK_AREA_FIELD[key]];
+  if (typeof last !== "number" || typeof prev !== "number") return null;
+  return Math.round(last - prev);
+}
+
+export function classTaskBreakdown(): TaskAreaStat[] {
+  const scores = latestTaskAreaScores();
+  return TASK_AREA_ORDER.map((key) => {
+    const score = scores[key];
+    const hasData = score != null;
+    return {
+      key,
+      label: TASK_AREA_LABEL[key],
+      description: TASK_AREA_DESCRIPTION[key],
+      hasData,
+      score,
+      status: hasData ? statusFromScore(score!) : null,
+      weeklyChange: hasData ? taskAreaWeeklyChange(key) : null,
+    };
+  });
+}
+
+export type TaskAreaExtreme = { key: TaskAreaKey; label: string } | null;
+
+export function taskBreakdownExtremes(breakdown: TaskAreaStat[]): { strongest: TaskAreaExtreme; weakest: TaskAreaExtreme } {
+  const withData = breakdown.filter((d): d is TaskAreaStat & { score: number } => d.score != null);
+  if (withData.length === 0) return { strongest: null, weakest: null };
+  const sorted = [...withData].sort((a, b) => b.score - a.score);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  return {
+    strongest: { key: best.key, label: best.label },
+    weakest: { key: worst.key, label: worst.label },
+  };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Task Engagement Insights — real, generated from the real breakdown above
+ * (which areas are below a healthy bar / declining week over week), not
+ * fabricated sentences.
+ * ───────────────────────────────────────────────────────── */
+
+export function taskEngagementInsights(breakdown: TaskAreaStat[]): string[] {
+  const insights: string[] = [];
+  const weak = breakdown.filter((d) => d.hasData && d.score! < 60);
+  const declining = breakdown.filter((d) => d.hasData && (d.weeklyChange ?? 0) < 0);
+
+  if (weak.some((d) => d.key === "initiation")) {
+    insights.push("Instructions may be unclear for independent work.");
+  }
+  if (weak.some((d) => d.key === "planning" || d.key === "independent-execution")) {
+    insights.push("Tasks may lack structure or step-by-step guidance.");
+  }
+  if (weak.some((d) => d.key === "response-to-challenge" || d.key === "persistence")) {
+    insights.push("Difficulty level may be too high or inconsistent.");
+  }
+  if (weak.length > 0) {
+    insights.push("Students may need more scaffolding to start and stay on task.");
+  }
+  if (declining.length > 0) {
+    const names = declining.map((d) => d.label).join(", ");
+    insights.push(`${names} declined from last week — worth a closer look.`);
+  }
+  if (insights.length === 0) {
+    insights.push("No specific problem areas stand out this period — engagement is holding steady.");
+  }
+  return insights.slice(0, 5);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Task Trend Tracking — real weekly/monthly series for Task Completion,
+ * Initiation Score, and Persistence Score.
+ * ───────────────────────────────────────────────────────── */
+
+export type TaskTrendSeriesKey = "completion" | "initiation" | "persistence";
+
+export const TASK_TREND_LABEL: Record<TaskTrendSeriesKey, string> = {
+  completion: "Task Completion (%)",
+  initiation: "Initiation Score",
+  persistence: "Persistence Score",
+};
+
+export const TASK_TREND_TONE: Record<TaskTrendSeriesKey, string> = {
+  completion: "hsl(142 55% 45%)",
+  initiation: "hsl(212 90% 58%)",
+  persistence: "hsl(262 60% 60%)",
+};
+
+export type TaskTrendPoint = { label: string } & Record<TaskTrendSeriesKey, number | null>;
+
+export function taskTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): TaskTrendPoint[] {
+  const rows = period === "Monthly" ? MONTHLY_DATA : WEEKLY_DATA;
+  return rows.map((row, i) => ({
+    label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
+    completion: row.completion != null ? Math.round(row.completion) : null,
+    initiation: row.taskInitiation != null ? Math.round(row.taskInitiation) : null,
+    persistence: row.persistence != null ? Math.round(row.persistence) : null,
+  }));
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function monthLabel(iso: string): string {
+  const m = Number(iso.split("-")[1]);
+  return MONTH_SHORT[m - 1] ?? iso;
+}
+
+export type TaskTrendChangeSummary = { key: TaskTrendSeriesKey; label: string; deltaPct: number; improving: boolean };
+
+/** Real % change between the first and last point with data for each
+ * series — feeds the 3 "is it improving" callouts below the trend chart. */
+export function taskTrendChangeSummary(points: TaskTrendPoint[]): TaskTrendChangeSummary[] {
+  const keys: TaskTrendSeriesKey[] = ["completion", "initiation", "persistence"];
+  return keys
+    .map((key) => {
+      const withData = points.filter((p) => p[key] != null);
+      const first = withData[0]?.[key];
+      const last = withData[withData.length - 1]?.[key];
+      if (typeof first !== "number" || typeof last !== "number" || first === 0) return null;
+      const deltaPct = Math.round(((last - first) / first) * 100);
+      return { key, label: TASK_TREND_LABEL[key], deltaPct, improving: deltaPct >= 0 };
+    })
+    .filter((s): s is TaskTrendChangeSummary => s !== null);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Students Needing Task Support — "major area" per student is DEMO (no
+ * real per-student-by-area breakdown exists), seeded off each student's
+ * real overall score for a stable, if not real, ranking.
+ * ───────────────────────────────────────────────────────── */
+
+export type TaskSupportDetail = {
+  majorArea: TaskAreaKey;
+  majorAreaLabel: string;
+  whatThisLooksLike: string;
+  suggestedFocus: string[];
+};
+
+const AREA_LOOKS_LIKE: Record<TaskAreaKey, string> = {
+  initiation: "Takes longer to start tasks; needs reminders.",
+  persistence: "Stops when tasks get challenging.",
+  completion: "Leaves tasks incomplete; misses final steps.",
+  consistency: "Engagement varies across days and subjects.",
+  planning: "Struggles to plan steps and manage time.",
+  "independent-execution": "Needs frequent check-ins to keep working.",
+  "response-to-challenge": "Avoids or gives up on harder problems quickly.",
+};
+
+/** Demo — deterministic per-student "which area is weakest," seeded off
+ * the student's id so it's stable across reloads. */
+export function demoTaskSupportDetail(studentId: string): TaskSupportDetail {
+  const areas = TASK_AREA_ORDER;
+  const majorArea = areas[Math.floor(rand(idSeed(studentId) * 11) * areas.length)];
+  return {
+    majorArea,
+    majorAreaLabel: TASK_AREA_LABEL[majorArea],
+    whatThisLooksLike: AREA_LOOKS_LIKE[majorArea],
+    suggestedFocus: TASK_AREA_SKILLS[majorArea],
+  };
 }

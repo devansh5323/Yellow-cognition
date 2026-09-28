@@ -17,6 +17,8 @@ import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfide
 import { BehaviorSnapshot } from "@/components/dashboard/BehaviorSnapshot";
 import { BehaviorClassroomStrategies } from "@/components/dashboard/BehaviorClassroomStrategies";
 import { BehaviorDriverCards } from "@/components/dashboard/BehaviorDriverCards";
+import { ClassroomDisruptionImpact } from "@/components/dashboard/ClassroomDisruptionImpact";
+import { BehaviorSkillsInfluencing } from "@/components/dashboard/BehaviorSkillsInfluencing";
 import { ProblemAreasToSkills } from "@/components/dashboard/ProblemAreasToSkills";
 import { BehaviorTrendTracking } from "@/components/dashboard/BehaviorTrendTracking";
 import { BehaviorPatternInsights } from "@/components/dashboard/BehaviorPatternInsights";
@@ -199,6 +201,12 @@ function BehaviorPage({ classroom }: { classroom: string }) {
             {/* 4 + 5. Where friction is coming from — collapsible driver cards + impacting skills */}
             <BehaviorDriverCards stats={breakdown} />
 
+            {/* 3 + 4. Disruption impact (demo) and skills influencing behaviour (demo) side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <ClassroomDisruptionImpact />
+              <BehaviorSkillsInfluencing />
+            </div>
+
             {/* 3. Problem Areas to Skills — static reference table */}
             <ProblemAreasToSkills />
 
@@ -224,7 +232,7 @@ function BehaviorPage({ classroom }: { classroom: string }) {
             <BehaviorClassroomStrategies strategies={recommendedStrategies} triggerCounts={triggerCounts} />
 
             {/* 7. Behavior Trend Tracking — is behaviour improving? */}
-            <BehaviorTrendTracking />
+            <BehaviorTrendTracking snapshot={snapshot} />
 
             {/* 8. Students Needing Behavior Support — individual layer */}
             <BehaviorSupportTable items={supportRoster} />

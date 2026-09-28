@@ -14,10 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TaskEngagementSnapshot } from "@/components/dashboard/TaskEngagementSnapshot";
+import { TaskEngagementBreakdown } from "@/components/dashboard/TaskEngagementBreakdown";
+import { TaskEngagementSkills } from "@/components/dashboard/TaskEngagementSkills";
+import { TaskEngagementInsights } from "@/components/dashboard/TaskEngagementInsights";
 import { MonthlyTaskCheckIn } from "@/components/dashboard/MonthlyTaskCheckIn";
 import { TaskRecommendsStrip } from "@/components/dashboard/TaskRecommendsStrip";
+import { TaskTrendTracking } from "@/components/dashboard/TaskTrendTracking";
 import { TaskSupportTable } from "@/components/dashboard/TaskSupportTable";
-import { classTaskSnapshot, studentsNeedingTaskSupport } from "@/lib/classTask";
+import { classTaskBreakdown, classTaskSnapshot, studentsNeedingTaskSupport } from "@/lib/classTask";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -61,6 +65,7 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
   const reduce = useReducedMotion();
 
   const snapshot = useMemo(() => classTaskSnapshot(), []);
+  const breakdown = useMemo(() => classTaskBreakdown(), []);
   const supportRoster = useMemo(() => studentsNeedingTaskSupport(), []);
 
   return (
@@ -91,16 +96,26 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
           </p>
         </header>
 
-        {/* Component 1: Task engagement snapshot */}
-        <TaskEngagementSnapshot snapshot={snapshot} />
+        {/* 1 + 2: Snapshot and breakdown side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+          <TaskEngagementSnapshot snapshot={snapshot} />
+          <TaskEngagementBreakdown breakdown={breakdown} />
+        </div>
 
-        {/* Component 2: Monthly check-in */}
+        {/* Monthly check-in — real, independent teacher self-report */}
         <MonthlyTaskCheckIn />
 
-        {/* Component 3: Yellow Recommends (task interventions) */}
-        <TaskRecommendsStrip />
+        {/* 3: Task Engagement → Skills */}
+        <TaskEngagementSkills />
 
-        {/* Component 4: Students needing task support */}
+        {/* 4 + 5 + 6: Insights, Yellow Recommends, and Trend Tracking */}
+        <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_0.85fr_1.3fr] gap-6 items-stretch">
+          <TaskEngagementInsights breakdown={breakdown} />
+          <TaskRecommendsStrip />
+          <TaskTrendTracking />
+        </div>
+
+        {/* 7: Students needing task support */}
         <TaskSupportTable items={supportRoster} />
       </motion.div>
     </div>

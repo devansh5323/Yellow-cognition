@@ -98,12 +98,17 @@ function LearningReadinessPage({ classroom }: { classroom: string }) {
 
         <LearningAreasToSkills />
 
-        <div className="flex items-start gap-2.5 rounded-2xl border border-border/60 bg-muted/30 px-4 py-3.5">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={2.2} />
-          <p className="text-[11.5px] text-muted-foreground leading-snug">
-            Learning readiness insights are generated from Attention Hero gameplay and are intended
-            to guide support, not to replace classroom observation or academic assessment.
-          </p>
+        <div className="flex items-start justify-between gap-3 flex-wrap rounded-2xl border border-border/60 bg-muted/30 px-4 py-3.5">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={2.2} />
+            <p className="text-[11.5px] text-muted-foreground leading-snug">
+              Learning readiness insights are generated from Attention Hero gameplay and are intended
+              to guide support, not to replace classroom observation or academic assessment.
+            </p>
+          </div>
+          <Link href="/learning-outcomes" className="shrink-0 text-[11.5px] font-bold text-primary hover:underline">
+            View Learning Outcome Status →
+          </Link>
         </div>
       </motion.div>
     </div>

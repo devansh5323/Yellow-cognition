@@ -1,18 +1,46 @@
 // Class Behavior & Discipline — data + helpers.
-// The real per-student dataset (data/realStudents.ts) has zero signal for
-// Attention & Focus / Behaviour & Discipline / Instructional Friction across
-// every one of the 16 students — there is no honest per-student behaviour
-// score, disruption pattern, or driver-skill breakdown to compute yet. The
-// scoring functions below reflect that directly (empty roster-derived
-// breakdowns, `hasData: false`) rather than falling back to the old
-// gameplay-signal derivation. Everything independent of the Student roster
-// — the monthly/quick-pulse teacher self-report check-ins, the generic
-// strategy catalog, and the real logged-trigger/time-of-day patterns (which
-// come from the teacher's own behaviour-log entries, not from Student
-// fields) — is unaffected and kept as-is.
+//
+// data/realStudents.ts (the STUDENTS this file used to derive everything
+// from) still has zero per-student behaviour signal — but data/
+// studentHealthScore.ts (a later CSV import, already used by the principal
+// dashboard's lib/schoolData.ts) has real per-student
+// cognitivePerformance.behaviourAndDiscipline scores for all 16 students,
+// plus a real weekly/monthly class-level series covering exactly the 6
+// disruption categories below (offTaskBehavior, nonCompliance,
+// peerSafetyAndBelonging, impulseControl, angerAndEmotionalRegulation,
+// participationControl). The overall snapshot score/status/distribution and
+// each driver's class-level score/trend are real, sourced from that CSV.
+// What's still missing: a per-student breakdown BY driver (the CSV only has
+// one overall behaviourAndDiscipline number per student, not one per
+// category) — so `studentCount`/`studentsByDisruption` per driver, and
+// anything needing hour-level time-tracking or named cognitive sub-skills
+// (Classroom Disruption Impact, Skills Influencing Behaviour), stay
+// deterministic seeded DEMO data, clearly marked via DemoDataBadge wherever
+// they render (see components/dashboard/DemoDataBadge.tsx) — never silently
+// presented as real. Everything independent of the Student roster — the
+// monthly/quick-pulse teacher self-report check-ins, the generic strategy
+// catalog, and the real logged-trigger/time-of-day patterns (which come
+// from the teacher's own behaviour-log entries) — is unaffected and kept
+// as-is.
 
 import { STUDENTS, type Student } from "@/data/mockData";
+import { STUDENTS as HEALTH_STUDENTS, WEEKLY_DATA, MONTHLY_DATA, type TimeSeriesData } from "@/data/studentHealthScore";
 import type { FollowUpRecord } from "@/lib/interventionFollowUps";
+
+function avg(nums: number[]): number | null {
+  if (nums.length === 0) return null;
+  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+// Deterministic pseudo-random, seeded — same technique lib/classFocus.ts
+// uses, for the demo-only per-driver student counts below.
+function rand(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+function idSeed(id: string): number {
+  return id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+}
 
 /* ─────────────────────────────────────────────────────────
  * Snapshot — no real signal exists yet for this class.
@@ -55,10 +83,44 @@ export type BehaviorSnapshotData = {
   controlScore: number | null;
   status: BehaviorStatus | null;
   total: number;
+  /** Real per-student distribution — each of the 16 students' real
+   * cognitivePerformance.behaviourAndDiscipline score, bucketed by
+   * statusFromScore(). `null` if no student has a real score yet. */
+  distribution: Record<BehaviorStatus, number> | null;
+  /** The best/worst-scoring real driver (class-level, from the latest
+   * WEEKLY_DATA week) — `null` once there's no weekly series to rank. */
+  strongestDriver: { key: DisruptionKey; label: string } | null;
+  weakestDriver: { key: DisruptionKey; label: string } | null;
 };
 
 export function classBehaviorSnapshot(students: Student[] = STUDENTS): BehaviorSnapshotData {
-  return { controlScore: null, status: null, total: students.length };
+  const scores = HEALTH_STUDENTS.map((s) => s.cognitivePerformance.behaviourAndDiscipline).filter(
+    (v): v is number => v != null,
+  );
+  const controlScore = avg(scores);
+  const status = controlScore != null ? statusFromScore(controlScore) : null;
+
+  const distribution =
+    scores.length > 0
+      ? scores.reduce(
+          (acc, s) => {
+            acc[statusFromScore(s)] += 1;
+            return acc;
+          },
+          { strong: 0, stable: 0, reinforcement: 0, support: 0 } as Record<BehaviorStatus, number>,
+        )
+      : null;
+
+  const driverScores = latestDriverScores();
+  const ranked = DISRUPTION_ORDER.map((key) => ({ key, score: driverScores[key] })).filter(
+    (d): d is { key: DisruptionKey; score: number } => d.score != null,
+  );
+  const sorted = [...ranked].sort((a, b) => b.score - a.score);
+  const strongestDriver = sorted[0] ? { key: sorted[0].key, label: DISRUPTION_LABEL[sorted[0].key] } : null;
+  const weakest = sorted[sorted.length - 1];
+  const weakestDriver = weakest ? { key: weakest.key, label: DISRUPTION_LABEL[weakest.key] } : null;
+
+  return { controlScore, status, total: students.length, distribution, strongestDriver, weakestDriver };
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -76,9 +138,13 @@ export type DisruptionKey =
   | "emotional"
   | "participation";
 
+// Labels follow the reference mock's naming exactly. Internal keys
+// ("off-task"/"non-compliance") are unchanged for backward compat with
+// existing strategy/insight logic keyed off them — only the display label
+// (and its paired description, kept consistent with the new label) changed.
 export const DISRUPTION_LABEL: Record<DisruptionKey, string> = {
-  "off-task": "Off-Task Behaviour",
-  "non-compliance": "Non-Compliance",
+  "off-task": "Transition Readiness",
+  "non-compliance": "Classroom Expectations",
   peer: "Peer Interaction",
   impulse: "Impulse Control",
   emotional: "Emotional Regulation",
@@ -86,8 +152,8 @@ export const DISRUPTION_LABEL: Record<DisruptionKey, string> = {
 };
 
 export const DISRUPTION_DESCRIPTION: Record<DisruptionKey, string> = {
-  "off-task": "Drifting from the assigned activity — doodling, side conversations, fidgeting.",
-  "non-compliance": "Not following instructions or classroom expectations, even after prompts.",
+  "off-task": "How smoothly students shift between tasks, activities, and classroom routines.",
+  "non-compliance": "How consistently students follow routines, rules, and shared classroom expectations.",
   peer: "Disrupting peers, interrupting, or escalating conflicts during work.",
   impulse: "Movement and restlessness control — calling out, leaving seat, struggling to wait their turn.",
   emotional: "Big reactions to small frustrations — shutting down or escalating.",
@@ -129,37 +195,86 @@ export type DisruptionStat = {
   hue: string;
   hasData: boolean;
   severity: number | null;
+  /** Demo — no real per-student-per-driver split exists in the CSV (only
+   * one overall behaviourAndDiscipline number per student), so this is a
+   * seeded estimate, not a real headcount. See `studentCountIsDemo`. */
   studentCount: number;
+  studentCountIsDemo: boolean;
   score: number | null;
   status: BehaviorStatus | null;
   weeklyChange: number | null;
 };
 
-/** No real per-student attention/behaviour signal exists in the current
- * dataset — every driver honestly reports zero students and no score,
- * rather than a fabricated severity/status. */
-export function classDisruptionBreakdown(_students: Student[] = STUDENTS): DisruptionStat[] {
-  return DISRUPTION_ORDER.map((key) => ({
-    key,
-    label: DISRUPTION_LABEL[key],
-    description: DISRUPTION_DESCRIPTION[key],
-    hue: DISRUPTION_HUE[key],
-    hasData: false,
-    severity: null,
-    studentCount: 0,
-    score: null,
-    status: null,
-    weeklyChange: null,
-  }));
+/** Real, class-level: maps each of the 6 disruption categories to its
+ * matching field in the WEEKLY_DATA/MONTHLY_DATA CSV series. */
+const DRIVER_FIELD: Record<DisruptionKey, keyof TimeSeriesData> = {
+  "off-task": "offTaskBehavior",
+  "non-compliance": "nonCompliance",
+  peer: "peerSafetyAndBelonging",
+  impulse: "impulseControl",
+  emotional: "angerAndEmotionalRegulation",
+  participation: "participationControl",
+};
+
+function latestDriverScores(): Record<DisruptionKey, number | null> {
+  const latest = WEEKLY_DATA[WEEKLY_DATA.length - 1];
+  const out = {} as Record<DisruptionKey, number | null>;
+  for (const key of DISRUPTION_ORDER) {
+    const v = latest?.[DRIVER_FIELD[key]];
+    out[key] = typeof v === "number" ? Math.round(v) : null;
+  }
+  return out;
 }
 
-/** Returns students who contribute to a given disruption category — always
- * empty until real per-student behaviour signal exists. */
-export function studentsByDisruption(
-  _key: DisruptionKey,
-  _students: Student[] = STUDENTS,
-): Student[] {
-  return [];
+function driverWeeklyChange(key: DisruptionKey): number | null {
+  if (WEEKLY_DATA.length < 2) return null;
+  const last = WEEKLY_DATA[WEEKLY_DATA.length - 1]?.[DRIVER_FIELD[key]];
+  const prev = WEEKLY_DATA[WEEKLY_DATA.length - 2]?.[DRIVER_FIELD[key]];
+  if (typeof last !== "number" || typeof prev !== "number") return null;
+  return Math.round(last - prev);
+}
+
+/** Demo — deterministic seeded estimate of how many of the 16 real students
+ * are below the at-risk threshold for a given driver. No real per-driver
+ * per-student data exists to compute this for real (see file header). */
+function demoStudentCountForDriver(key: DisruptionKey, total: number): number {
+  const seed = idSeed(key) * 13;
+  return Math.round(rand(seed) * total * 0.4);
+}
+
+/** Class-level driver scores and trend are real (from the CSV weekly
+ * series); studentCount is a seeded demo estimate (see studentCountIsDemo). */
+export function classDisruptionBreakdown(students: Student[] = STUDENTS): DisruptionStat[] {
+  const scores = latestDriverScores();
+  return DISRUPTION_ORDER.map((key) => {
+    const score = scores[key];
+    const hasData = score != null;
+    return {
+      key,
+      label: DISRUPTION_LABEL[key],
+      description: DISRUPTION_DESCRIPTION[key],
+      hue: DISRUPTION_HUE[key],
+      hasData,
+      severity: hasData ? 100 - score! : null,
+      studentCount: hasData ? demoStudentCountForDriver(key, students.length) : 0,
+      studentCountIsDemo: true,
+      score,
+      status: hasData ? statusFromScore(score!) : null,
+      weeklyChange: hasData ? driverWeeklyChange(key) : null,
+    };
+  });
+}
+
+/** Demo — which real students "contribute" to a given disruption category.
+ * No real per-student-per-driver split exists (see file header), so this is
+ * a seeded subset sized to match demoStudentCountForDriver() for the same
+ * key, not a real flag. */
+export function studentsByDisruption(key: DisruptionKey, students: Student[] = STUDENTS): Student[] {
+  const count = demoStudentCountForDriver(key, students.length);
+  if (count === 0) return [];
+  return [...students]
+    .sort((a, b) => rand(idSeed(a.id) + idSeed(key)) - rand(idSeed(b.id) + idSeed(key)))
+    .slice(0, count);
 }
 
 export type DriverSkill = { name: string; score: number };
@@ -861,4 +976,193 @@ export function behaviorTriggerPatterns(antecedentsThisWeek: string[], limit = 5
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Classroom Disruption Impact — DEMO. No real time-tracking data exists
+ * anywhere in this app (same reason lib/schoolData.ts's "Recovered
+ * Instructional Time" KPI has zero real basis) — every field here is a
+ * seeded estimate, tagged wherever it renders.
+ * ───────────────────────────────────────────────────────── */
+
+export type DisruptionImpactPoint = { label: string; hours: number };
+
+export type DisruptionImpact = {
+  hoursLostThisMonth: number;
+  avgIncidentsPerClass: number;
+  mostAffectedMoment: string;
+  teachingFlowImpact: "Low" | "Medium" | "High";
+  weekly: DisruptionImpactPoint[];
+  teacherInsight: string;
+};
+
+const IMPACT_MOMENTS = ["Transitions", "Independent work", "Group work", "Instruction start"];
+
+export function classDisruptionImpact(): DisruptionImpact {
+  const weekly: DisruptionImpactPoint[] = ["W1", "W2", "W3", "W4", "W5"].map((label, i) => ({
+    label,
+    hours: Math.round((0.4 + rand(idSeed(label) + i * 3) * 2.6) * 10) / 10,
+  }));
+  const hoursLostThisMonth = Math.round(weekly.reduce((a, p) => a + p.hours, 0) * 10) / 10;
+  const avgIncidentsPerClass = Math.round(2 + rand(idSeed("incidents")) * 4);
+  const mostAffectedMoment = IMPACT_MOMENTS[Math.floor(rand(idSeed("moment")) * IMPACT_MOMENTS.length)];
+  const teachingFlowImpact: DisruptionImpact["teachingFlowImpact"] =
+    hoursLostThisMonth >= 3 ? "High" : hoursLostThisMonth >= 1.5 ? "Medium" : "Low";
+
+  return {
+    hoursLostThisMonth,
+    avgIncidentsPerClass,
+    mostAffectedMoment,
+    teachingFlowImpact,
+    weekly,
+    teacherInsight: `${mostAffectedMoment} and independent work are taking the most time to settle.`,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Skills Influencing Behaviour — DEMO. 8 executive-function/regulation
+ * skills that aren't tracked per-skill anywhere in the real dataset —
+ * seeded off the real 6 driver scores (so they move in a direction that's
+ * at least consistent with real class performance) plus jitter, not
+ * independent fabrication.
+ * ───────────────────────────────────────────────────────── */
+
+export type BehaviorSkillKey =
+  | "self-control"
+  | "response-inhibition"
+  | "emotional-recovery"
+  | "rule-awareness"
+  | "social-awareness"
+  | "flexibility"
+  | "turn-taking"
+  | "self-monitoring";
+
+export const BEHAVIOR_SKILL_LABEL: Record<BehaviorSkillKey, string> = {
+  "self-control": "Self-Control",
+  "response-inhibition": "Response Inhibition",
+  "emotional-recovery": "Emotional Recovery",
+  "rule-awareness": "Rule Awareness",
+  "social-awareness": "Social Awareness",
+  flexibility: "Flexibility",
+  "turn-taking": "Turn-Taking",
+  "self-monitoring": "Self-Monitoring",
+};
+
+const BEHAVIOR_SKILL_ORDER: BehaviorSkillKey[] = [
+  "self-control",
+  "response-inhibition",
+  "emotional-recovery",
+  "rule-awareness",
+  "social-awareness",
+  "flexibility",
+  "turn-taking",
+  "self-monitoring",
+];
+
+// Each skill anchored to whichever real driver it's most related to, so the
+// demo score at least trends with real class performance instead of being
+// fully independent noise.
+const SKILL_DRIVER_ANCHOR: Record<BehaviorSkillKey, DisruptionKey> = {
+  "self-control": "impulse",
+  "response-inhibition": "impulse",
+  "emotional-recovery": "emotional",
+  "rule-awareness": "non-compliance",
+  "social-awareness": "peer",
+  flexibility: "off-task",
+  "turn-taking": "peer",
+  "self-monitoring": "participation",
+};
+
+export type BehaviorSkillStat = { key: BehaviorSkillKey; label: string; score: number };
+
+export function behaviorInfluencingSkills(): BehaviorSkillStat[] {
+  const driverScores = latestDriverScores();
+  return BEHAVIOR_SKILL_ORDER.map((key) => {
+    const anchor = driverScores[SKILL_DRIVER_ANCHOR[key]] ?? 55;
+    const jitter = (rand(idSeed(key) * 5) - 0.5) * 20;
+    const score = Math.max(0, Math.min(100, Math.round(anchor + jitter)));
+    return { key, label: BEHAVIOR_SKILL_LABEL[key], score };
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Behaviour Trend Over Time — real weekly series for the 4 drivers that
+ * have a direct CSV field (Overall composite, Peer Interaction, Impulse
+ * Control, Non-Compliance), sourced from WEEKLY_DATA/MONTHLY_DATA.
+ * ───────────────────────────────────────────────────────── */
+
+export type BehaviorTrendSeriesKey = "overall" | "peer" | "impulse" | "non-compliance";
+
+export const BEHAVIOR_TREND_LABEL: Record<BehaviorTrendSeriesKey, string> = {
+  overall: "Overall Behaviour Status",
+  peer: DISRUPTION_LABEL.peer,
+  impulse: DISRUPTION_LABEL.impulse,
+  "non-compliance": DISRUPTION_LABEL["non-compliance"],
+};
+
+export const BEHAVIOR_TREND_TONE: Record<BehaviorTrendSeriesKey, string> = {
+  overall: "hsl(212 90% 58%)",
+  peer: DISRUPTION_HUE.peer,
+  impulse: DISRUPTION_HUE.impulse,
+  "non-compliance": DISRUPTION_HUE["non-compliance"],
+};
+
+export type BehaviorTrendPoint = { label: string } & Record<BehaviorTrendSeriesKey, number | null>;
+
+export function behaviorTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): BehaviorTrendPoint[] {
+  const rows = period === "Monthly" ? MONTHLY_DATA : WEEKLY_DATA;
+  return rows.map((row, i) => ({
+    label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
+    overall: row.behaviorAndDisciplineScore != null ? Math.round(row.behaviorAndDisciplineScore) : null,
+    peer: row.peerSafetyAndBelonging != null ? Math.round(row.peerSafetyAndBelonging) : null,
+    impulse: row.impulseControl != null ? Math.round(row.impulseControl) : null,
+    "non-compliance": row.nonCompliance != null ? Math.round(row.nonCompliance) : null,
+  }));
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function monthLabel(iso: string): string {
+  const m = Number(iso.split("-")[1]);
+  return MONTH_SHORT[m - 1] ?? iso;
+}
+
+export type BehaviorTrendSummary = {
+  mostImproved: { key: BehaviorTrendSeriesKey; label: string; delta: number } | null;
+  watchArea: { key: BehaviorTrendSeriesKey; label: string; delta: number } | null;
+  studentsImproving: number;
+  studentsNeedingSupport: number;
+  insight: string;
+};
+
+/** studentsImproving/studentsNeedingSupport reuse the real per-student
+ * distribution from classBehaviorSnapshot() — mostImproved/watchArea are
+ * real (from the trend series above); the insight sentence is generated
+ * from those real deltas, not fabricated. */
+export function behaviorTrendSummary(points: BehaviorTrendPoint[], snapshot: BehaviorSnapshotData): BehaviorTrendSummary {
+  const keys: BehaviorTrendSeriesKey[] = ["overall", "peer", "impulse", "non-compliance"];
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  const deltas = keys
+    .map((key) => {
+      const a = first?.[key];
+      const b = last?.[key];
+      if (typeof a !== "number" || typeof b !== "number") return null;
+      return { key, label: BEHAVIOR_TREND_LABEL[key], delta: b - a };
+    })
+    .filter((d): d is { key: BehaviorTrendSeriesKey; label: string; delta: number } => d !== null);
+
+  const sorted = [...deltas].sort((a, b) => b.delta - a.delta);
+  const mostImproved = sorted[0] ?? null;
+  const watchArea = sorted.length > 1 ? sorted[sorted.length - 1] : null;
+
+  const studentsImproving = (snapshot.distribution?.strong ?? 0) + (snapshot.distribution?.stable ?? 0);
+  const studentsNeedingSupport = (snapshot.distribution?.reinforcement ?? 0) + (snapshot.distribution?.support ?? 0);
+
+  const insight =
+    mostImproved && watchArea
+      ? `Behaviour regulation has ${mostImproved.delta >= 0 ? "improved" : "declined"} over the last period. ${mostImproved.label} is stronger, but ${watchArea.label.toLowerCase()} continues to need support.`
+      : "Not enough weekly history yet to summarize a trend.";
+
+  return { mostImproved, watchArea, studentsImproving, studentsNeedingSupport, insight };
 }

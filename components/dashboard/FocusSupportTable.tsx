@@ -17,7 +17,8 @@ const PREVIEW_COUNT = 5;
  * panel for whichever student is selected. All demo data (see
  * lib/classFocus.ts) — reuses the same QUICK_ACTIVITIES library the Actions
  * component has, so the two never suggest different things for the same
- * domain. */
+ * domain. Focus scores and growth are supplied L2 data; the weakest-domain
+ * estimate remains demo-only because per-student domain scores are absent. */
 export function FocusSupportTable() {
   const reduce = useReducedMotion();
   const [showAll, setShowAll] = useState(false);

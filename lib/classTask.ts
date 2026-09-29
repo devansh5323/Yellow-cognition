@@ -2,8 +2,8 @@
 //
 // data/realStudents.ts covers a single top-line `taskEngagement` score per
 // student (real, used for the snapshot and the support ranking below). For
-// the category breakdown, data/studentHealthScore.ts's weekly/monthly CSV
-// series (WEEKLY_DATA/MONTHLY_DATA) has real CLASS-LEVEL scores for exactly
+// the category breakdown, data/l2ClassroomData.ts's weekly/monthly export
+// has real CLASS-LEVEL scores for exactly
 // the 7 task-engagement areas below (taskInitiation, persistence,
 // completion, consistency, planningAndTimeManagement, independentExecution,
 // responseToChallenge) — same pattern lib/classBehavior.ts uses. What's
@@ -14,7 +14,13 @@
 // silently presented as real.
 
 import { STUDENTS, type Student } from "@/data/mockData";
-import { WEEKLY_DATA, MONTHLY_DATA, type TimeSeriesData } from "@/data/studentHealthScore";
+import {
+  L2_CLASSROOM_DATA,
+  type TaskEngagementTrendPoint,
+} from "@/data/l2ClassroomData";
+
+const TASK_WEEKLY_DATA = L2_CLASSROOM_DATA.taskEngagement.weekly;
+const TASK_MONTHLY_DATA = L2_CLASSROOM_DATA.taskEngagement.monthly;
 
 function rand(seed: number): number {
   const x = Math.sin(seed) * 10000;
@@ -227,7 +233,7 @@ export function taskCheckInScore(answers: Record<string, string>): {
 
 /* ─────────────────────────────────────────────────────────
  * Task Engagement Breakdown — real, class-level. 7 areas, each mapped to
- * its matching field in the WEEKLY_DATA/MONTHLY_DATA CSV series.
+ * its matching field in the L2 weekly/monthly series.
  * ───────────────────────────────────────────────────────── */
 
 export type TaskAreaKey =
@@ -279,7 +285,7 @@ export const TASK_AREA_SKILLS: Record<TaskAreaKey, string[]> = {
   "response-to-challenge": ["Adaptive Thinking", "Frustration Tolerance", "Complex Problem Solving"],
 };
 
-const TASK_AREA_FIELD: Record<TaskAreaKey, keyof TimeSeriesData> = {
+const TASK_AREA_FIELD: Record<TaskAreaKey, keyof TaskEngagementTrendPoint> = {
   initiation: "taskInitiation",
   persistence: "persistence",
   completion: "completion",
@@ -300,7 +306,7 @@ export type TaskAreaStat = {
 };
 
 function latestTaskAreaScores(): Record<TaskAreaKey, number | null> {
-  const latest = WEEKLY_DATA[WEEKLY_DATA.length - 1];
+  const latest = TASK_WEEKLY_DATA[TASK_WEEKLY_DATA.length - 1];
   const out = {} as Record<TaskAreaKey, number | null>;
   for (const key of TASK_AREA_ORDER) {
     const v = latest?.[TASK_AREA_FIELD[key]];
@@ -310,9 +316,10 @@ function latestTaskAreaScores(): Record<TaskAreaKey, number | null> {
 }
 
 function taskAreaWeeklyChange(key: TaskAreaKey): number | null {
-  if (WEEKLY_DATA.length < 2) return null;
-  const last = WEEKLY_DATA[WEEKLY_DATA.length - 1]?.[TASK_AREA_FIELD[key]];
-  const prev = WEEKLY_DATA[WEEKLY_DATA.length - 2]?.[TASK_AREA_FIELD[key]];
+  if (TASK_WEEKLY_DATA.length < 2) return null;
+  const populated = TASK_WEEKLY_DATA.filter((row) => typeof row[TASK_AREA_FIELD[key]] === "number");
+  const last = populated[populated.length - 1]?.[TASK_AREA_FIELD[key]];
+  const prev = populated[populated.length - 2]?.[TASK_AREA_FIELD[key]];
   if (typeof last !== "number" || typeof prev !== "number") return null;
   return Math.round(last - prev);
 }
@@ -403,7 +410,7 @@ export const TASK_TREND_TONE: Record<TaskTrendSeriesKey, string> = {
 export type TaskTrendPoint = { label: string } & Record<TaskTrendSeriesKey, number | null>;
 
 export function taskTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): TaskTrendPoint[] {
-  const rows = period === "Monthly" ? MONTHLY_DATA : WEEKLY_DATA;
+  const rows = period === "Monthly" ? TASK_MONTHLY_DATA : TASK_WEEKLY_DATA;
   return rows.map((row, i) => ({
     label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
     completion: row.completion != null ? Math.round(row.completion) : null,

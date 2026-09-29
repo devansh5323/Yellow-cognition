@@ -12,7 +12,6 @@ import {
   type FocusSnapshot as FocusSnapshotData,
   type StaminaBand,
 } from "@/lib/classFocus";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +26,7 @@ type Props = {
  * (Snapshot → Patterns → Priority → Actions → Trends): an immediate,
  * overall read of the class's attention state — donut ring for the class
  * focus score, a focused/fluctuating/distracted legend with real counts,
- * and a weekly/monthly trend delta. All demo data (see lib/classFocus.ts). */
+ * and a weekly/monthly trend delta from the supplied L2 dataset. */
 export function FocusSnapshot({ snapshot }: Props) {
   const reduce = useReducedMotion();
   const [period, setPeriod] = useState<"Weekly" | "Monthly">("Weekly");
@@ -35,19 +34,20 @@ export function FocusSnapshot({ snapshot }: Props) {
   const tone = FOCUS_STATUS_TONE[snapshot.status];
 
   const points = period === "Weekly" ? snapshot.weekly : snapshot.monthly;
-  const last = points[points.length - 1];
-  const prev = points[points.length - 2];
-  const scoreDelta = last && prev ? last.score - prev.score : snapshot.delta;
+  const populatedPoints = points.filter((point): point is typeof point & { score: number } => point.score != null);
+  const last = populatedPoints[populatedPoints.length - 1];
+  const prev = populatedPoints[populatedPoints.length - 2];
+  const scoreDelta = last && prev ? Math.round((last.score - prev.score) * 100) / 100 : snapshot.delta;
 
   const zoneDeltas = useMemo(() => {
-    if (!last || !prev) return { focused: 0, fluctuating: 0, distracted: 0 };
-    const pct = (v: number, p: typeof last) => Math.round((v / Math.max(1, p.focused + p.fluctuating + p.distracted)) * 100);
+    const currentTotal = Math.max(1, Object.values(snapshot.distribution).reduce((sum, count) => sum + count, 0));
+    const previousTotal = Math.max(1, Object.values(snapshot.previousDistribution).reduce((sum, count) => sum + count, 0));
     return {
-      focused: pct(last.focused, last) - pct(prev.focused, prev),
-      fluctuating: pct(last.fluctuating, last) - pct(prev.fluctuating, prev),
-      distracted: pct(last.distracted, last) - pct(prev.distracted, prev),
+      focused: Math.round((snapshot.distribution.focused / currentTotal) * 100) - Math.round((snapshot.previousDistribution.focused / previousTotal) * 100),
+      fluctuating: Math.round((snapshot.distribution.fluctuating / currentTotal) * 100) - Math.round((snapshot.previousDistribution.fluctuating / previousTotal) * 100),
+      distracted: Math.round((snapshot.distribution.distracted / currentTotal) * 100) - Math.round((snapshot.previousDistribution.distracted / previousTotal) * 100),
     };
-  }, [last, prev]);
+  }, [snapshot.distribution, snapshot.previousDistribution]);
 
   const message =
     scoreDelta > 0
@@ -67,7 +67,6 @@ export function FocusSnapshot({ snapshot }: Props) {
             </h2>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <DemoDataBadge />
             <div className="inline-flex rounded-full border border-border/60 bg-background p-0.5">
               {(["Weekly", "Monthly"] as const).map((p) => (
                 <button

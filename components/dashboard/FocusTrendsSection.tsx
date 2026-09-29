@@ -22,11 +22,16 @@ const FLUCTUATING_TONE = "hsl(38 92% 55%)";
 const DISTRACTED_TONE = "hsl(0 78% 58%)";
 
 type TrendPoint = WeekTrendPoint | MonthTrendPoint;
+type ZonePoint = {
+  label: string;
+  focused: number;
+  fluctuating: number;
+  distracted: number;
+};
 
-/** Component "Trends" — is it working: 4 charts, each answering one plain
- * question about whether the class is genuinely improving. Reuses the same
- * weekly/monthly series Focus Snapshot already computes, plus the
- * sub-domain deltas from the heatmap. All demo data (see lib/classFocus.ts). */
+/** Component "Trends" — the score and zone charts use supplied L2 data.
+ * Within-session drop-off remains demo-only, and subdomain movement stays
+ * unavailable until a historical subdomain export exists. */
 export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }) {
   const reduce = useReducedMotion();
   const [period, setPeriod] = useState<"Weekly" | "Monthly">("Weekly");
@@ -34,18 +39,26 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
   const domains = classFocusDomains();
   const dropCurve = attentionDropCurve();
 
-  const first = points[0];
-  const last = points[points.length - 1];
-  const scoreChange = first && last ? last.score - first.score : 0;
+  const scoredPoints = points.filter((point): point is TrendPoint & { score: number } => point.score != null);
+  const first = scoredPoints[0];
+  const last = scoredPoints[scoredPoints.length - 1];
+  const scoreChange = first && last ? Math.round((last.score - first.score) * 100) / 100 : 0;
 
-  const zonePct = (p: TrendPoint | undefined) => {
+  const zonePoints: ZonePoint[] = [
+    { label: "Previous", ...snapshot.previousDistribution },
+    { label: "Current", ...snapshot.distribution },
+  ];
+
+  const zonePct = (p: ZonePoint | undefined) => {
     if (!p) return 0;
     const total = Math.max(1, p.focused + p.fluctuating + p.distracted);
     return Math.round((p.focused / total) * 100);
   };
-  const zoneChange = zonePct(last) - zonePct(first);
+  const zoneChange = zonePct(zonePoints[1]) - zonePct(zonePoints[0]);
 
-  const sortedDomains = [...domains].sort((a, b) => b.score - b.prevScore - (a.score - a.prevScore));
+  const sortedDomains = domains
+    .filter((domain) => domain.hasTrendData)
+    .sort((a, b) => b.score - b.prevScore - (a.score - a.prevScore));
   const improvingCount = sortedDomains.filter((d) => d.score > d.prevScore).length;
 
   return (
@@ -96,7 +109,7 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
           verdict={`${zoneChange >= 0 ? "+" : ""}${zoneChange}% focused`}
           direction={zoneChange > 0 ? "up" : zoneChange < 0 ? "down" : "flat"}
         >
-          <ZoneStackedChart points={points} reduce={!!reduce} />
+          <ZoneStackedChart points={zonePoints} reduce={!!reduce} />
         </TrendCard>
 
         <TrendCard
@@ -111,10 +124,16 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
         <TrendCard
           title="Component Trend"
           question="Which areas are improving?"
-          verdict={`${improvingCount}/${sortedDomains.length} improving`}
-          direction={improvingCount >= sortedDomains.length / 2 ? "up" : "down"}
+          verdict={sortedDomains.length > 0 ? `${improvingCount}/${sortedDomains.length} improving` : "No history"}
+          direction={sortedDomains.length === 0 ? "flat" : improvingCount >= sortedDomains.length / 2 ? "up" : "down"}
         >
-          <DomainDeltaChart domains={sortedDomains} reduce={!!reduce} />
+          {sortedDomains.length > 0 ? (
+            <DomainDeltaChart domains={sortedDomains} reduce={!!reduce} />
+          ) : (
+            <p className="flex h-[100px] items-center justify-center text-center text-[12px] text-muted-foreground">
+              Historical subdomain data is not available yet.
+            </p>
+          )}
         </TrendCard>
       </div>
     </section>
@@ -157,8 +176,8 @@ function TrendCard({
 }
 
 function ScoreLineChart({ points, reduce }: { points: TrendPoint[]; reduce: boolean }) {
-  if (points.length < 2) return null;
-  const values = points.map((p) => p.score);
+  const values = points.map((p) => p.score).filter((score): score is number => score != null);
+  if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const padding = Math.max(2, Math.round((max - min) * 0.25));
@@ -169,8 +188,17 @@ function ScoreLineChart({ points, reduce }: { points: TrendPoint[]; reduce: bool
   const H = 100;
   const stepX = W / Math.max(1, points.length - 1);
   const project = (v: number) => H - ((v - yMin) / range) * H;
-  const path = points.map((p, i) => `${i === 0 ? "M" : "L"} ${(i * stepX).toFixed(1)} ${project(p.score).toFixed(1)}`).join(" ");
-  const area = `${path} L ${(points.length - 1) * stepX} ${H} L 0 ${H} Z`;
+  const path = points.reduce(
+    (state, p, i) => {
+      if (p.score == null) {
+        return { path: state.path, segmentOpen: false };
+      }
+      const command = state.segmentOpen ? "L" : "M";
+      const next = `${command} ${(i * stepX).toFixed(1)} ${project(p.score).toFixed(1)}`;
+      return { path: `${state.path}${state.path ? " " : ""}${next}`, segmentOpen: true };
+    },
+    { path: "", segmentOpen: false },
+  ).path;
 
   return (
     <div>
@@ -181,7 +209,6 @@ function ScoreLineChart({ points, reduce }: { points: TrendPoint[]; reduce: bool
             <stop offset="100%" stopColor={FOCUSED_TONE} stopOpacity="0" />
           </linearGradient>
         </defs>
-        <motion.path d={area} fill="url(#trend-score)" initial={reduce ? undefined : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} />
         <motion.path
           d={path}
           fill="none"
@@ -205,7 +232,7 @@ function ScoreLineChart({ points, reduce }: { points: TrendPoint[]; reduce: bool
   );
 }
 
-function ZoneStackedChart({ points, reduce }: { points: TrendPoint[]; reduce: boolean }) {
+function ZoneStackedChart({ points, reduce }: { points: ZonePoint[]; reduce: boolean }) {
   return (
     <div>
       <div className="flex items-end gap-2 h-[100px]">

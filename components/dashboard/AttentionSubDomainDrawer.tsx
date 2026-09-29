@@ -19,6 +19,7 @@ type DomainDrawerStat = {
   hue: string;
   score: number;
   prevScore: number;
+  hasTrendData?: boolean;
   atRiskCount: number;
   atRiskPct: number;
 };
@@ -71,9 +72,10 @@ export function AttentionSubDomainDrawer({
                     Class average is{" "}
                     <span className="font-bold" style={{ color: domain.hue }}>
                       {domain.score}
-                    </span>{" "}
-                    ({delta >= 0 ? "+" : ""}
-                    {delta} vs last check-in).
+                    </span>
+                    {domain.hasTrendData
+                      ? ` (${delta >= 0 ? "+" : ""}${delta} vs last check-in).`
+                      : ". Historical comparison is not available for this sub-domain."}
                   </span>
                 </li>
                 <li className="flex items-start gap-2 text-[12.5px] leading-snug">

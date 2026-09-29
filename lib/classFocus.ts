@@ -1,17 +1,11 @@
 // Class Focus — data + helpers for the Attention & Focus tab.
 //
-// The real per-student dataset (data/realStudents.ts) has zero signal for
-// Attention & Focus across every one of the 16 students — there is no
-// honest per-student attention score, sub-domain breakdown, or session
-// history to compute this page from (see lib/classBehavior.ts's header for
-// the same situation on Behaviour & Discipline). Rather than leave the page
-// a bare "not enough data" shell forever, every score below is DEMO DATA —
-// deterministic pseudo-random numbers seeded off each real student's id, so
-// they're stable across reloads (not different every render) but are
-// explicitly, visibly fake: every component that renders them pairs with a
-// <DemoDataBadge>/<DemoDataBanner> (components/dashboard/DemoDataBadge.tsx)
-// so nothing here is mistaken for a real measurement. The moment real
-// per-student attention signal exists, this file is the one to replace.
+// data/realStudents.ts and data/l2ClassroomData.ts provide real per-student
+// focus scores, class summary/distribution, current subdomain averages, and
+// weekly/monthly trends. The supplied export does not include per-student
+// subdomain scores or within-session attention history, so panels that need
+// those finer-grained signals still use deterministic demo estimates and
+// remain explicitly marked with DemoDataBadge.
 //
 // The seeded generator mirrors the exact shape/derivation the old
 // mock-data-era version used (per-student pfi → 8 attention sub-domains via
@@ -20,8 +14,11 @@
 // field) and the "this is demo" labeling are new.
 
 import { STUDENTS, type Student } from "@/data/mockData";
+import { L2_CLASSROOM_DATA, type FocusTrendPoint } from "@/data/l2ClassroomData";
 import { getBehaviorLogTotalCount, getClassCheckInsThisWeek, getPositiveLogTotalCount } from "@/lib/checkInTools";
 import { getFollowUpProgress } from "@/lib/interventionFollowUps";
+
+const FOCUS_DATA = L2_CLASSROOM_DATA.focus;
 
 // Deterministic pseudo-random, seeded — same technique the old mock data
 // generator used, so re-derived per-student scores are stable across
@@ -46,15 +43,6 @@ function idSeed(id: string): number {
 function demoFocusBase(id: string): number {
   const seed = idSeed(id);
   return clamp(60 + (rand(seed) - 0.5) * 40);
-}
-
-/** A second, independent seed for "the same student a check-in cycle ago" —
- * gives every trend/delta a plausible (sometimes up, sometimes down) demo
- * direction instead of a flat zero. */
-function demoFocusPrev(id: string): number {
-  const seed = idSeed(id) * 7;
-  const base = demoFocusBase(id);
-  return clamp(base + (rand(seed) - 0.5) * 16);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -123,18 +111,12 @@ export type StaminaDistribution = Record<StaminaBand, number>;
 
 export type WeekTrendPoint = {
   label: string;
-  score: number;
-  focused: number;
-  fluctuating: number;
-  distracted: number;
+  score: number | null;
 };
 
 export type MonthTrendPoint = {
   label: string;
-  score: number;
-  focused: number;
-  fluctuating: number;
-  distracted: number;
+  score: number | null;
 };
 
 export type FocusSnapshot = {
@@ -144,59 +126,53 @@ export type FocusSnapshot = {
   status: FocusStatus;
   total: number;
   distribution: StaminaDistribution;
+  previousDistribution: StaminaDistribution;
   weekly: WeekTrendPoint[];
   monthly: MonthTrendPoint[];
 };
-
-function distributionFromPfi(pfis: number[]): StaminaDistribution {
-  const out: StaminaDistribution = { focused: 0, fluctuating: 0, distracted: 0 };
-  for (const p of pfis) out[staminaForPfi(p)] += 1;
-  return out;
-}
 
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
 
-const WEEK_LABELS = ["W1", "W2", "W3", "W4"];
-const MONTH_LABELS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep"];
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Synthetic weekly demo series — each week nudges every student's demo
- * base score by a small seeded jitter so the trend line moves plausibly
- * instead of sitting perfectly flat. */
-function buildWeekly(students: Student[]): WeekTrendPoint[] {
-  return WEEK_LABELS.map((label, i) => {
-    const pfis = students.map((s) => clamp(demoFocusBase(s.id) + (rand(idSeed(s.id) * (i + 2)) - 0.5) * 14));
-    const dist = distributionFromPfi(pfis);
-    return { label, score: avg(pfis), focused: dist.focused, fluctuating: dist.fluctuating, distracted: dist.distracted };
-  });
-}
-
-/** Synthetic 6-month demo series, same jitter approach as buildWeekly but
- * over a longer, gentler drift so the shape reads as a slower trend. */
-function buildMonthly(students: Student[]): MonthTrendPoint[] {
-  return MONTH_LABELS.map((label, i) => {
-    const pfis = students.map((s) => clamp(demoFocusBase(s.id) + (rand(idSeed(s.id) * (i + 20)) - 0.5) * 10));
-    const dist = distributionFromPfi(pfis);
-    return { label, score: avg(pfis), focused: dist.focused, fluctuating: dist.fluctuating, distracted: dist.distracted };
-  });
+function focusTrendPoints(rows: readonly FocusTrendPoint[], period: "Weekly" | "Monthly"): WeekTrendPoint[] {
+  return rows.map((row, index) => ({
+    label:
+      period === "Monthly"
+        ? (MONTH_SHORT[Number(row.startDate.split("-")[1]) - 1] ?? row.startDate)
+        : `W${index + 1}`,
+    score: row.averageScore,
+  }));
 }
 
 export function classFocusSnapshot(students: Student[] = STUDENTS): FocusSnapshot {
-  const total = students.length;
-  const classScore = avg(students.map((s) => demoFocusBase(s.id)));
-  const prevClassScore = avg(students.map((s) => demoFocusPrev(s.id)));
-  const distribution = distributionFromPfi(students.map((s) => demoFocusBase(s.id)));
+  const { classSummary, distribution: sourceDistribution } = FOCUS_DATA;
+  const distribution: StaminaDistribution = {
+    focused: sourceDistribution.current.focussed,
+    fluctuating: sourceDistribution.current.fluctuating,
+    distracted: sourceDistribution.current.distracted,
+  };
+  const previousDistribution: StaminaDistribution = {
+    focused: sourceDistribution.previous.focussed,
+    fluctuating: sourceDistribution.previous.fluctuating,
+    distracted: sourceDistribution.previous.distracted,
+  };
+  const total = distribution.focused + distribution.fluctuating + distribution.distracted || students.length;
+  const classScore = classSummary.currentScore;
+  const prevClassScore = classSummary.previousScore;
   return {
     classScore,
     prevClassScore,
-    delta: classScore - prevClassScore,
+    delta: Math.round((classScore - prevClassScore) * 100) / 100,
     status: statusFromScore(classScore),
     total,
     distribution,
-    weekly: buildWeekly(students),
-    monthly: buildMonthly(students),
+    previousDistribution,
+    weekly: focusTrendPoints(FOCUS_DATA.weekly, "Weekly"),
+    monthly: focusTrendPoints(FOCUS_DATA.monthly, "Monthly"),
   };
 }
 
@@ -271,24 +247,25 @@ export type FocusDomainStat = {
   hue: string;
   score: number;
   prevScore: number;
+  hasTrendData: boolean;
   atRiskCount: number;
   atRiskPct: number;
 };
 
 export function classFocusDomains(students: Student[] = STUDENTS): FocusDomainStat[] {
+  const heatmap = classAttentionHeatmap(students);
   return FOCUS_DOMAIN_ORDER.map((key) => {
-    const scores = students.map((s) => studentAttentionDomains(s)[key]);
-    const score = avg(scores);
-    const atRiskCount = scores.filter((v) => v < 55).length;
+    const domain = heatmap.find((item) => item.key === key)!;
     return {
       key,
       label: FOCUS_DOMAIN_LABEL[key],
       description: FOCUS_DOMAIN_DESCRIPTION[key],
       hue: FOCUS_DOMAIN_HUE[key],
-      score,
-      prevScore: Math.max(0, score - 3),
-      atRiskCount,
-      atRiskPct: Math.round((atRiskCount / Math.max(1, students.length)) * 100),
+      score: domain.score,
+      prevScore: domain.prevScore,
+      hasTrendData: domain.hasTrendData,
+      atRiskCount: domain.atRiskCount,
+      atRiskPct: domain.atRiskPct,
     };
   });
 }
@@ -309,6 +286,7 @@ export type AttentionHeatmapStat = {
   description: string;
   score: number;
   prevScore: number;
+  hasTrendData: boolean;
   hue: string;
   status: AttentionHeatmapStatus;
   atRiskCount: number;
@@ -361,7 +339,8 @@ function heatmapStatus(score: number): AttentionHeatmapStatus {
 export function classAttentionHeatmap(students: Student[] = STUDENTS): AttentionHeatmapStat[] {
   return ATTENTION_DOMAINS.map((d) => {
     const scores = students.map((s) => studentAttentionDomains(s)[d.key]);
-    const score = avg(scores);
+    const supplied = FOCUS_DATA.subdomains.find((item) => item.displayName.toLowerCase() === d.key);
+    const score = supplied?.averageScore ?? avg(scores);
     const atRiskCount = scores.filter((v) => v < 55).length;
     return {
       key: d.key,
@@ -369,9 +348,12 @@ export function classAttentionHeatmap(students: Student[] = STUDENTS): Attention
       label: d.label,
       description: HEATMAP_DESCRIPTION[d.key],
       score,
-      prevScore: Math.max(0, score - 3),
+      // The PDF supplies current subdomain averages only. Keep the baseline
+      // neutral instead of inventing a historical movement.
+      prevScore: score,
+      hasTrendData: false,
       hue: HEATMAP_HUE[d.key],
-      status: heatmapStatus(score),
+      status: supplied?.status.toLowerCase() === "med" ? "med" : heatmapStatus(score),
       atRiskCount,
       atRiskPct: Math.round((atRiskCount / Math.max(1, students.length)) * 100),
     };
@@ -745,7 +727,9 @@ export function focusSupportRoster(
 ): FocusSupportRow[] {
   return students
     .map((s) => {
-      const pfi = demoFocusBase(s.id);
+      const growth = FOCUS_DATA.studentGrowth.find((item) => item.userId === s.id);
+      if (!growth) return null;
+      const pfi = growth.currentScore;
       const overallStatus = statusFromScore(pfi);
       const domainScores = studentAttentionDomains(s);
       const topDomain = FOCUS_DOMAIN_ORDER.reduce(
@@ -760,12 +744,12 @@ export function focusSupportRoster(
         score: Math.round(pfi),
         status:
           overallStatus === "at-risk" ? ("needs-support" as const) : overallStatus === "fluctuating" ? ("watch" as const) : ("strong" as const),
-        trend: Math.round(pfi - demoFocusPrev(s.id)),
+        trend: growth.growthPct,
         topDomain,
         topDomainLabel,
         topDomainScore,
         topDomainReason: FOCUS_DOMAIN_WEAKNESS_REASON[topDomain],
-        evidence: `Scored ${topDomainScore}/100 on ${topDomainLabel} — demo data (no real per-student signal yet).`,
+        evidence: `Current focus score ${pfi}/100 (${growth.growthPct >= 0 ? "+" : ""}${growth.growthPct}% growth). ${topDomainLabel} remains a demo estimate until per-student domain data is available.`,
         recommendedActions: DOMAIN_INTERVENTIONS[topDomain],
       };
     })

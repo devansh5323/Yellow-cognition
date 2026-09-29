@@ -2,10 +2,10 @@
 //
 // data/realStudents.ts (the STUDENTS this file used to derive everything
 // from) still has zero per-student behaviour signal — but data/
-// studentHealthScore.ts (a later CSV import, already used by the principal
-// dashboard's lib/schoolData.ts) has real per-student
+// realStudents.ts has real per-student
 // cognitivePerformance.behaviourAndDiscipline scores for all 16 students,
-// plus a real weekly/monthly class-level series covering exactly the 6
+// while l2ClassroomData.ts has the real weekly/monthly class-level series
+// covering exactly the 6
 // disruption categories below (offTaskBehavior, nonCompliance,
 // peerSafetyAndBelonging, impulseControl, angerAndEmotionalRegulation,
 // participationControl). The overall snapshot score/status/distribution and
@@ -24,8 +24,14 @@
 // as-is.
 
 import { STUDENTS, type Student } from "@/data/mockData";
-import { STUDENTS as HEALTH_STUDENTS, WEEKLY_DATA, MONTHLY_DATA, type TimeSeriesData } from "@/data/studentHealthScore";
+import {
+  L2_CLASSROOM_DATA,
+  type BehaviorTrendPoint as L2BehaviorTrendPoint,
+} from "@/data/l2ClassroomData";
 import type { FollowUpRecord } from "@/lib/interventionFollowUps";
+
+const BEHAVIOR_WEEKLY_DATA = L2_CLASSROOM_DATA.behavior.weekly;
+const BEHAVIOR_MONTHLY_DATA = L2_CLASSROOM_DATA.behavior.monthly;
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
@@ -94,7 +100,7 @@ export type BehaviorSnapshotData = {
 };
 
 export function classBehaviorSnapshot(students: Student[] = STUDENTS): BehaviorSnapshotData {
-  const scores = HEALTH_STUDENTS.map((s) => s.cognitivePerformance.behaviourAndDiscipline).filter(
+  const scores = students.map((s) => s.cognitivePerformance.behaviourAndDiscipline).filter(
     (v): v is number => v != null,
   );
   const controlScore = avg(scores);
@@ -206,8 +212,8 @@ export type DisruptionStat = {
 };
 
 /** Real, class-level: maps each of the 6 disruption categories to its
- * matching field in the WEEKLY_DATA/MONTHLY_DATA CSV series. */
-const DRIVER_FIELD: Record<DisruptionKey, keyof TimeSeriesData> = {
+ * matching field in the L2 weekly/monthly series. */
+const DRIVER_FIELD: Record<DisruptionKey, keyof L2BehaviorTrendPoint> = {
   "off-task": "offTaskBehavior",
   "non-compliance": "nonCompliance",
   peer: "peerSafetyAndBelonging",
@@ -217,7 +223,7 @@ const DRIVER_FIELD: Record<DisruptionKey, keyof TimeSeriesData> = {
 };
 
 function latestDriverScores(): Record<DisruptionKey, number | null> {
-  const latest = WEEKLY_DATA[WEEKLY_DATA.length - 1];
+  const latest = BEHAVIOR_WEEKLY_DATA[BEHAVIOR_WEEKLY_DATA.length - 1];
   const out = {} as Record<DisruptionKey, number | null>;
   for (const key of DISRUPTION_ORDER) {
     const v = latest?.[DRIVER_FIELD[key]];
@@ -227,9 +233,10 @@ function latestDriverScores(): Record<DisruptionKey, number | null> {
 }
 
 function driverWeeklyChange(key: DisruptionKey): number | null {
-  if (WEEKLY_DATA.length < 2) return null;
-  const last = WEEKLY_DATA[WEEKLY_DATA.length - 1]?.[DRIVER_FIELD[key]];
-  const prev = WEEKLY_DATA[WEEKLY_DATA.length - 2]?.[DRIVER_FIELD[key]];
+  if (BEHAVIOR_WEEKLY_DATA.length < 2) return null;
+  const populated = BEHAVIOR_WEEKLY_DATA.filter((row) => typeof row[DRIVER_FIELD[key]] === "number");
+  const last = populated[populated.length - 1]?.[DRIVER_FIELD[key]];
+  const prev = populated[populated.length - 2]?.[DRIVER_FIELD[key]];
   if (typeof last !== "number" || typeof prev !== "number") return null;
   return Math.round(last - prev);
 }
@@ -1088,7 +1095,7 @@ export function behaviorInfluencingSkills(): BehaviorSkillStat[] {
 /* ─────────────────────────────────────────────────────────
  * Behaviour Trend Over Time — real weekly series for the 4 drivers that
  * have a direct CSV field (Overall composite, Peer Interaction, Impulse
- * Control, Non-Compliance), sourced from WEEKLY_DATA/MONTHLY_DATA.
+ * Control, Non-Compliance), sourced from the L2 weekly/monthly series.
  * ───────────────────────────────────────────────────────── */
 
 export type BehaviorTrendSeriesKey = "overall" | "peer" | "impulse" | "non-compliance";
@@ -1110,7 +1117,7 @@ export const BEHAVIOR_TREND_TONE: Record<BehaviorTrendSeriesKey, string> = {
 export type BehaviorTrendPoint = { label: string } & Record<BehaviorTrendSeriesKey, number | null>;
 
 export function behaviorTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): BehaviorTrendPoint[] {
-  const rows = period === "Monthly" ? MONTHLY_DATA : WEEKLY_DATA;
+  const rows = period === "Monthly" ? BEHAVIOR_MONTHLY_DATA : BEHAVIOR_WEEKLY_DATA;
   return rows.map((row, i) => ({
     label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
     overall: row.behaviorAndDisciplineScore != null ? Math.round(row.behaviorAndDisciplineScore) : null,

@@ -121,14 +121,16 @@ function TrendChart({ points, reduce }: { points: ReturnType<typeof behaviorTren
     <div>
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         {SERIES.map((key) => {
-          // Skip null points entirely rather than drawing through a gap —
-          // MONTHLY_DATA occasionally has a null field mid-series.
-          const path = points.reduce((acc, p, i) => {
-            const v = p[key];
-            if (v == null) return acc;
-            const y = project(v);
-            return `${acc}${acc ? " L" : "M"} ${(i * stepX).toFixed(1)} ${y.toFixed(1)}`;
-          }, "");
+          const path = points.reduce(
+            (state, p, i) => {
+              const value = p[key];
+              if (value == null) return { path: state.path, segmentOpen: false };
+              const command = state.segmentOpen ? "L" : "M";
+              const next = `${command} ${(i * stepX).toFixed(1)} ${project(value).toFixed(1)}`;
+              return { path: `${state.path}${state.path ? " " : ""}${next}`, segmentOpen: true };
+            },
+            { path: "", segmentOpen: false },
+          ).path;
           return (
             <motion.path
               key={key}

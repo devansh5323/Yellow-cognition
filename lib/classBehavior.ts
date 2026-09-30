@@ -103,10 +103,12 @@ export type BehaviorSnapshotData = {
   weakestDriver: { key: DisruptionKey; label: string } | null;
 };
 
-export function classBehaviorSnapshot(students: Student[] = STUDENTS): BehaviorSnapshotData {
-  const scores = students.map((s) => s.cognitivePerformance.behaviourAndDiscipline).filter(
-    (v): v is number => v != null,
-  );
+export function classBehaviorSnapshot(
+  students: Student[] = STUDENTS,
+): BehaviorSnapshotData {
+  const scores = students
+    .map((s) => s.cognitivePerformance.behaviourAndDiscipline)
+    .filter((v): v is number => v != null);
   const controlScore = avg(scores);
   const status = controlScore != null ? statusFromScore(controlScore) : null;
 
@@ -117,20 +119,37 @@ export function classBehaviorSnapshot(students: Student[] = STUDENTS): BehaviorS
             acc[statusFromScore(s)] += 1;
             return acc;
           },
-          { strong: 0, stable: 0, reinforcement: 0, support: 0 } as Record<BehaviorStatus, number>,
+          { strong: 0, stable: 0, reinforcement: 0, support: 0 } as Record<
+            BehaviorStatus,
+            number
+          >,
         )
       : null;
 
   const driverScores = latestDriverScores();
-  const ranked = DISRUPTION_ORDER.map((key) => ({ key, score: driverScores[key] })).filter(
+  const ranked = DISRUPTION_ORDER.map((key) => ({
+    key,
+    score: driverScores[key],
+  })).filter(
     (d): d is { key: DisruptionKey; score: number } => d.score != null,
   );
   const sorted = [...ranked].sort((a, b) => b.score - a.score);
-  const strongestDriver = sorted[0] ? { key: sorted[0].key, label: DISRUPTION_LABEL[sorted[0].key] } : null;
+  const strongestDriver = sorted[0]
+    ? { key: sorted[0].key, label: DISRUPTION_LABEL[sorted[0].key] }
+    : null;
   const weakest = sorted[sorted.length - 1];
-  const weakestDriver = weakest ? { key: weakest.key, label: DISRUPTION_LABEL[weakest.key] } : null;
+  const weakestDriver = weakest
+    ? { key: weakest.key, label: DISRUPTION_LABEL[weakest.key] }
+    : null;
 
-  return { controlScore, status, total: students.length, distribution, strongestDriver, weakestDriver };
+  return {
+    controlScore,
+    status,
+    total: students.length,
+    distribution,
+    strongestDriver,
+    weakestDriver,
+  };
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -162,12 +181,17 @@ export const DISRUPTION_LABEL: Record<DisruptionKey, string> = {
 };
 
 export const DISRUPTION_DESCRIPTION: Record<DisruptionKey, string> = {
-  "off-task": "How smoothly students shift between tasks, activities, and classroom routines.",
-  "non-compliance": "How consistently students follow routines, rules, and shared classroom expectations.",
+  "off-task":
+    "How smoothly students shift between tasks, activities, and classroom routines.",
+  "non-compliance":
+    "How consistently students follow routines, rules, and shared classroom expectations.",
   peer: "Disrupting peers, interrupting, or escalating conflicts during work.",
-  impulse: "Movement and restlessness control — calling out, leaving seat, struggling to wait their turn.",
-  emotional: "Big reactions to small frustrations — shutting down or escalating.",
-  participation: "Disengaging from class activities and discussions instead of taking part.",
+  impulse:
+    "Movement and restlessness control — calling out, leaving seat, struggling to wait their turn.",
+  emotional:
+    "Big reactions to small frustrations — shutting down or escalating.",
+  participation:
+    "Disengaging from class activities and discussions instead of taking part.",
 };
 
 export const DISRUPTION_HUE: Record<DisruptionKey, string> = {
@@ -226,19 +250,33 @@ const DRIVER_FIELD: Record<DisruptionKey, keyof L2BehaviorTrendPoint> = {
   participation: "participationControl",
 };
 
+// Behavior & Discipline Breakdown Values
+// Edit ONLY the numbers below to change the values shown in the driver breakdown.
+// Each value can be entered to one decimal place.
+const BEHAVIOR_BREAKDOWN_VALUES: Record<DisruptionKey, number> = {
+  "off-task": 56.09,
+  "non-compliance": 54.86,
+  peer: 51.66,
+  impulse: 51.28,
+  emotional: 51.16,
+  participation: 56.34,
+};
+
 function latestDriverScores(): Record<DisruptionKey, number | null> {
-  const latest = BEHAVIOR_WEEKLY_DATA[BEHAVIOR_WEEKLY_DATA.length - 1];
   const out = {} as Record<DisruptionKey, number | null>;
+
   for (const key of DISRUPTION_ORDER) {
-    const v = latest?.[DRIVER_FIELD[key]];
-    out[key] = typeof v === "number" ? round1(v) : null;
+    out[key] = round1(BEHAVIOR_BREAKDOWN_VALUES[key]);
   }
+
   return out;
 }
 
 function driverWeeklyChange(key: DisruptionKey): number | null {
   if (BEHAVIOR_WEEKLY_DATA.length < 2) return null;
-  const populated = BEHAVIOR_WEEKLY_DATA.filter((row) => typeof row[DRIVER_FIELD[key]] === "number");
+  const populated = BEHAVIOR_WEEKLY_DATA.filter(
+    (row) => typeof row[DRIVER_FIELD[key]] === "number",
+  );
   const last = populated[populated.length - 1]?.[DRIVER_FIELD[key]];
   const prev = populated[populated.length - 2]?.[DRIVER_FIELD[key]];
   if (typeof last !== "number" || typeof prev !== "number") return null;
@@ -255,7 +293,9 @@ function demoStudentCountForDriver(key: DisruptionKey, total: number): number {
 
 /** Class-level driver scores and trend are real (from the CSV weekly
  * series); studentCount is a seeded demo estimate (see studentCountIsDemo). */
-export function classDisruptionBreakdown(students: Student[] = STUDENTS): DisruptionStat[] {
+export function classDisruptionBreakdown(
+  students: Student[] = STUDENTS,
+): DisruptionStat[] {
   const scores = latestDriverScores();
   return DISRUPTION_ORDER.map((key) => {
     const score = scores[key];
@@ -267,7 +307,9 @@ export function classDisruptionBreakdown(students: Student[] = STUDENTS): Disrup
       hue: DISRUPTION_HUE[key],
       hasData,
       severity: hasData ? 100 - score! : null,
-      studentCount: hasData ? demoStudentCountForDriver(key, students.length) : 0,
+      studentCount: hasData
+        ? demoStudentCountForDriver(key, students.length)
+        : 0,
       studentCountIsDemo: true,
       score,
       status: hasData ? statusFromScore(score!) : null,
@@ -280,11 +322,17 @@ export function classDisruptionBreakdown(students: Student[] = STUDENTS): Disrup
  * No real per-student-per-driver split exists (see file header), so this is
  * a seeded subset sized to match demoStudentCountForDriver() for the same
  * key, not a real flag. */
-export function studentsByDisruption(key: DisruptionKey, students: Student[] = STUDENTS): Student[] {
+export function studentsByDisruption(
+  key: DisruptionKey,
+  students: Student[] = STUDENTS,
+): Student[] {
   const count = demoStudentCountForDriver(key, students.length);
   if (count === 0) return [];
   return [...students]
-    .sort((a, b) => rand(idSeed(a.id) + idSeed(key)) - rand(idSeed(b.id) + idSeed(key)))
+    .sort(
+      (a, b) =>
+        rand(idSeed(a.id) + idSeed(key)) - rand(idSeed(b.id) + idSeed(key)),
+    )
     .slice(0, count);
 }
 
@@ -294,12 +342,20 @@ export type DriverSkill = { name: string; score: number };
  * this driver would score per student once real data exists, without a
  * score attached (there's no per-student signal to average yet). */
 const DRIVER_SKILL_NAMES: Record<DisruptionKey, string[]> = {
-  "off-task": ["Sustained Attention", "Task persistence", "Verbal Self-Regulation"],
+  "off-task": [
+    "Sustained Attention",
+    "Task persistence",
+    "Verbal Self-Regulation",
+  ],
   "non-compliance": ["Monitoring", "Self-Regulation"],
   peer: ["Cooperation", "Behavioral control", "Auditory inhibition"],
   impulse: ["Motor Control", "Behavioral control", "Sustained Attention"],
   emotional: ["Self-awareness", "Frustration Tolerance", "Self-Regulation"],
-  participation: ["Behavioral control", "Arousal Modulation", "Verbal Self-Regulation"],
+  participation: [
+    "Behavioral control",
+    "Arousal Modulation",
+    "Verbal Self-Regulation",
+  ],
 };
 
 const PROBLEM_AREA_NOTE: Partial<Record<DisruptionKey, string>> = {
@@ -307,7 +363,12 @@ const PROBLEM_AREA_NOTE: Partial<Record<DisruptionKey, string>> = {
   participation: "interrupting / over-talking / under-participation",
 };
 
-export function problemAreaToSkills(): { key: DisruptionKey; label: string; note?: string; skills: string[] }[] {
+export function problemAreaToSkills(): {
+  key: DisruptionKey;
+  label: string;
+  note?: string;
+  skills: string[];
+}[] {
   return DISRUPTION_ORDER.map((key) => ({
     key,
     label: DISRUPTION_LABEL[key],
@@ -346,10 +407,22 @@ export function behaviorPatternInsights(
   const withData = breakdown.filter((d) => d.hasData);
   const watch = withData
     .filter((d) => (d.weeklyChange ?? 0) < 0)
-    .map((d) => ({ id: `watch-${d.key}`, type: "watch" as const, text: `${d.label} increased this week.` }));
+    .map((d) => ({
+      id: `watch-${d.key}`,
+      type: "watch" as const,
+      text: `${d.label} increased this week.`,
+    }));
   const strength = withData
-    .filter((d) => (d.weeklyChange ?? 0) >= 0 && (d.status === "strong" || d.status === "stable"))
-    .map((d) => ({ id: `strength-${d.key}`, type: "strength" as const, text: `${d.label} held steady this week.` }));
+    .filter(
+      (d) =>
+        (d.weeklyChange ?? 0) >= 0 &&
+        (d.status === "strong" || d.status === "stable"),
+    )
+    .map((d) => ({
+      id: `strength-${d.key}`,
+      type: "strength" as const,
+      text: `${d.label} held steady this week.`,
+    }));
 
   const insights: PatternInsight[] = [...watch, ...strength];
 
@@ -383,7 +456,12 @@ export function behaviorPatternInsights(
  * regardless of data coverage.
  * ───────────────────────────────────────────────────────── */
 
-export type StrategyKind = "Whole Class" | "Small Group" | "Individual" | "Routine" | "Game";
+export type StrategyKind =
+  | "Whole Class"
+  | "Small Group"
+  | "Individual"
+  | "Routine"
+  | "Game";
 
 export type BehaviorStrategy = {
   id: string;
@@ -399,7 +477,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "praise-specific",
     title: "Use specific behavior-based praise",
-    rationale: "Naming the behavior (not just 'good job') reinforces what works.",
+    rationale:
+      "Naming the behavior (not just 'good job') reinforces what works.",
     kind: "Whole Class",
     durationMins: 0,
     targets: ["off-task", "participation"],
@@ -426,7 +505,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "transition-30",
     title: "Run a 30-second transition countdown",
-    rationale: "Most lost minutes happen between activities — a visible timer cuts it.",
+    rationale:
+      "Most lost minutes happen between activities — a visible timer cuts it.",
     kind: "Routine",
     durationMins: 0,
     targets: ["non-compliance", "impulse"],
@@ -435,7 +515,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "small-group-impulse",
     title: "Impulse-control mini-group (4 students)",
-    rationale: "The same 4 names drive most impulse flags — pull them for a 10-min skill drill.",
+    rationale:
+      "The same 4 names drive most impulse flags — pull them for a 10-min skill drill.",
     kind: "Small Group",
     durationMins: 10,
     targets: ["impulse"],
@@ -443,7 +524,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "buddy-pair",
     title: "Buddy-pair the back row",
-    rationale: "Pairs a high-impulse student with a calm peer to defuse peer-interaction flags.",
+    rationale:
+      "Pairs a high-impulse student with a calm peer to defuse peer-interaction flags.",
     kind: "Individual",
     durationMins: 0,
     targets: ["peer", "participation"],
@@ -452,7 +534,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "calming-checkin",
     title: "Use a 2-minute calming check-in routine",
-    rationale: "A brief self-check-in before demanding tasks builds coping capacity over time.",
+    rationale:
+      "A brief self-check-in before demanding tasks builds coping capacity over time.",
     kind: "Whole Class",
     durationMins: 2,
     targets: ["emotional"],
@@ -461,7 +544,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "chunk-instructions",
     title: "Break instructions into shorter chunks",
-    rationale: "Long instruction blocks strain working memory — shorter chunks with a quick check keep the whole class following.",
+    rationale:
+      "Long instruction blocks strain working memory — shorter chunks with a quick check keep the whole class following.",
     kind: "Whole Class",
     durationMins: 0,
     targets: ["off-task", "non-compliance"],
@@ -470,7 +554,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "movement-break",
     title: "Introduce movement breaks",
-    rationale: "A brief movement reset channels restlessness before it turns into off-task drift or disruption.",
+    rationale:
+      "A brief movement reset channels restlessness before it turns into off-task drift or disruption.",
     kind: "Whole Class",
     durationMins: 2,
     targets: ["impulse", "off-task"],
@@ -479,7 +564,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "participation-rules",
     title: "Set clear participation rules (raise hand, turn-taking)",
-    rationale: "Explicit turn-taking rules cut down on talking-out-of-turn and peer-proximity friction.",
+    rationale:
+      "Explicit turn-taking rules cut down on talking-out-of-turn and peer-proximity friction.",
     kind: "Routine",
     durationMins: 0,
     targets: ["non-compliance", "participation"],
@@ -488,7 +574,8 @@ const STRATEGIES: BehaviorStrategy[] = [
   {
     id: "freeze-focus",
     title: "“Freeze & focus” game",
-    rationale: "A quick freeze-on-cue game resets attention and impulse control after a noisy or high-energy stretch.",
+    rationale:
+      "A quick freeze-on-cue game resets attention and impulse control after a noisy or high-energy stretch.",
     kind: "Game",
     durationMins: 3,
     targets: ["impulse", "off-task"],
@@ -509,20 +596,33 @@ export function strategyForTrigger(trigger: string): BehaviorStrategy | null {
   return STRATEGIES.find((s) => s.triggers?.includes(trigger)) ?? null;
 }
 
-const DEFAULT_STRATEGY_IDS = ["chunk-instructions", "movement-break", "participation-rules", "freeze-focus"];
+const DEFAULT_STRATEGY_IDS = [
+  "chunk-instructions",
+  "movement-break",
+  "participation-rules",
+  "freeze-focus",
+];
 
 /** Ranks strategies by how well they match this week's real logged
  * triggers (falls back to the general default set, then the full catalog). */
-export function pickStrategiesForTriggers(antecedentsThisWeek: string[], count = 4): BehaviorStrategy[] {
+export function pickStrategiesForTriggers(
+  antecedentsThisWeek: string[],
+  count = 4,
+): BehaviorStrategy[] {
   const counts = new Map<string, number>();
-  for (const trigger of antecedentsThisWeek) counts.set(trigger, (counts.get(trigger) ?? 0) + 1);
+  for (const trigger of antecedentsThisWeek)
+    counts.set(trigger, (counts.get(trigger) ?? 0) + 1);
   const rankedTriggers = Array.from(counts.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([trigger]) => trigger);
   const focusTriggers = new Set(rankedTriggers.slice(0, 3));
-  const matched = STRATEGIES.filter((s) => s.triggers?.some((t) => focusTriggers.has(t)));
+  const matched = STRATEGIES.filter((s) =>
+    s.triggers?.some((t) => focusTriggers.has(t)),
+  );
   const byId = new Map(STRATEGIES.map((s) => [s.id, s]));
-  const defaults = DEFAULT_STRATEGY_IDS.map((id) => byId.get(id)).filter((s): s is BehaviorStrategy => !!s);
+  const defaults = DEFAULT_STRATEGY_IDS.map((id) => byId.get(id)).filter(
+    (s): s is BehaviorStrategy => !!s,
+  );
   const seen = new Set<string>();
   const out: BehaviorStrategy[] = [];
   for (const s of [...matched, ...defaults, ...STRATEGIES]) {
@@ -534,11 +634,18 @@ export function pickStrategiesForTriggers(antecedentsThisWeek: string[], count =
   return out;
 }
 
-export function pickBehaviorStrategies(breakdown: DisruptionStat[], count = 5): BehaviorStrategy[] {
+export function pickBehaviorStrategies(
+  breakdown: DisruptionStat[],
+  count = 5,
+): BehaviorStrategy[] {
   const withData = breakdown.filter((d) => d.hasData && d.severity != null);
-  const ranked = [...withData].sort((a, b) => (b.severity ?? 0) - (a.severity ?? 0));
+  const ranked = [...withData].sort(
+    (a, b) => (b.severity ?? 0) - (a.severity ?? 0),
+  );
   const focusKeys = new Set(ranked.slice(0, 3).map((d) => d.key));
-  const matched = STRATEGIES.filter((s) => s.targets.some((t) => focusKeys.has(t)));
+  const matched = STRATEGIES.filter((s) =>
+    s.targets.some((t) => focusKeys.has(t)),
+  );
   const seen = new Set<string>();
   const out: BehaviorStrategy[] = [];
   for (const s of [...matched, ...STRATEGIES]) {
@@ -596,7 +703,8 @@ export const BEHAVIOR_CHECKIN_QUESTIONS: BehaviorCheckInQuestion[] = [
   {
     id: "mgmt-time",
     prompt: "How much time is spent managing behavior?",
-    helper: "Includes time spent redirecting, settling students, and addressing disruptions.",
+    helper:
+      "Includes time spent redirecting, settling students, and addressing disruptions.",
     options: [
       { id: "lt2", label: "< 2 mins", weight: 2 },
       { id: "2to5", label: "2–5 mins", weight: 1 },
@@ -608,7 +716,8 @@ export const BEHAVIOR_CHECKIN_QUESTIONS: BehaviorCheckInQuestion[] = [
   {
     id: "transitions",
     prompt: "How much time is lost during transitions between activities?",
-    helper: "Time from ending one activity to the class being fully ready for the next.",
+    helper:
+      "Time from ending one activity to the class being fully ready for the next.",
     options: [
       { id: "lt2", label: "< 2 mins", weight: 2 },
       { id: "2to5", label: "2–5 mins", weight: 1 },
@@ -759,7 +868,8 @@ export function behaviorPriorityActions(
       id: "tier3-review",
       priority: "high",
       title: `Review ${newFlags.length} newly flagged student${newFlags.length === 1 ? "" : "s"}`,
-      detail: "No support plan started yet — review with the support team this week.",
+      detail:
+        "No support plan started yet — review with the support team this week.",
       ctaLabel: "View students",
       cta: "tier3-review",
     });
@@ -771,14 +881,20 @@ export function behaviorPriorityActions(
       id: "overdue-followup",
       priority: "high",
       title: `Follow up with ${activePlans.length} student${activePlans.length === 1 ? "" : "s"}`,
-      detail: "Strategy review is overdue for students already on a support plan.",
+      detail:
+        "Strategy review is overdue for students already on a support plan.",
       ctaLabel: "Log follow-up",
       cta: "overdue-followup",
     });
   }
 
   const groupCandidate = [...breakdown]
-    .filter((d) => d.hasData && d.studentCount >= 4 && (d.status === "reinforcement" || d.status === "support"))
+    .filter(
+      (d) =>
+        d.hasData &&
+        d.studentCount >= 4 &&
+        (d.status === "reinforcement" || d.status === "support"),
+    )
     .sort((a, b) => b.studentCount - a.studentCount)[0];
   if (groupCandidate) {
     actions.push({
@@ -824,13 +940,16 @@ export function behaviorPriorityActions(
     });
   }
 
-  const majorCount = supportRoster.filter((r) => statusFromScore(r.score) === "support").length;
+  const majorCount = supportRoster.filter(
+    (r) => statusFromScore(r.score) === "support",
+  ).length;
   if (majorCount > 0) {
     actions.push({
       id: "parent-comm",
       priority: "low",
       title: `Notify parents for ${majorCount} student${majorCount === 1 ? "" : "s"}`,
-      detail: "Major behaviour concerns this week haven't been shared with families yet.",
+      detail:
+        "Major behaviour concerns this week haven't been shared with families yet.",
       ctaLabel: "Send update",
       cta: "parent-comm",
     });
@@ -874,7 +993,8 @@ export function behaviorActivityContextPatterns(
       context: "Independent work",
       mainFriction: "Off-task, repeated reminders",
       count: offTask.studentCount,
-      recommendedAction: strategyForDriver("off-task")?.title ?? "Introduce a visual checklist",
+      recommendedAction:
+        strategyForDriver("off-task")?.title ?? "Introduce a visual checklist",
       driverKey: "off-task",
     });
   }
@@ -887,7 +1007,8 @@ export function behaviorActivityContextPatterns(
       mainFriction: "Not following directions after prompts",
       count: nonCompliance.studentCount,
       recommendedAction:
-        strategyForDriver("non-compliance")?.title ?? "Use a consistent instruction-and-check routine",
+        strategyForDriver("non-compliance")?.title ??
+        "Use a consistent instruction-and-check routine",
       driverKey: "non-compliance",
     });
   }
@@ -921,7 +1042,12 @@ export const TIME_OF_DAY_LABEL: Record<TimeOfDayKey, string> = {
   endOfDay: "End of day",
 };
 
-const TIME_OF_DAY_ORDER: TimeOfDayKey[] = ["morning", "midday", "afternoon", "endOfDay"];
+const TIME_OF_DAY_ORDER: TimeOfDayKey[] = [
+  "morning",
+  "midday",
+  "afternoon",
+  "endOfDay",
+];
 
 function timeOfDayForHour(hour: number): TimeOfDayKey {
   if (hour < 11) return "morning";
@@ -941,22 +1067,33 @@ export function behaviorTimeOfDayPattern(
   timestamps: string[],
   breakdown: DisruptionStat[],
 ): TimeOfDayPattern {
-  const counts: Record<TimeOfDayKey, number> = { morning: 0, midday: 0, afternoon: 0, endOfDay: 0 };
+  const counts: Record<TimeOfDayKey, number> = {
+    morning: 0,
+    midday: 0,
+    afternoon: 0,
+    endOfDay: 0,
+  };
   for (const iso of timestamps) {
     counts[timeOfDayForHour(new Date(iso).getHours())] += 1;
   }
   const total = timestamps.length;
-  const ranked = TIME_OF_DAY_ORDER.map((key) => ({ key, count: counts[key] })).sort(
-    (a, b) => b.count - a.count,
-  );
+  const ranked = TIME_OF_DAY_ORDER.map((key) => ({
+    key,
+    count: counts[key],
+  })).sort((a, b) => b.count - a.count);
   const peak = total > 0 && ranked[0].count > 0 ? ranked[0].key : null;
 
-  const topDriver = [...breakdown].filter((d) => d.hasData).sort((a, b) => b.studentCount - a.studentCount)[0];
+  const topDriver = [...breakdown]
+    .filter((d) => d.hasData)
+    .sort((a, b) => b.studentCount - a.studentCount)[0];
   return {
     counts,
     total,
     peak,
-    topDriverLabel: topDriver && topDriver.studentCount > 0 ? topDriver.label.toLowerCase() : null,
+    topDriverLabel:
+      topDriver && topDriver.studentCount > 0
+        ? topDriver.label.toLowerCase()
+        : null,
   };
 }
 
@@ -972,7 +1109,10 @@ export type BehaviorTriggerRow = {
   recommendedAction: string;
 };
 
-export function behaviorTriggerPatterns(antecedentsThisWeek: string[], limit = 5): BehaviorTriggerRow[] {
+export function behaviorTriggerPatterns(
+  antecedentsThisWeek: string[],
+  limit = 5,
+): BehaviorTriggerRow[] {
   const counts = new Map<string, number>();
   for (const trigger of antecedentsThisWeek) {
     counts.set(trigger, (counts.get(trigger) ?? 0) + 1);
@@ -983,7 +1123,8 @@ export function behaviorTriggerPatterns(antecedentsThisWeek: string[], limit = 5
       trigger,
       count,
       recommendedAction:
-        strategyForTrigger(trigger)?.title ?? "Log more detail next time to refine this suggestion.",
+        strategyForTrigger(trigger)?.title ??
+        "Log more detail next time to refine this suggestion.",
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
@@ -1007,18 +1148,31 @@ export type DisruptionImpact = {
   teacherInsight: string;
 };
 
-const IMPACT_MOMENTS = ["Transitions", "Independent work", "Group work", "Instruction start"];
+const IMPACT_MOMENTS = [
+  "Transitions",
+  "Independent work",
+  "Group work",
+  "Instruction start",
+];
 
 export function classDisruptionImpact(): DisruptionImpact {
-  const weekly: DisruptionImpactPoint[] = ["W1", "W2", "W3", "W4", "W5"].map((label, i) => ({
-    label,
-    hours: Math.round((0.4 + rand(idSeed(label) + i * 3) * 2.6) * 10) / 10,
-  }));
-  const hoursLostThisMonth = Math.round(weekly.reduce((a, p) => a + p.hours, 0) * 10) / 10;
+  const weekly: DisruptionImpactPoint[] = ["W1", "W2", "W3", "W4", "W5"].map(
+    (label, i) => ({
+      label,
+      hours: Math.round((0.4 + rand(idSeed(label) + i * 3) * 2.6) * 10) / 10,
+    }),
+  );
+  const hoursLostThisMonth =
+    Math.round(weekly.reduce((a, p) => a + p.hours, 0) * 10) / 10;
   const avgIncidentsPerClass = Math.round(2 + rand(idSeed("incidents")) * 4);
-  const mostAffectedMoment = IMPACT_MOMENTS[Math.floor(rand(idSeed("moment")) * IMPACT_MOMENTS.length)];
+  const mostAffectedMoment =
+    IMPACT_MOMENTS[Math.floor(rand(idSeed("moment")) * IMPACT_MOMENTS.length)];
   const teachingFlowImpact: DisruptionImpact["teachingFlowImpact"] =
-    hoursLostThisMonth >= 3 ? "High" : hoursLostThisMonth >= 1.5 ? "Medium" : "Low";
+    hoursLostThisMonth >= 3
+      ? "High"
+      : hoursLostThisMonth >= 1.5
+        ? "Medium"
+        : "Low";
 
   return {
     hoursLostThisMonth,
@@ -1084,7 +1238,11 @@ const SKILL_DRIVER_ANCHOR: Record<BehaviorSkillKey, DisruptionKey> = {
   "self-monitoring": "participation",
 };
 
-export type BehaviorSkillStat = { key: BehaviorSkillKey; label: string; score: number };
+export type BehaviorSkillStat = {
+  key: BehaviorSkillKey;
+  label: string;
+  score: number;
+};
 
 export function behaviorInfluencingSkills(): BehaviorSkillStat[] {
   const driverScores = latestDriverScores();
@@ -1102,7 +1260,11 @@ export function behaviorInfluencingSkills(): BehaviorSkillStat[] {
  * Control, Non-Compliance), sourced from the L2 weekly/monthly series.
  * ───────────────────────────────────────────────────────── */
 
-export type BehaviorTrendSeriesKey = "overall" | "peer" | "impulse" | "non-compliance";
+export type BehaviorTrendSeriesKey =
+  | "overall"
+  | "peer"
+  | "impulse"
+  | "non-compliance";
 
 export const BEHAVIOR_TREND_LABEL: Record<BehaviorTrendSeriesKey, string> = {
   overall: "Overall Behaviour Status",
@@ -1118,28 +1280,62 @@ export const BEHAVIOR_TREND_TONE: Record<BehaviorTrendSeriesKey, string> = {
   "non-compliance": DISRUPTION_HUE["non-compliance"],
 };
 
-export type BehaviorTrendPoint = { label: string } & Record<BehaviorTrendSeriesKey, number | null>;
+export type BehaviorTrendPoint = { label: string } & Record<
+  BehaviorTrendSeriesKey,
+  number | null
+>;
 
-export function behaviorTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): BehaviorTrendPoint[] {
-  const rows = period === "Monthly" ? BEHAVIOR_MONTHLY_DATA : BEHAVIOR_WEEKLY_DATA;
+export function behaviorTrendOverTime(
+  period: "Weekly" | "Monthly" = "Weekly",
+): BehaviorTrendPoint[] {
+  const rows =
+    period === "Monthly" ? BEHAVIOR_MONTHLY_DATA : BEHAVIOR_WEEKLY_DATA;
   return rows.map((row, i) => ({
     label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
-    overall: row.behaviorAndDisciplineScore != null ? round1(row.behaviorAndDisciplineScore) : null,
-    peer: row.peerSafetyAndBelonging != null ? round1(row.peerSafetyAndBelonging) : null,
+    overall:
+      row.behaviorAndDisciplineScore != null
+        ? round1(row.behaviorAndDisciplineScore)
+        : null,
+    peer:
+      row.peerSafetyAndBelonging != null
+        ? round1(row.peerSafetyAndBelonging)
+        : null,
     impulse: row.impulseControl != null ? round1(row.impulseControl) : null,
-    "non-compliance": row.nonCompliance != null ? round1(row.nonCompliance) : null,
+    "non-compliance":
+      row.nonCompliance != null ? round1(row.nonCompliance) : null,
   }));
 }
 
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 function monthLabel(iso: string): string {
   const m = Number(iso.split("-")[1]);
   return MONTH_SHORT[m - 1] ?? iso;
 }
 
 export type BehaviorTrendSummary = {
-  mostImproved: { key: BehaviorTrendSeriesKey; label: string; delta: number } | null;
-  watchArea: { key: BehaviorTrendSeriesKey; label: string; delta: number } | null;
+  mostImproved: {
+    key: BehaviorTrendSeriesKey;
+    label: string;
+    delta: number;
+  } | null;
+  watchArea: {
+    key: BehaviorTrendSeriesKey;
+    label: string;
+    delta: number;
+  } | null;
   studentsImproving: number;
   studentsNeedingSupport: number;
   insight: string;
@@ -1149,8 +1345,16 @@ export type BehaviorTrendSummary = {
  * distribution from classBehaviorSnapshot() — mostImproved/watchArea are
  * real (from the trend series above); the insight sentence is generated
  * from those real deltas, not fabricated. */
-export function behaviorTrendSummary(points: BehaviorTrendPoint[], snapshot: BehaviorSnapshotData): BehaviorTrendSummary {
-  const keys: BehaviorTrendSeriesKey[] = ["overall", "peer", "impulse", "non-compliance"];
+export function behaviorTrendSummary(
+  points: BehaviorTrendPoint[],
+  snapshot: BehaviorSnapshotData,
+): BehaviorTrendSummary {
+  const keys: BehaviorTrendSeriesKey[] = [
+    "overall",
+    "peer",
+    "impulse",
+    "non-compliance",
+  ];
   const first = points[0];
   const last = points[points.length - 1];
 
@@ -1161,19 +1365,31 @@ export function behaviorTrendSummary(points: BehaviorTrendPoint[], snapshot: Beh
       if (typeof a !== "number" || typeof b !== "number") return null;
       return { key, label: BEHAVIOR_TREND_LABEL[key], delta: round1(b - a) };
     })
-    .filter((d): d is { key: BehaviorTrendSeriesKey; label: string; delta: number } => d !== null);
+    .filter(
+      (d): d is { key: BehaviorTrendSeriesKey; label: string; delta: number } =>
+        d !== null,
+    );
 
   const sorted = [...deltas].sort((a, b) => b.delta - a.delta);
   const mostImproved = sorted[0] ?? null;
   const watchArea = sorted.length > 1 ? sorted[sorted.length - 1] : null;
 
-  const studentsImproving = (snapshot.distribution?.strong ?? 0) + (snapshot.distribution?.stable ?? 0);
-  const studentsNeedingSupport = (snapshot.distribution?.reinforcement ?? 0) + (snapshot.distribution?.support ?? 0);
+  const studentsImproving =
+    (snapshot.distribution?.strong ?? 0) + (snapshot.distribution?.stable ?? 0);
+  const studentsNeedingSupport =
+    (snapshot.distribution?.reinforcement ?? 0) +
+    (snapshot.distribution?.support ?? 0);
 
   const insight =
     mostImproved && watchArea
       ? `Behaviour regulation has ${mostImproved.delta >= 0 ? "improved" : "declined"} over the last period. ${mostImproved.label} is stronger, but ${watchArea.label.toLowerCase()} continues to need support.`
       : "Not enough weekly history yet to summarize a trend.";
 
-  return { mostImproved, watchArea, studentsImproving, studentsNeedingSupport, insight };
+  return {
+    mostImproved,
+    watchArea,
+    studentsImproving,
+    studentsNeedingSupport,
+    insight,
+  };
 }

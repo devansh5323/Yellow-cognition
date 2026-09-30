@@ -55,7 +55,11 @@ export function statusFromScore(score: number): TaskStatus {
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  return round1(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 export type TaskSnapshotData = {
@@ -310,7 +314,7 @@ function latestTaskAreaScores(): Record<TaskAreaKey, number | null> {
   const out = {} as Record<TaskAreaKey, number | null>;
   for (const key of TASK_AREA_ORDER) {
     const v = latest?.[TASK_AREA_FIELD[key]];
-    out[key] = typeof v === "number" ? Math.round(v) : null;
+    out[key] = typeof v === "number" ? round1(v) : null;
   }
   return out;
 }
@@ -321,7 +325,7 @@ function taskAreaWeeklyChange(key: TaskAreaKey): number | null {
   const last = populated[populated.length - 1]?.[TASK_AREA_FIELD[key]];
   const prev = populated[populated.length - 2]?.[TASK_AREA_FIELD[key]];
   if (typeof last !== "number" || typeof prev !== "number") return null;
-  return Math.round(last - prev);
+  return round1(last - prev);
 }
 
 export function classTaskBreakdown(): TaskAreaStat[] {
@@ -413,9 +417,9 @@ export function taskTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): Task
   const rows = period === "Monthly" ? TASK_MONTHLY_DATA : TASK_WEEKLY_DATA;
   return rows.map((row, i) => ({
     label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
-    completion: row.completion != null ? Math.round(row.completion) : null,
-    initiation: row.taskInitiation != null ? Math.round(row.taskInitiation) : null,
-    persistence: row.persistence != null ? Math.round(row.persistence) : null,
+    completion: row.completion != null ? round1(row.completion) : null,
+    initiation: row.taskInitiation != null ? round1(row.taskInitiation) : null,
+    persistence: row.persistence != null ? round1(row.persistence) : null,
   }));
 }
 
@@ -437,7 +441,7 @@ export function taskTrendChangeSummary(points: TaskTrendPoint[]): TaskTrendChang
       const first = withData[0]?.[key];
       const last = withData[withData.length - 1]?.[key];
       if (typeof first !== "number" || typeof last !== "number" || first === 0) return null;
-      const deltaPct = Math.round(((last - first) / first) * 100);
+      const deltaPct = round1(((last - first) / first) * 100);
       return { key, label: TASK_TREND_LABEL[key], deltaPct, improving: deltaPct >= 0 };
     })
     .filter((s): s is TaskTrendChangeSummary => s !== null);

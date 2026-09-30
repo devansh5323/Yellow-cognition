@@ -29,6 +29,7 @@ import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, ChevronDown, ArrowRight } from "lucide-react";
+import { formatDecimal1 } from "@/lib/format";
 
 export default function Page() {
   return (
@@ -246,7 +247,7 @@ function ClassroomPage() {
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-3 text-center">
-                  <Mini label="Health" v={s.score} />
+                  <Mini label="Health" v={formatDecimal1(s.score)} />
                   <Mini label="Students" v={s.total} />
                 </div>
                 <div className="mt-3 flex items-center justify-end gap-1 text-[11px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
@@ -289,7 +290,7 @@ function ClassroomPage() {
               <h2 className="premium-eyebrow">Distribution</h2>
               <h3 className="font-heading font-extrabold text-[16px] mt-1.5">Health score distribution</h3>
               <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                Class avg: <strong className="text-foreground tabular-nums">{health.score}</strong>
+                Class avg: <strong className="text-foreground tabular-nums">{formatDecimal1(health.score)}</strong>
               </p>
             </div>
           </div>
@@ -405,14 +406,14 @@ function SectionDetailDialog({
           <DialogTitle className="font-heading text-[18px]">{section} · detailed view</DialogTitle>
           <DialogDescription>
             {students.length} students · Avg health score{" "}
-            <span className="font-semibold text-foreground tabular-nums">{health?.score ?? "—"}</span>
+            <span className="font-semibold text-foreground tabular-nums">{formatDecimal1(health?.score)}</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="p-5 space-y-4 max-h-[70vh] overflow-auto">
           {health && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-              <DetailStat label="Avg health score" value={health.score} tone="primary" />
+              <DetailStat label="Avg health score" value={formatDecimal1(health.score)} tone="primary" />
               <DetailStat
                 label="Needs support"
                 value={health.distribution["needs-support"]}
@@ -457,7 +458,7 @@ function SectionDetailDialog({
                     </div>
                     <div className="text-right">
                       <div className="font-heading font-extrabold text-[13px] tabular-nums">
-                        {s.studentHealthScore}
+                        {formatDecimal1(s.studentHealthScore)}
                       </div>
                       <div className="text-[10px] text-muted-foreground">Health</div>
                     </div>
@@ -547,7 +548,7 @@ function RankList({
               <div className="text-[11px] text-muted-foreground">{s.ageGroup}</div>
             </div>
             <div className="font-heading font-extrabold text-[14px] tabular-nums">
-              {s.studentHealthScore}
+              {formatDecimal1(s.studentHealthScore)}
             </div>
           </li>
         ))}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/classTask";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const STATUS_ORDER: TaskStatus[] = ["strong", "stable", "reinforcement", "support"];
 
@@ -112,7 +113,7 @@ function SnapshotBody({
                   className="font-heading font-black tabular-nums leading-[0.85] text-[64px] md:text-[72px]"
                   style={{ color: tone }}
                 >
-                  {engagementScore}
+                  {formatDecimal1(engagementScore)}
                 </span>
                 <span className="text-[15px] md:text-[16px] font-extrabold text-muted-foreground/80">
                   /100

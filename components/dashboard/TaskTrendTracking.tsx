@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { TASK_TREND_LABEL, TASK_TREND_TONE, taskTrendChangeSummary, taskTrendOverTime, type TaskTrendSeriesKey } from "@/lib/classTask";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const SERIES: TaskTrendSeriesKey[] = ["completion", "initiation", "persistence"];
@@ -71,7 +72,7 @@ export function TaskTrendTracking() {
                 <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: c.improving ? "hsl(142 55% 42%)" : "hsl(0 78% 55%)" }}>
                   {c.improving ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
                   {c.deltaPct >= 0 ? "+" : ""}
-                  {c.deltaPct}% vs last {period === "Weekly" ? "8 weeks" : "6 months"}
+                  {formatDecimal1(c.deltaPct)}% vs last {period === "Weekly" ? "8 weeks" : "6 months"}
                 </div>
                 <div className="mt-0.5 text-[11px] text-muted-foreground">{c.label} is {c.improving ? "improving" : "declining"}</div>
               </div>

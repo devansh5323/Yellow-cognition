@@ -34,6 +34,7 @@ import { RiskDonut } from "@/components/reports/RiskDonut";
 import { MonthlyTrendChart } from "@/components/reports/MonthlyTrendChart";
 import { InterventionImpact } from "@/components/reports/InterventionImpact";
 import { downloadCsv, printPdf } from "@/lib/reportsExport";
+import { formatDecimal1 } from "@/lib/format";
 
 export default function Page() {
   return (
@@ -183,7 +184,7 @@ function ReportsPage() {
             <p className="mt-1.5 font-heading font-extrabold text-[18px] md:text-[20px] leading-snug text-foreground">
               Class health{" "}
               <span className={cn("tabular-nums", health.score >= 65 ? "text-primary" : "text-destructive")}>
-                {health.score}
+                {formatDecimal1(health.score)}
               </span>{" "}
               ({health.label}) across <span className="tabular-nums">{students.length}</span> students ·{" "}
               <span className="tabular-nums">{needsSupportCount}</span> needing support

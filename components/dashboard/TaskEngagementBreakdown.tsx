@@ -9,6 +9,7 @@ import {
   type TaskAreaStat,
 } from "@/lib/classTask";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -66,7 +67,7 @@ export function TaskEngagementBreakdown({ breakdown }: { breakdown: TaskAreaStat
                         />
                       </div>
                       <span className="text-[12.5px] font-bold tabular-nums" style={{ color: TASK_STATUS_TONE[row.status!] }}>
-                        {row.score}
+                        {formatDecimal1(row.score!)}
                       </span>
                     </div>
                   ) : (

@@ -6,6 +6,7 @@ import { Brain, Info } from "lucide-react";
 import { behaviorInfluencingSkills } from "@/lib/classBehavior";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -82,7 +83,7 @@ function SkillRow({ skill, index, reduce }: { skill: { key: string; label: strin
         />
       </div>
       <span className="w-8 shrink-0 text-[12px] font-bold tabular-nums text-right" style={{ color: tone }}>
-        {skill.score}
+        {formatDecimal1(skill.score)}
       </span>
     </li>
   );

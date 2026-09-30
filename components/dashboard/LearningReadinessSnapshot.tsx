@@ -10,6 +10,7 @@ import {
   type ReadinessStatus,
 } from "@/lib/classLearning";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -67,7 +68,7 @@ export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSna
                   className="font-heading font-black tabular-nums leading-[0.85] text-[64px] md:text-[72px]"
                   style={{ color: tone }}
                 >
-                  {snapshot.score}
+                  {formatDecimal1(snapshot.score)}
                 </span>
                 <span className="text-[15px] md:text-[16px] font-extrabold text-muted-foreground/80">
                   /100
@@ -88,7 +89,7 @@ export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSna
 
             {snapshot.supportRiskPenalty > 0 && (
               <div className="-mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                {snapshot.rawScore} weighted average − {snapshot.supportRiskPenalty} support-risk
+                {formatDecimal1(snapshot.rawScore)} weighted average − {formatDecimal1(snapshot.supportRiskPenalty)} support-risk
                 adjustment (foundational area{snapshot.supportRiskPenalty > 3 ? "s are" : " is"} weak)
               </div>
             )}
@@ -154,7 +155,7 @@ export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSna
                     <span className="text-foreground/85 truncate">{a.label}</span>
                     {a.score != null ? (
                       <span className="ml-auto font-bold tabular-nums shrink-0" style={{ color: a.hue }}>
-                        {a.score}
+                        {formatDecimal1(a.score)}
                       </span>
                     ) : (
                       <span className="ml-auto text-[10px] font-semibold text-muted-foreground shrink-0">

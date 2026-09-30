@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { wavePoints } from "@/components/dashboard/Sparkline";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -205,7 +206,7 @@ function WellbeingCardItem({ card, seed }: { card: WellbeingCard; seed: number }
                 className="font-heading font-extrabold text-[34px] leading-none tabular-nums"
                 style={{ color: card.tone }}
               >
-                {card.score}
+                {formatDecimal1(card.score)}
               </span>
               <span className="text-muted-foreground text-[13px] font-bold">/100</span>
             </div>
@@ -227,7 +228,7 @@ function WellbeingCardItem({ card, seed }: { card: WellbeingCard; seed: number }
               ) : (
                 <ArrowDownRight className="h-3 w-3" />
               )}
-              {Math.abs(card.delta)}
+              {formatDecimal1(Math.abs(card.delta))}
               <span className="text-muted-foreground font-medium">from last month</span>
             </div>
           </div>
@@ -362,7 +363,7 @@ function Sparkline({ data, tone }: { data: number[]; tone: string }) {
             color: tone,
           }}
         >
-          {Math.round(data[hover])}
+          {formatDecimal1(data[hover])}
         </div>
       )}
     </div>

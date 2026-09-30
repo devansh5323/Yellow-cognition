@@ -18,6 +18,7 @@ import { WELLBEING_STATUS_TONE, WELLBEING_STATUS_LABEL, wellbeingStatusFromScore
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { activeDemoSchool } from "@/data/bishopCotton";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -177,7 +178,7 @@ function DriverGroup({
                 className="font-heading font-extrabold text-[22px] tabular-nums leading-none"
                 style={{ color: tone }}
               >
-                {avg}
+                {formatDecimal1(avg)}
                 <span className="text-muted-foreground text-[12px] font-bold">/100</span>
               </span>
               <span

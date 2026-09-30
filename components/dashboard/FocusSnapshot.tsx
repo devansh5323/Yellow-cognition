@@ -14,6 +14,7 @@ import {
 } from "@/lib/classFocus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const STAMINA_ORDER: StaminaBand[] = ["focused", "fluctuating", "distracted"];
@@ -37,15 +38,15 @@ export function FocusSnapshot({ snapshot }: Props) {
   const populatedPoints = points.filter((point): point is typeof point & { score: number } => point.score != null);
   const last = populatedPoints[populatedPoints.length - 1];
   const prev = populatedPoints[populatedPoints.length - 2];
-  const scoreDelta = last && prev ? Math.round((last.score - prev.score) * 100) / 100 : snapshot.delta;
+  const scoreDelta = last && prev ? Math.round((last.score - prev.score) * 10) / 10 : snapshot.delta;
 
   const zoneDeltas = useMemo(() => {
     const currentTotal = Math.max(1, Object.values(snapshot.distribution).reduce((sum, count) => sum + count, 0));
     const previousTotal = Math.max(1, Object.values(snapshot.previousDistribution).reduce((sum, count) => sum + count, 0));
     return {
-      focused: Math.round((snapshot.distribution.focused / currentTotal) * 100) - Math.round((snapshot.previousDistribution.focused / previousTotal) * 100),
-      fluctuating: Math.round((snapshot.distribution.fluctuating / currentTotal) * 100) - Math.round((snapshot.previousDistribution.fluctuating / previousTotal) * 100),
-      distracted: Math.round((snapshot.distribution.distracted / currentTotal) * 100) - Math.round((snapshot.previousDistribution.distracted / previousTotal) * 100),
+      focused: Math.round(((snapshot.distribution.focused / currentTotal) * 100 - (snapshot.previousDistribution.focused / previousTotal) * 100) * 10) / 10,
+      fluctuating: Math.round(((snapshot.distribution.fluctuating / currentTotal) * 100 - (snapshot.previousDistribution.fluctuating / previousTotal) * 100) * 10) / 10,
+      distracted: Math.round(((snapshot.distribution.distracted / currentTotal) * 100 - (snapshot.previousDistribution.distracted / previousTotal) * 100) * 10) / 10,
     };
   }, [snapshot.distribution, snapshot.previousDistribution]);
 
@@ -97,7 +98,7 @@ export function FocusSnapshot({ snapshot }: Props) {
           <div className="flex-1 min-w-0 w-full space-y-2.5">
             {STAMINA_ORDER.map((band) => {
               const count = snapshot.distribution[band];
-              const pct = Math.round((count / total) * 100);
+              const pct = (count / total) * 100;
               const delta = zoneDeltas[band];
               return (
                 <div
@@ -110,7 +111,7 @@ export function FocusSnapshot({ snapshot }: Props) {
                     {count} student{count === 1 ? "" : "s"}
                   </span>
                   <span className="text-[13px] font-extrabold tabular-nums w-10 text-right" style={{ color: STAMINA_TONE[band] }}>
-                    {pct}%
+                    {formatDecimal1(pct)}%
                   </span>
                   <DeltaBadge value={delta} className="w-14 justify-end" />
                 </div>
@@ -205,7 +206,7 @@ function FocusDonut({
         ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-heading font-black text-[34px] leading-none tabular-nums">{score}%</span>
+        <span className="font-heading font-black text-[34px] leading-none tabular-nums">{formatDecimal1(score)}%</span>
         <span className="text-[11px] text-muted-foreground font-bold mt-1">Focus Score</span>
         <DeltaBadge value={delta} suffix="% vs last period" className="mt-1.5" />
       </div>
@@ -221,7 +222,7 @@ function DeltaBadge({ value, suffix = "", className }: { value: number; suffix?:
     <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-bold", className)} style={color ? { color } : undefined}>
       {!zero && (positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />)}
       {positive ? "+" : ""}
-      {value}
+      {formatDecimal1(value)}
       {suffix}
     </span>
   );

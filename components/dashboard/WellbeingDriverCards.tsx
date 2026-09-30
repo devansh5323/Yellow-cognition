@@ -16,6 +16,7 @@ import {
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { activeDemoSchool } from "@/data/bishopCotton";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -61,7 +62,7 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
           {avgScore != null && avgStatus && avgTone ? (
             <>
               <span className="font-heading font-extrabold text-[22px] tabular-nums leading-none" style={{ color: avgTone }}>
-                {avgScore}
+                {formatDecimal1(avgScore)}
                 <span className="text-muted-foreground text-[12px] font-bold">/100</span>
               </span>
               <span

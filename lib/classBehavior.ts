@@ -35,7 +35,11 @@ const BEHAVIOR_MONTHLY_DATA = L2_CLASSROOM_DATA.behavior.monthly;
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  return round1(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 // Deterministic pseudo-random, seeded — same technique lib/classFocus.ts
@@ -227,7 +231,7 @@ function latestDriverScores(): Record<DisruptionKey, number | null> {
   const out = {} as Record<DisruptionKey, number | null>;
   for (const key of DISRUPTION_ORDER) {
     const v = latest?.[DRIVER_FIELD[key]];
-    out[key] = typeof v === "number" ? Math.round(v) : null;
+    out[key] = typeof v === "number" ? round1(v) : null;
   }
   return out;
 }
@@ -238,7 +242,7 @@ function driverWeeklyChange(key: DisruptionKey): number | null {
   const last = populated[populated.length - 1]?.[DRIVER_FIELD[key]];
   const prev = populated[populated.length - 2]?.[DRIVER_FIELD[key]];
   if (typeof last !== "number" || typeof prev !== "number") return null;
-  return Math.round(last - prev);
+  return round1(last - prev);
 }
 
 /** Demo — deterministic seeded estimate of how many of the 16 real students
@@ -1120,10 +1124,10 @@ export function behaviorTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): 
   const rows = period === "Monthly" ? BEHAVIOR_MONTHLY_DATA : BEHAVIOR_WEEKLY_DATA;
   return rows.map((row, i) => ({
     label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
-    overall: row.behaviorAndDisciplineScore != null ? Math.round(row.behaviorAndDisciplineScore) : null,
-    peer: row.peerSafetyAndBelonging != null ? Math.round(row.peerSafetyAndBelonging) : null,
-    impulse: row.impulseControl != null ? Math.round(row.impulseControl) : null,
-    "non-compliance": row.nonCompliance != null ? Math.round(row.nonCompliance) : null,
+    overall: row.behaviorAndDisciplineScore != null ? round1(row.behaviorAndDisciplineScore) : null,
+    peer: row.peerSafetyAndBelonging != null ? round1(row.peerSafetyAndBelonging) : null,
+    impulse: row.impulseControl != null ? round1(row.impulseControl) : null,
+    "non-compliance": row.nonCompliance != null ? round1(row.nonCompliance) : null,
   }));
 }
 
@@ -1155,7 +1159,7 @@ export function behaviorTrendSummary(points: BehaviorTrendPoint[], snapshot: Beh
       const a = first?.[key];
       const b = last?.[key];
       if (typeof a !== "number" || typeof b !== "number") return null;
-      return { key, label: BEHAVIOR_TREND_LABEL[key], delta: b - a };
+      return { key, label: BEHAVIOR_TREND_LABEL[key], delta: round1(b - a) };
     })
     .filter((d): d is { key: BehaviorTrendSeriesKey; label: string; delta: number } => d !== null);
 

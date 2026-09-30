@@ -8,6 +8,7 @@ import { NotEnoughData, NotEnoughDataPanel } from "./NotEnoughData";
 import { scoreBand } from "@/lib/classHealth";
 import type { Student } from "@/data/mockData";
 import { X, Trophy, AlertTriangle } from "lucide-react";
+import { formatDecimal1 } from "@/lib/format";
 
 export function CompareDrawer({
   open,
@@ -110,14 +111,14 @@ export function CompareDrawer({
                         </div>
                       </td>
                       <td className="p-2 text-center font-heading font-bold tabular-nums">
-                        {s.studentHealthScore}
+                        {formatDecimal1(s.studentHealthScore)}
                       </td>
                       <td className="p-2 text-center font-semibold tabular-nums">
-                        {s.cognitivePerformance.score}
+                        {formatDecimal1(s.cognitivePerformance.score)}
                       </td>
                       <td className="p-2 text-center">
                         {s.studentWellbeing.score != null ? (
-                          <span className="font-semibold tabular-nums">{s.studentWellbeing.score}</span>
+                          <span className="font-semibold tabular-nums">{formatDecimal1(s.studentWellbeing.score)}</span>
                         ) : (
                           <NotEnoughData label="No data" />
                         )}
@@ -138,14 +139,14 @@ export function CompareDrawer({
                   <Trophy className="h-5 w-5 text-primary shrink-0" />
                   <div className="min-w-0">
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Highest health score</div>
-                    <div className="font-semibold text-sm truncate">{top.name} · {top.studentHealthScore}</div>
+                    <div className="font-semibold text-sm truncate">{top.name} · {formatDecimal1(top.studentHealthScore)}</div>
                   </div>
                 </div>
                 <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-center gap-3">
                   <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
                   <div className="min-w-0">
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Needs closest attention</div>
-                    <div className="font-semibold text-sm truncate">{lowest.name} · {lowest.studentHealthScore}</div>
+                    <div className="font-semibold text-sm truncate">{lowest.name} · {formatDecimal1(lowest.studentHealthScore)}</div>
                   </div>
                 </div>
               </div>

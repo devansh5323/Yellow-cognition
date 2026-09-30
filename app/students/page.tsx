@@ -27,6 +27,7 @@ import { CompareDrawer } from "@/components/dashboard/CompareDrawer";
 import { bulkAddTag, useOverridesVersion, getOverrides, PRESET_TAGS } from "@/lib/studentMutations";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 export default function Page() {
   return (
@@ -163,7 +164,7 @@ function StudentsPage() {
         <KpiCard
           icon={BarChart3}
           label="Avg health score"
-          value={kpiStats.avgScore}
+          value={formatDecimal1(kpiStats.avgScore)}
           meta="out of 100"
           tone="accent"
         />
@@ -422,7 +423,7 @@ function StudentsPage() {
                       <span className="text-[12.5px] font-semibold text-muted-foreground">{s.ageGroup}</span>
                     </td>
                     <td className="p-3">
-                      <span className="font-heading font-extrabold tabular-nums">{c.score}</span>
+                      <span className="font-heading font-extrabold tabular-nums">{formatDecimal1(c.score)}</span>
                     </td>
                     <td className="p-3">
                       <RiskBadge band={c.status} />
@@ -517,7 +518,7 @@ function KpiCard({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: number;
+  value: string | number;
   meta?: string;
   tone: KpiTone;
 }) {

@@ -12,6 +12,7 @@ import {
   type BehaviorTrendSeriesKey,
 } from "@/lib/classBehavior";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const SERIES: BehaviorTrendSeriesKey[] = ["overall", "non-compliance", "impulse", "peer"];
@@ -169,7 +170,7 @@ function SummaryTile({ icon: Icon, tone, label, value, delta }: { icon: typeof A
         <span className="text-[14px] font-bold text-foreground/90">{value}</span>
         <span className="text-[13px] font-extrabold tabular-nums" style={{ color: tone }}>
           {delta >= 0 ? "+" : ""}
-          {delta}
+          {formatDecimal1(delta)}
         </span>
       </div>
     </div>

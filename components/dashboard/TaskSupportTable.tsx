@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
+import { formatDecimal1 } from "@/lib/format";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { TASK_STATUS_TONE, demoTaskSupportDetail, type TaskSupport } from "@/lib/classTask";
 
@@ -84,7 +85,7 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                         }}
                       >
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
-                        {item.score}
+                        {formatDecimal1(item.score)}
                       </span>
                     </td>
 

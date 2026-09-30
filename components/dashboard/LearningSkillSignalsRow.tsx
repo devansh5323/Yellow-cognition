@@ -10,6 +10,7 @@ import {
 } from "@/lib/classLearning";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import { formatDecimal1 } from "@/lib/format";
 
 const AREA_ICON: Record<LearningAreaKey, LucideIcon> = {
   problemSolving: Puzzle,
@@ -59,7 +60,7 @@ export function LearningSkillSignalsRow({ areas }: { areas: LearningAreaStat[] }
                   {area.score != null ? (
                     <>
                       <span className="font-heading font-extrabold text-[22px] tabular-nums leading-none" style={{ color: tone }}>
-                        {area.score}
+                        {formatDecimal1(area.score)}
                       </span>
                       {status && (
                         <span

@@ -14,6 +14,7 @@ import {
 } from "@/lib/classFocus";
 import { AttentionSubDomainDrawer } from "@/components/dashboard/AttentionSubDomainDrawer";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const STATUS_ORDER: AttentionHeatmapStatus[] = ["high", "med", "low"];
@@ -81,7 +82,7 @@ export function ClassAttentionProfile({
               </div>
 
               <div className="mt-1.5 font-heading font-extrabold text-[26px] tabular-nums leading-none" style={{ color: d.hue }}>
-                {d.score}
+                {formatDecimal1(d.score)}
               </div>
               <div className="mt-0.5 text-[12px] font-semibold text-muted-foreground">{d.label}</div>
 

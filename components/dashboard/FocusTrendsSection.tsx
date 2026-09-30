@@ -15,6 +15,7 @@ import {
 } from "@/lib/classFocus";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 const FOCUSED_TONE = "hsl(142 55% 46%)";
@@ -42,7 +43,7 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
   const scoredPoints = points.filter((point): point is TrendPoint & { score: number } => point.score != null);
   const first = scoredPoints[0];
   const last = scoredPoints[scoredPoints.length - 1];
-  const scoreChange = first && last ? Math.round((last.score - first.score) * 100) / 100 : 0;
+  const scoreChange = first && last ? Math.round((last.score - first.score) * 10) / 10 : 0;
 
   const zonePoints: ZonePoint[] = [
     { label: "Previous", ...snapshot.previousDistribution },
@@ -97,7 +98,7 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
         <TrendCard
           title="Focus Score Trend"
           question="Is class improving?"
-          verdict={`${scoreChange >= 0 ? "+" : ""}${scoreChange} pts`}
+          verdict={`${scoreChange >= 0 ? "+" : ""}${formatDecimal1(scoreChange)} pts`}
           direction={scoreChange > 0 ? "up" : scoreChange < 0 ? "down" : "flat"}
         >
           <ScoreLineChart points={points} reduce={!!reduce} />
@@ -106,7 +107,7 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
         <TrendCard
           title="Attention Zone Trend"
           question="Are more students focused?"
-          verdict={`${zoneChange >= 0 ? "+" : ""}${zoneChange}% focused`}
+          verdict={`${zoneChange >= 0 ? "+" : ""}${formatDecimal1(zoneChange)}% focused`}
           direction={zoneChange > 0 ? "up" : zoneChange < 0 ? "down" : "flat"}
         >
           <ZoneStackedChart points={zonePoints} reduce={!!reduce} />
@@ -344,7 +345,7 @@ function DomainDeltaChart({ domains, reduce }: { domains: { key: string; label: 
             </div>
             <span className="w-10 shrink-0 text-[11px] font-bold tabular-nums text-right" style={{ color: delta >= 0 ? "hsl(142 55% 40%)" : "hsl(0 78% 50%)" }}>
               {delta >= 0 ? "+" : ""}
-              {delta}
+              {formatDecimal1(delta)}
             </span>
           </li>
         );

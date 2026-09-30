@@ -9,6 +9,7 @@ import {
 } from "@/lib/classBehavior";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDecimal1 } from "@/lib/format";
 
 const DISTRIBUTION_ORDER: BehaviorStatus[] = ["strong", "stable", "reinforcement", "support"];
 const DISTRIBUTION_LABEL: Record<BehaviorStatus, string> = {
@@ -66,7 +67,7 @@ export function BehaviorSnapshot({ snapshot }: { snapshot: BehaviorSnapshotData 
               <div className="flex items-center gap-4">
                 <div className="flex items-baseline gap-1">
                   <span className="font-heading font-black text-[52px] leading-none tabular-nums" style={{ color: BEHAVIOR_STATUS_TONE[snapshot.status!] }}>
-                    {snapshot.controlScore}
+                    {formatDecimal1(snapshot.controlScore!)}
                   </span>
                   <span className="text-[15px] text-muted-foreground font-bold">/100</span>
                 </div>

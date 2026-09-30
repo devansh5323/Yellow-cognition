@@ -38,6 +38,7 @@ import {
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { RiskBadge, SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
 import { NotEnoughData, NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
+import { formatDecimal1 } from "@/lib/format";
 import {
   useStudentOverrides,
   addTag,
@@ -573,7 +574,7 @@ function StudentMetricsOverview({ student }: { student: Student }) {
             <h3 className="font-heading font-extrabold text-[16px] leading-tight">Cognitive Performance</h3>
           </div>
           <span className="font-heading font-extrabold text-[22px] tabular-nums" style={{ color: "hsl(212 90% 58%)" }}>
-            {cp.score}
+            {formatDecimal1(cp.score)}
             <span className="text-muted-foreground text-[12px] font-bold">/100</span>
           </span>
         </div>
@@ -592,7 +593,7 @@ function StudentMetricsOverview({ student }: { student: Student }) {
             </span>
             {lr.score != null ? (
               <span className="font-heading font-extrabold text-[13px] tabular-nums" style={{ color: DRIVER_META.academic.tone }}>
-                {lr.score}/100
+                {formatDecimal1(lr.score)}/100
               </span>
             ) : (
               <NotEnoughData />
@@ -617,7 +618,7 @@ function StudentMetricsOverview({ student }: { student: Student }) {
           </div>
           {wb.score != null ? (
             <span className="font-heading font-extrabold text-[22px] tabular-nums" style={{ color: WELLBEING_STATUS_TONE[wellbeingStatusFromScore(wb.score)] }}>
-              {wb.score}
+              {formatDecimal1(wb.score)}
               <span className="text-muted-foreground text-[12px] font-bold">/100</span>
             </span>
           ) : (
@@ -669,7 +670,7 @@ function MetricRow({
       </div>
       {value != null ? (
         <span className="font-heading font-extrabold tabular-nums text-[13px] shrink-0" style={{ color: tone }}>
-          {value}
+          {formatDecimal1(value)}
         </span>
       ) : (
         <NotEnoughData />
@@ -684,7 +685,7 @@ function MetricSubRow({ label, value, tone }: { label: string; value: number | n
       <span className="text-muted-foreground truncate">{label}</span>
       {value != null ? (
         <span className="font-semibold tabular-nums shrink-0" style={{ color: tone }}>
-          {value}
+          {formatDecimal1(value)}
         </span>
       ) : (
         <NotEnoughData />
@@ -729,7 +730,7 @@ function HealthScoreRing({ score, tone, size = 108 }: { score: number; tone: str
           className="font-heading font-extrabold leading-none tabular-nums"
           style={{ color: tone, fontSize: Math.round(size * 0.28) }}
         >
-          {Math.round(score)}
+          {formatDecimal1(score)}
         </span>
         <span
           className="text-muted-foreground font-bold mt-0.5"

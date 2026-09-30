@@ -22,6 +22,7 @@ import {
 } from "@/lib/classLearning";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -144,7 +145,7 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
                     />
                   </div>
                   <span className="font-heading font-extrabold text-[15px] tabular-nums" style={{ color: a.hue }}>
-                    {a.score}
+                    {formatDecimal1(a.score)}
                   </span>
                 </div>
               ) : (
@@ -205,7 +206,7 @@ function Highlight({
         {label}
       </span>
       <span className="font-heading font-extrabold">{name}</span>
-      <span className="tabular-nums opacity-75">{score}</span>
+      <span className="tabular-nums opacity-75">{formatDecimal1(score)}</span>
     </div>
   );
 }

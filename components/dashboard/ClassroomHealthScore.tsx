@@ -27,6 +27,7 @@ import { FocusAreaDialog } from "@/components/dashboard/DataReadinessCard";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -293,7 +294,7 @@ export function ClassroomHealthScore({
                   <div>
                     <div className="flex items-center justify-between text-[10.5px] font-bold text-muted-foreground mb-1">
                       <span>SCORE</span>
-                      <span className="tabular-nums">{focusScore}/100</span>
+                      <span className="tabular-nums">{formatDecimal1(focusScore)}/100</span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-background/80 overflow-hidden">
                       <motion.span
@@ -553,7 +554,7 @@ function ScoreRing({
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      setAnimatedScore(Math.round(score * eased));
+      setAnimatedScore(Math.round(score * eased * 10) / 10);
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -596,7 +597,7 @@ function ScoreRing({
           className="font-heading font-extrabold leading-none tabular-nums"
           style={{ color: tone, fontSize: Math.round(size * 0.3) }}
         >
-          {displayScore}
+          {formatDecimal1(displayScore)}
         </span>
         <span
           className="text-muted-foreground font-bold mt-0.5"

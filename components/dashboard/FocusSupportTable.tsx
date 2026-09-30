@@ -9,6 +9,7 @@ import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { STUDENTS } from "@/data/mockData";
 import { FOCUS_DOMAIN_HUE, FOCUS_SUPPORT_STATUS_LABEL, FOCUS_SUPPORT_STATUS_TONE, focusSupportRoster, suggestedActivityForDomain } from "@/lib/classFocus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDecimal1 } from "@/lib/format";
 
 const PREVIEW_COUNT = 5;
 
@@ -176,7 +177,7 @@ export function FocusSupportTable() {
                     <div className="text-[11.5px] text-muted-foreground">
                       Focus Score:{" "}
                       <span className="font-bold" style={{ color: FOCUS_SUPPORT_STATUS_TONE[selected.status] }}>
-                        {selected.score}/100
+                        {formatDecimal1(selected.score)}/100
                       </span>
                     </div>
                   </div>
@@ -278,7 +279,7 @@ function MiniScoreRing({ score, tone }: { score: number; tone: string }) {
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="font-heading font-extrabold text-[13px] tabular-nums" style={{ color: tone }}>
-          {score}
+          {formatDecimal1(score)}
         </span>
       </div>
     </div>
@@ -289,7 +290,7 @@ function TrendChip({ trend }: { trend: number }) {
   if (trend > 0) {
     return (
       <span className="inline-flex items-center gap-1 text-[11.5px] font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-        <ArrowUpRight className="h-3.5 w-3.5" />+{trend}
+        <ArrowUpRight className="h-3.5 w-3.5" />+{formatDecimal1(trend)}
       </span>
     );
   }
@@ -297,13 +298,13 @@ function TrendChip({ trend }: { trend: number }) {
     return (
       <span className="inline-flex items-center gap-1 text-[11.5px] font-bold tabular-nums text-rose-700 dark:text-rose-400">
         <ArrowDownRight className="h-3.5 w-3.5" />
-        {trend}
+        {formatDecimal1(trend)}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-muted-foreground">
-      <Equal className="h-3.5 w-3.5" />0
+      <Equal className="h-3.5 w-3.5" />0.0
     </span>
   );
 }

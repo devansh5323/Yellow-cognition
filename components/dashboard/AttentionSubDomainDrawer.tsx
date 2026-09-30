@@ -8,6 +8,7 @@ import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { studentAttentionDomains, type AttentionDomainKey } from "@/lib/classFocus";
 import type { Student } from "@/data/mockData";
+import { formatDecimal1 } from "@/lib/format";
 
 // Structural shape only — accepts both FocusDomainStat (6 focus domains)
 // and AttentionHeatmapStat (all 8), since this drawer just needs a domain's
@@ -71,10 +72,10 @@ export function AttentionSubDomainDrawer({
                   <span>
                     Class average is{" "}
                     <span className="font-bold" style={{ color: domain.hue }}>
-                      {domain.score}
+                      {formatDecimal1(domain.score)}
                     </span>
                     {domain.hasTrendData
-                      ? ` (${delta >= 0 ? "+" : ""}${delta} vs last check-in).`
+                      ? ` (${delta >= 0 ? "+" : ""}${formatDecimal1(delta)} vs last check-in).`
                       : ". Historical comparison is not available for this sub-domain."}
                   </span>
                 </li>
@@ -117,7 +118,7 @@ export function AttentionSubDomainDrawer({
                           </div>
                           <div className="text-right shrink-0">
                             <div className="font-heading font-bold text-[13px] tabular-nums" style={{ color: domain.hue }}>
-                              {domainKey ? Math.round(studentAttentionDomains(s)[domainKey]) : ""}
+                              {domainKey ? formatDecimal1(studentAttentionDomains(s)[domainKey]) : ""}
                             </div>
                             <div className="text-[9.5px] text-muted-foreground uppercase tracking-wide">score</div>
                           </div>

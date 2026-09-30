@@ -166,7 +166,7 @@ export function classFocusSnapshot(students: Student[] = STUDENTS): FocusSnapsho
   return {
     classScore,
     prevClassScore,
-    delta: Math.round((classScore - prevClassScore) * 100) / 100,
+    delta: Math.round((classScore - prevClassScore) * 10) / 10,
     status: statusFromScore(classScore),
     total,
     distribution,
@@ -736,12 +736,12 @@ export function focusSupportRoster(
         (weakest, key) => (domainScores[key] < domainScores[weakest] ? key : weakest),
         FOCUS_DOMAIN_ORDER[0],
       );
-      const topDomainScore = Math.round(domainScores[topDomain]);
+      const topDomainScore = Math.round(domainScores[topDomain] * 10) / 10;
       const topDomainLabel = FOCUS_DOMAIN_LABEL[topDomain];
       if (overallStatus === "strong" && !opts.includeAll) return null;
       return {
         student: s,
-        score: Math.round(pfi),
+        score: Math.round(pfi * 10) / 10,
         status:
           overallStatus === "at-risk" ? ("needs-support" as const) : overallStatus === "fluctuating" ? ("watch" as const) : ("strong" as const),
         trend: growth.growthPct,
@@ -749,7 +749,7 @@ export function focusSupportRoster(
         topDomainLabel,
         topDomainScore,
         topDomainReason: FOCUS_DOMAIN_WEAKNESS_REASON[topDomain],
-        evidence: `Current focus score ${pfi}/100 (${growth.growthPct >= 0 ? "+" : ""}${growth.growthPct}% growth). ${topDomainLabel} remains a demo estimate until per-student domain data is available.`,
+        evidence: `Current focus score ${pfi.toFixed(1)}/100 (${growth.growthPct >= 0 ? "+" : ""}${growth.growthPct.toFixed(1)}% growth). ${topDomainLabel} remains a demo estimate until per-student domain data is available.`,
         recommendedActions: DOMAIN_INTERVENTIONS[topDomain],
       };
     })

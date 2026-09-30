@@ -27,6 +27,7 @@ import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { BEHAVIOR_STATUS_LABEL, BEHAVIOR_STATUS_TONE } from "@/lib/classBehavior";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { STUDENTS } from "@/data/mockData";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -177,7 +178,7 @@ function DriverCard({
           {stat.hasData ? (
             <div className="mt-1 flex items-center gap-2 flex-wrap">
               <span className="font-heading font-extrabold text-[20px] tabular-nums leading-none" style={{ color: tone }}>
-                {stat.score}
+                {formatDecimal1(stat.score!)}
               </span>
               {stat.status && (
                 <span

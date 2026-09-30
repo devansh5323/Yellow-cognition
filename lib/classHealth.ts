@@ -29,7 +29,7 @@ export function pillarLabel(p: PillarKey) {
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
-  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
 }
 
 function pillarValue(s: Student, p: PillarKey): number | null {

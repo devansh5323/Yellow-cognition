@@ -27,9 +27,9 @@ export type InviteStats = {
 };
 
 const KEY = "ah_roster";
-// Bumped so existing demos replace unsupported active/invite history with the
-// source roster while preserving entries the user added themselves.
-const SEEDED_KEY = "ah_roster_seeded_v4_bishop_cotton";
+// Bumped so existing demos pick up the connected state for the current class
+// while preserving entries the user added themselves.
+const SEEDED_KEY = "ah_roster_seeded_v5_bishop_cotton_connected";
 const LAST_REMINDER_KEY = "ah_reminders_last_sent";
 
 const DAY = 86_400_000;
@@ -41,17 +41,19 @@ function makeId(): string {
 
 function seedData(): RosterStudent[] {
   const now = Date.now();
-  // The source identifies students and parents but contains no Fumi invite or
-  // activation history, so source rows begin in the honest pending state.
+  // The current dashboard class is fully connected, so all source rows begin
+  // active. User-added roster entries still follow the regular invite flow.
   return STUDENTS.map((s) => {
     const childName = s.name;
     return {
       id: `seed_source_${s.id}`,
       childName,
       parentName: s.parentName,
-      status: "pending-invite",
+      status: "active",
       source: "csv",
       addedAt: now,
+      invitedAt: now,
+      activatedAt: now,
     };
   });
 }

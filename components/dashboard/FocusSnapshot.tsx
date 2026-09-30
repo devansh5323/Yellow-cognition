@@ -208,7 +208,7 @@ function FocusDonut({
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-heading font-black text-[34px] leading-none tabular-nums">{formatDecimal1(score)}%</span>
         <span className="text-[11px] text-muted-foreground font-bold mt-1">Focus Score</span>
-        <DeltaBadge value={delta} suffix="% vs last period" className="mt-1.5" />
+        <DeltaBadge value={delta} suffix="%" className="mt-1.5" />
       </div>
     </div>
   );

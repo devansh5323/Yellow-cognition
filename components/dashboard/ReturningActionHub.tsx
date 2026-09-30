@@ -117,7 +117,7 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
       description: "These students show repeated patterns this week.",
       meta: <AvatarStack students={tier2} />,
       cta: "View students",
-      href: "/students",
+      href: "/students?status=watch",
     });
   }
 
@@ -130,7 +130,7 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
       description: "These students need focused, individualised support.",
       meta: <AvatarStack students={tier3} />,
       cta: "View students",
-      href: "/students",
+      href: "/students?status=needs-support",
     });
   }
 

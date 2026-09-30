@@ -50,6 +50,12 @@ const BANDS: { key: ScoreBand | "all"; label: string }[] = [
 const MAX_COMPARE = 6;
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
+function statusFromParam(value: string | null): ScoreBand | "all" {
+  return BANDS.some((band) => band.key === value)
+    ? (value as ScoreBand | "all")
+    : "all";
+}
+
 function StudentsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,7 +68,7 @@ function StudentsPage() {
   }, [searchParams]);
 
   const [query, setQuery] = useState("");
-  const [band, setBand] = useState<ScoreBand | "all">("all");
+  const band = statusFromParam(searchParams?.get("status") ?? null);
   const [ageGroup, setAgeGroup] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
@@ -130,6 +136,17 @@ function StudentsPage() {
 
   function clearSelection() {
     setSelected(new Set());
+  }
+
+  function handleBandChange(nextBand: ScoreBand | "all") {
+    const params = new URLSearchParams(searchParams?.toString());
+    params.delete("ids");
+
+    if (nextBand === "all") params.delete("status");
+    else params.set("status", nextBand);
+
+    const queryString = params.toString();
+    router.replace(queryString ? `/students?${queryString}` : "/students", { scroll: false });
   }
 
   function handleApplyTag(label: string) {
@@ -221,7 +238,7 @@ function StudentsPage() {
               return (
                 <button
                   key={b.key}
-                  onClick={() => setBand(b.key)}
+                  onClick={() => handleBandChange(b.key)}
                   className={cn(
                     "relative px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors",
                     active ? "text-foreground" : "text-muted-foreground hover:text-foreground",

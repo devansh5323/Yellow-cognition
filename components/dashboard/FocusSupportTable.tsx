@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronRight, Clock, Equal, Info, Lightbulb, Star, Users2 } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronRight, Clock, Info, Lightbulb, Star, Users2 } from "lucide-react";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { STUDENTS } from "@/data/mockData";
@@ -304,7 +304,7 @@ function TrendChip({ trend }: { trend: number }) {
   }
   return (
     <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-muted-foreground">
-      <Equal className="h-3.5 w-3.5" />0.0
+      0
     </span>
   );
 }

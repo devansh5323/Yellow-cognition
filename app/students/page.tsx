@@ -87,7 +87,10 @@ function StudentsPage() {
     () =>
       studentComposites(STUDENTS).map((c) => ({
         ...c,
-        tags: getOverrides(c.student.id).tags.map((t) => t.label),
+        tags: [
+          ...(c.student.tags ?? []),
+          ...getOverrides(c.student.id).tags.map((t) => t.label),
+        ],
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [overridesVersion],

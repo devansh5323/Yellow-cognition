@@ -1,9 +1,9 @@
 // Real student data — Bishop Cottons, first batch (16 students), shared
 // 2026-09-07 as a MongoDB metrics export + a roster PDF mapping each
-// `user_id` to a name/age group/parent. Every field below is transcribed
-// directly from those two sources; every `null` is a field genuinely not
+// \`user_id\` to a name/age group/parent. Every field below is transcribed
+// directly from those two sources; every \`null\` is a field genuinely not
 // yet computed for that student (never a fabricated placeholder). The source
-// `#DIV/0!` value is stored as `null`; numeric values, including `-2`, are
+// \`#DIV/0!\` value is stored as \`null\`; numeric values, including \`-2\`, are
 // preserved exactly as supplied.
 // Corrected metrics matched by user_id against the supplied table.
 // Includes exactly the 16 students in the supplied metrics table.
@@ -13,6 +13,7 @@ export type RealStudent = {
   name: string;
   ageGroup: string;
   parentName: string;
+  tags: string[];
   studentHealthScore: number;
   cognitivePerformance: {
     score: number;
@@ -43,6 +44,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Akansha Wesley",
     ageGroup: "11-12 yrs",
     parentName: "Abishek Wesley",
+    tags: ["task_engagement"],
     studentHealthScore: 47.46296297,
     cognitivePerformance: {
       score: 42.6825,
@@ -71,6 +73,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "C Jersha",
     ageGroup: "11-12 yrs",
     parentName: "Jansi R",
+    tags: ["attention_and_focus"],
     studentHealthScore: 46.39082143,
     cognitivePerformance: {
       score: 42.545,
@@ -99,6 +102,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Dhriti M",
     ageGroup: "11-12 yrs",
     parentName: "Namratha",
+    tags: ["attention_and_focus"],
     studentHealthScore: 59.78477801,
     cognitivePerformance: {
       score: 56.7925,
@@ -127,6 +131,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Nivriti Muthukumar",
     ageGroup: "10-11 yrs",
     parentName: "Yamuna",
+    tags: ["attention_and_focus"],
     studentHealthScore: 49.87,
     cognitivePerformance: {
       score: 50.805,
@@ -155,6 +160,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Kriyaa P Reddy",
     ageGroup: "10-11 yrs",
     parentName: "Divya",
+    tags: ["attention_and_focus"],
     studentHealthScore: 61.28115741,
     cognitivePerformance: {
       score: 56.1975,
@@ -183,6 +189,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Lakshitha D K",
     ageGroup: "10-11 yrs",
     parentName: "Shreedharani",
+    tags: ["learning_readiness_score"],
     studentHealthScore: 58.41208334,
     cognitivePerformance: {
       score: 60.4075,
@@ -211,6 +218,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Tejaswini Yuvaraju",
     ageGroup: "11-12 yrs",
     parentName: "Geetha",
+    tags: ["attention_and_focus"],
     studentHealthScore: 55.66103175,
     cognitivePerformance: {
       score: 55.0025,
@@ -239,6 +247,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Syeeda Aizah Yaseen",
     ageGroup: "11-12 yrs",
     parentName: "Zahra Yaseen",
+    tags: ["attention_and_focus"],
     studentHealthScore: 53.11053572,
     cognitivePerformance: {
       score: 40.8875,
@@ -267,6 +276,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Keren Faith Manuel",
     ageGroup: "9-10 yrs",
     parentName: "Edith Manuel",
+    tags: ["attention_and_focus"],
     studentHealthScore: 61.8003373,
     cognitivePerformance: {
       score: 56.5925,
@@ -295,6 +305,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Haniel Jenuka Solomon",
     ageGroup: "11-12 yrs",
     parentName: "Priya Solomon",
+    tags: ["task_engagement"],
     studentHealthScore: 66.66365385,
     cognitivePerformance: {
       score: 63.915,
@@ -323,6 +334,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Judith Aradhana B",
     ageGroup: "11-12 yrs",
     parentName: "Judith aradhana",
+    tags: ["attention_and_focus"],
     studentHealthScore: 60.68193966,
     cognitivePerformance: {
       score: 57.665,
@@ -351,6 +363,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Manya Kaur Ahluwalia",
     ageGroup: "10-11 yrs",
     parentName: "Dilmeet",
+    tags: ["attention_and_focus"],
     studentHealthScore: 65.40407408,
     cognitivePerformance: {
       score: 56.86,
@@ -379,6 +392,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Yuktha S Urs",
     ageGroup: "10-11 yrs",
     parentName: "Srikanth Raj Urs L",
+    tags: ["task_engagement"],
     studentHealthScore: 35.99666667,
     cognitivePerformance: {
       score: 32.66,
@@ -407,6 +421,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Ananya Deb",
     ageGroup: "11-12 yrs",
     parentName: "Anisha",
+    tags: ["task_engagement"],
     studentHealthScore: 47.05333334,
     cognitivePerformance: {
       score: 47.48,
@@ -435,6 +450,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Gunashreya M",
     ageGroup: "11-12 yrs",
     parentName: "Sujatha",
+    tags: ["attention_and_focus"],
     studentHealthScore: 41.06220238,
     cognitivePerformance: {
       score: 43.1325,
@@ -463,6 +479,7 @@ export const REAL_STUDENTS: RealStudent[] = [
     name: "Jhanavi S Murthy",
     ageGroup: "11-12 yrs",
     parentName: "Jhanavi",
+    tags: ["attention_and_focus"],
     studentHealthScore: 60.06522059,
     cognitivePerformance: {
       score: 56.645,

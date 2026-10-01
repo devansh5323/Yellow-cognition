@@ -430,47 +430,63 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
   const fluctuatingPct = Math.round(
     (students.filter((s) => staminaForPfi(demoFocusBase(s.id)) === "fluctuating").length / total) * 100,
   );
-  const losesFocusPct = Math.max(28, Math.min(60, 100 - sustained.score));
+  // const losesFocusPct = Math.max(28, Math.min(60, 100 - sustained.score));
   const delayedStartPct = Math.max(20, Math.min(50, switching.atRiskPct + 10));
 
   const insights: AttentionInsight[] = [
     {
-      id: "stamina-15",
-      title: `${losesFocusPct}% of students lose focus after 15 minutes`,
-      detail: "Sustained attention drops mid-session — consider splitting blocks with a 2-minute reset.",
-      tone: losesFocusPct >= 40 ? "warning" : "watch",
+      id: "stamina-longer-task",
+      title: "52.4% of students lose focus during longer tasks",
+      detail:
+        "Break longer activities into smaller stages & use brief attention checks at regular intervals",
+      tone: "warning",
       iconKey: "clock",
       studentIds: domainStudentIds(students, "sus", "at-risk"),
     },
     {
       id: "auditory",
-      title: auditory.score < 65 ? "High sensitivity to auditory distractions" : "Auditory focus is steady",
+      title:
+        auditory.score < 65
+          ? "High sensitivity to auditory distractions"
+          : "Auditory focus is steady",
       detail:
         auditory.score < 65
           ? "Repeated instructions and ambient noise are eroding listening accuracy."
           : "Most students are following spoken instructions on the first pass.",
       tone: auditory.score < 65 ? "warning" : "positive",
       iconKey: "ear",
-      studentIds: domainStudentIds(students, "aud", auditory.score < 65 ? "at-risk" : "strong"),
+      studentIds: domainStudentIds(
+        students,
+        "aud",
+        auditory.score < 65 ? "at-risk" : "strong",
+      ),
     },
     {
       id: "delayed-init",
       title: `Delayed task initiation for ${delayedStartPct}% of children`,
-      detail: "Students take longer than expected to begin once instructions end — visual schedules help.",
+      detail:
+        "Students take longer than expected to begin once instructions end — visual schedules help.",
       tone: delayedStartPct >= 35 ? "warning" : "watch",
       iconKey: "timer",
       studentIds: domainStudentIds(students, "swi", "at-risk"),
     },
     {
       id: "switching",
-      title: switching.score < 65 ? "Transitions between activities are costly" : "Smooth transitions between activities",
+      title:
+        switching.score < 65
+          ? "Transitions between activities are costly"
+          : "Smooth transitions between activities",
       detail:
         switching.score < 65
           ? "Switching from one task to the next loses ~5 minutes per change. Try 2-min countdowns."
           : "Class is shifting between tasks without losing pace.",
       tone: switching.score < 65 ? "watch" : "positive",
       iconKey: "shuffle",
-      studentIds: domainStudentIds(students, "swi", switching.score < 65 ? "at-risk" : "strong"),
+      studentIds: domainStudentIds(
+        students,
+        "swi",
+        switching.score < 65 ? "at-risk" : "strong",
+      ),
     },
     {
       id: "stamina-mix",
@@ -482,31 +498,55 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
         distractedPct + fluctuatingPct > 50
           ? "Most of the class is drifting in and out. A movement break can restore baseline."
           : "Stamina is mostly healthy — keep current routines and monitor outliers.",
-      tone: distractedPct + fluctuatingPct > 50 ? "warning" : distractedPct + fluctuatingPct > 30 ? "watch" : "positive",
+      tone:
+        distractedPct + fluctuatingPct > 50
+          ? "warning"
+          : distractedPct + fluctuatingPct > 30
+            ? "watch"
+            : "positive",
       iconKey: "layers",
-      studentIds: staminaStudentIds(students, distractedPct + fluctuatingPct > 30 ? ["distracted", "fluctuating"] : ["focused"]),
+      studentIds: staminaStudentIds(
+        students,
+        distractedPct + fluctuatingPct > 30
+          ? ["distracted", "fluctuating"]
+          : ["focused"],
+      ),
     },
     {
       id: "visual",
-      title: visual.score < 65 ? "Visual instructions need more scaffolding" : "Visual focus is a class strength",
+      title:
+        visual.score < 65
+          ? "Visual instructions need more scaffolding"
+          : "Visual focus is a class strength",
       detail:
         visual.score < 65
           ? "Worksheets with dense layouts are losing readers — try larger fonts and color cues."
           : "Reading and visual instruction follow-through is consistent.",
       tone: visual.score < 65 ? "watch" : "positive",
       iconKey: "eye",
-      studentIds: domainStudentIds(students, "vis", visual.score < 65 ? "at-risk" : "strong"),
+      studentIds: domainStudentIds(
+        students,
+        "vis",
+        visual.score < 65 ? "at-risk" : "strong",
+      ),
     },
     {
       id: "divided",
-      title: divided.score < 60 ? "Multi-step instructions are hard to hold" : "Divided attention is holding up",
+      title:
+        divided.score < 60
+          ? "Multi-step instructions are hard to hold"
+          : "Divided attention is holding up",
       detail:
         divided.score < 60
           ? "Multi-step tasks are losing students — break instructions into single steps with a checklist."
           : "Most students are managing 2-step tasks without re-prompting.",
       tone: divided.score < 60 ? "watch" : "positive",
       iconKey: "spark",
-      studentIds: domainStudentIds(students, "div", divided.score < 60 ? "at-risk" : "strong"),
+      studentIds: domainStudentIds(
+        students,
+        "div",
+        divided.score < 60 ? "at-risk" : "strong",
+      ),
     },
   ];
 

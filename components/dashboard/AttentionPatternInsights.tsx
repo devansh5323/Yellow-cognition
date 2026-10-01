@@ -78,14 +78,21 @@ function InsightRow({ insight, index, reduce }: { insight: AttentionInsight; ind
     >
       <span
         className="h-10 w-10 rounded-xl inline-flex items-center justify-center shrink-0"
-        style={{ background: `color-mix(in srgb, ${tone} 16%, transparent)`, color: tone }}
+        style={{
+          background: `color-mix(in srgb, ${tone} 16%, transparent)`,
+          color: tone,
+        }}
       >
         <Icon className="h-5 w-5" strokeWidth={2.2} />
       </span>
 
       <div className="flex-1 min-w-0">
-        <p className="font-heading font-extrabold text-[14.5px] leading-snug">{insight.title}</p>
-        <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug max-w-md">{insight.detail}</p>
+        <p className="font-heading font-extrabold text-[14.5px] leading-snug">
+          {insight.title}
+        </p>
+        <p className="text-[12.5px] text-muted-foreground mt-1 leading-snug max-w-md">
+          {insight.detail}
+        </p>
         <Link
           href={`/students?ids=${insight.studentIds.join(",")}`}
           className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline"
@@ -97,9 +104,17 @@ function InsightRow({ insight, index, reduce }: { insight: AttentionInsight; ind
       </div>
 
       <div className="w-full md:w-auto shrink-0">
-        {insight.iconKey === "clock" && <FocusDropChart tone={tone} reduce={reduce} />}
+        {insight.iconKey === "clock" && (
+          <FocusDropChart tone={tone} reduce={reduce} />
+        )}
         {insight.iconKey === "ear" && <AuditoryWaveform tone={tone} />}
-        {insight.iconKey === "timer" && <DelayedStartVisual title={insight.title} tone={tone} reduce={reduce} />}
+        {insight.iconKey === "timer" && (
+          <DelayedStartVisual
+            title={insight.title}
+            tone={tone}
+            reduce={reduce}
+          />
+        )}
       </div>
     </motion.li>
   );
@@ -113,45 +128,86 @@ const ROW_STYLE: Record<string, { tone: string; bg: string; Icon: typeof Clock }
 };
 
 /** Mini declining line chart with a callout marking where focus drops off. */
+/** Illustrative task-stage visual for breaking longer activities into smaller stages. */
 function FocusDropChart({ tone, reduce }: { tone: string; reduce: boolean }) {
-  const W = 220;
-  const H = 70;
+  const W = 240;
+  const H = 82;
+
   const points = [
-    [0, 10],
-    [55, 16],
-    [90, 20],
-    [110, 40],
-    [150, 52],
-    [220, 62],
+    [0, 16],
+    [60, 17],
+    [120, 19],
+    [160, 23],
+    [180, 34],
+    [208, 50],
+    [240, 63],
   ];
-  const path = points.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-  const dropX = 90;
+
+  const path = points
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`)
+    .join(" ");
 
   return (
-    <div className="rounded-lg bg-background/60 border border-border/50 px-3 pt-2.5 pb-1.5 w-full md:w-[240px]">
+    <div className="rounded-lg bg-background/60 border border-border/50 px-3 pt-2.5 pb-2 w-full md:w-[240px]">
       <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground uppercase tracking-[0.06em]">
-        <span>Focus level</span>
+        <span>Illustrative focus pattern</span>
       </div>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mt-1">
-        <line x1={dropX} x2={dropX} y1={0} y2={H} stroke={tone} strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.5" />
+
+      <svg
+        width="100%"
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="mt-1"
+      >
+        <rect
+          x="180"
+          y="0"
+          width="60"
+          height={H}
+          fill={tone}
+          opacity="0.06"
+          rx="4"
+        />
+
+        <line
+          x1="180"
+          x2="180"
+          y1="0"
+          y2={H}
+          stroke={tone}
+          strokeWidth="1"
+          strokeDasharray="3 3"
+          strokeOpacity="0.45"
+        />
+
         <motion.path
           d={path}
           fill="none"
           stroke={tone}
-          strokeWidth="2.2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           initial={reduce ? undefined : { pathLength: 0 }}
           animate={{ pathLength: 1 }}
           transition={{ duration: 0.7 }}
         />
+
+        <circle cx="240" cy="63" r="3" fill={tone} />
       </svg>
+
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] font-semibold text-muted-foreground">0</span>
-        <span className="text-[9px] font-semibold" style={{ color: tone }}>
-          Sharp drop after 15 mins
+        <span className="text-[9px] font-semibold text-muted-foreground">
+          0 min
         </span>
-        <span className="text-[9px] font-semibold text-muted-foreground">60m</span>
+
+        <span className="text-[9px] font-bold" style={{ color: tone }}>
+          Longer task
+        </span>
+
+        <span className="text-[9px] font-semibold text-muted-foreground">
+          60 min
+        </span>
       </div>
     </div>
   );

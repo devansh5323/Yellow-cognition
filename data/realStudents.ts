@@ -7,7 +7,7 @@
 // preserved exactly as supplied.
 // Corrected metrics matched by user_id against the supplied table.
 // Includes exactly the 16 students in the supplied metrics table.
-// Jhanu has an empty parent name pending roster information.
+// Jhanavi S Murthy has an empty parent name pending roster information.
 export type RealStudent = {
   id: string;
   name: string;
@@ -40,7 +40,7 @@ export type RealStudent = {
 export const REAL_STUDENTS: RealStudent[] = [
   {
     id: "69de4872f0593243d066ed13",
-    name: "Akku (Akansha)",
+    name: "Akansha Wesley",
     ageGroup: "11-12 yrs",
     parentName: "Abishek Wesley",
     studentHealthScore: 47.46296297,
@@ -96,7 +96,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc85ad7ec07d4b67b141aa",
-    name: "Dhriti",
+    name: "Dhriti M",
     ageGroup: "11-12 yrs",
     parentName: "Namratha",
     studentHealthScore: 59.78477801,
@@ -124,7 +124,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc8a1f7ec07d4b67b141de",
-    name: "Nivriti",
+    name: "Nivriti Muthukumar",
     ageGroup: "10-11 yrs",
     parentName: "Yamuna",
     studentHealthScore: 49.87,
@@ -152,7 +152,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69f1ec1d4b6ad164e9ae8c43",
-    name: "Kriyaa",
+    name: "Kriyaa P Reddy",
     ageGroup: "10-11 yrs",
     parentName: "Divya",
     studentHealthScore: 61.28115741,
@@ -180,7 +180,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dcbc6d767cbb6e1a7a9212",
-    name: "Lakshita D.K",
+    name: "Lakshitha D K",
     ageGroup: "10-11 yrs",
     parentName: "Shreedharani",
     studentHealthScore: 58.41208334,
@@ -208,7 +208,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc85877ec07d4b67b1419d",
-    name: "Teju",
+    name: "Tejaswini Yuvaraju",
     ageGroup: "11-12 yrs",
     parentName: "Geetha",
     studentHealthScore: 55.66103175,
@@ -236,7 +236,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dcfbc1f0593243d066ebce",
-    name: "Aizah",
+    name: "Syeeda Aizah Yaseen",
     ageGroup: "11-12 yrs",
     parentName: "Zahra Yaseen",
     studentHealthScore: 53.11053572,
@@ -264,7 +264,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc85547ec07d4b67b14192",
-    name: "Keren Manuel",
+    name: "Keren Faith Manuel",
     ageGroup: "9-10 yrs",
     parentName: "Edith Manuel",
     studentHealthScore: 61.8003373,
@@ -292,7 +292,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69df85f9f0593243d066edf9",
-    name: "ASH",
+    name: "Haniel Jenuka Solomon",
     ageGroup: "11-12 yrs",
     parentName: "Priya Solomon",
     studentHealthScore: 66.66365385,
@@ -320,7 +320,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc85c07ec07d4b67b141b1",
-    name: "Judy",
+    name: "Judith Aradhana B",
     ageGroup: "11-12 yrs",
     parentName: "Judith aradhana",
     studentHealthScore: 60.68193966,
@@ -348,7 +348,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69de446ef0593243d066ed05",
-    name: "Manya",
+    name: "Manya Kaur Ahluwalia",
     ageGroup: "10-11 yrs",
     parentName: "Dilmeet",
     studentHealthScore: 65.40407408,
@@ -376,7 +376,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dc856b7ec07d4b67b14199",
-    name: "Yuktha S urs",
+    name: "Yuktha S Urs",
     ageGroup: "10-11 yrs",
     parentName: "Srikanth Raj Urs L",
     studentHealthScore: 35.99666667,
@@ -404,7 +404,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69df2a67f0593243d066ed7d",
-    name: "Ananya",
+    name: "Ananya Deb",
     ageGroup: "11-12 yrs",
     parentName: "Anisha",
     studentHealthScore: 47.05333334,
@@ -432,7 +432,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69dd1c1df0593243d066ebe6",
-    name: "Gunashreya",
+    name: "Gunashreya M",
     ageGroup: "11-12 yrs",
     parentName: "Sujatha",
     studentHealthScore: 41.06220238,
@@ -460,7 +460,7 @@ export const REAL_STUDENTS: RealStudent[] = [
   },
   {
     id: "69e64e7df0593243d066f115",
-    name: "Jhanu",
+    name: "Jhanavi S Murthy",
     ageGroup: "11-12 yrs",
     parentName: "Jhanavi",
     studentHealthScore: 60.06522059,

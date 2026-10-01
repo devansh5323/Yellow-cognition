@@ -83,7 +83,7 @@ export type ClassAverageData = Omit<Students, 'id' | 'name' | 'ageGroup' | 'pare
 export const STUDENTS: Students[] = [
   {
     "id": "69dc85547ec07d4b67b14192",
-    "name": "Keren Manuel",
+    "name": "Keren Faith Manuel",
     "ageGroup": "9-10 yrs",
     "parentName": "",
     "studentHealthScore": 61.8003373,
@@ -112,7 +112,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dc856b7ec07d4b67b14199",
-    "name": "Yuktha S urs",
+    "name": "Yuktha S Urs",
     "ageGroup": "10-11 yrs",
     "parentName": "",
     "studentHealthScore": 35.99666667,
@@ -141,7 +141,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dc85877ec07d4b67b1419d",
-    "name": "Teju",
+    "name": "Tejaswini Yuvaraju",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 55.66103175,
@@ -199,7 +199,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dc85ad7ec07d4b67b141aa",
-    "name": "Dhriti",
+    "name": "Dhriti M",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 59.78477801,
@@ -228,7 +228,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dc85c07ec07d4b67b141b1",
-    "name": "Judy",
+    "name": "Judith Aradhana B",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 60.68193966,
@@ -257,7 +257,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dc8a1f7ec07d4b67b141de",
-    "name": "Nivriti",
+    "name": "Nivriti Muthukumar",
     "ageGroup": "10-11 yrs",
     "parentName": "",
     "studentHealthScore": 49.87,
@@ -286,7 +286,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dcbc6d767cbb6e1a7a9212",
-    "name": "Lakshita D.K",
+    "name": "Lakshitha D K",
     "ageGroup": "10-11 yrs",
     "parentName": "",
     "studentHealthScore": 58.41208334,
@@ -315,7 +315,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dcfbc1f0593243d066ebce",
-    "name": "Aizah",
+    "name": "Syeeda Aizah Yaseen",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 53.11053572,
@@ -344,7 +344,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69dd1c1df0593243d066ebe6",
-    "name": "Gunashreya",
+    "name": "Gunashreya M",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 41.06220238,
@@ -373,7 +373,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69de446ef0593243d066ed05",
-    "name": "Manya",
+    "name": "Manya Kaur Ahluwalia",
     "ageGroup": "10-11 yrs",
     "parentName": "",
     "studentHealthScore": 65.40407408,
@@ -402,7 +402,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69de4872f0593243d066ed13",
-    "name": "Akku (Akansha)",
+    "name": "Akansha Wesley",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 47.46296297,
@@ -431,7 +431,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69df2a67f0593243d066ed7d",
-    "name": "Ananya",
+    "name": "Ananya Deb",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 47.05333334,
@@ -460,7 +460,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69df85f9f0593243d066edf9",
-    "name": "ASH",
+    "name": "Haniel Jenuka Solomon",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 66.66365385,
@@ -489,7 +489,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69f1ec1d4b6ad164e9ae8c43",
-    "name": "Kriyaa",
+    "name": "Kriyaa P Reddy",
     "ageGroup": "10-11 yrs",
     "parentName": "",
     "studentHealthScore": 61.28115741,
@@ -518,7 +518,7 @@ export const STUDENTS: Students[] = [
   },
   {
     "id": "69e64e7df0593243d066f115",
-    "name": "Jhanu",
+    "name": "Jhanavi S Murthy",
     "ageGroup": "11-12 yrs",
     "parentName": "",
     "studentHealthScore": 60.06522059,
@@ -1440,7 +1440,7 @@ export const TIER_COUNTS: TierDistributionData = {
 
 
 // This array contains any rows (like Tiers, counts, percentages) that didn't fit into the structures above.
-export const OTHER_ROWS: any[][] = [
+export const OTHER_ROWS: unknown[][] = [
   [
     "< 40 = tier 3",
     null,

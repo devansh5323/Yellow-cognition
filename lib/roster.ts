@@ -29,7 +29,7 @@ export type InviteStats = {
 const KEY = "ah_roster";
 // Bumped so existing demos pick up the connected state for the current class
 // while preserving entries the user added themselves.
-const SEEDED_KEY = "ah_roster_seeded_v5_bishop_cotton_connected";
+const SEEDED_KEY = "ah_roster_seeded_v6_bishop_cotton_names";
 const LAST_REMINDER_KEY = "ah_reminders_last_sent";
 
 const DAY = 86_400_000;

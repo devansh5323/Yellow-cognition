@@ -385,7 +385,7 @@ function StudentsPage() {
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Age group</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Health score</th>
                 <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Status</th>
-                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Tags</th>
+                <th className="p-3 font-bold text-[10.5px] uppercase tracking-[0.12em]">Focus Area</th>
                 <th className="p-3"></th>
               </tr>
             </thead>

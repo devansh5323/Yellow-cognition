@@ -4,82 +4,79 @@ import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Info, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
 import {
-  BEHAVIOR_STATUS_LABEL,
-  BEHAVIOR_STATUS_RANGE,
-  BEHAVIOR_STATUS_TONE,
-  DRIVER_STATUS_LABEL,
-  behaviorTrendOverTime,
-  type BehaviorSnapshotData,
-  type BehaviorStatus,
-  type DisruptionStat,
-} from "@/lib/classBehavior";
+  TASK_STATUS_LABEL,
+  TASK_STATUS_RANGE,
+  TASK_STATUS_TONE,
+  taskBreakdownExtremes,
+  taskTrendOverTime,
+  type TaskAreaStat,
+  type TaskSnapshotData,
+  type TaskStatus,
+} from "@/lib/classTask";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatDecimal1 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { formatDecimal1 } from "@/lib/format";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const DISTRIBUTION_ORDER: BehaviorStatus[] = ["strong", "stable", "reinforcement", "support"];
-const DISTRIBUTION_LABEL: Record<BehaviorStatus, string> = {
-  strong: "Strong Regulation",
-  stable: "Stable Behaviour",
-  reinforcement: "Watch",
-  support: "Needs Support",
+const STATUS_ORDER: TaskStatus[] = ["strong", "stable", "reinforcement", "support"];
+
+const STATUS_SUMMARY: Record<TaskStatus, string> = {
+  strong: "The class is starting and sticking with work consistently. Keep current routines.",
+  stable: "Most students are engaging well, with a few drifting — light scaffolding will help.",
+  reinforcement: "Engagement is uneven — checkpoints and shorter task windows should help.",
+  support: "Engagement is below where we'd like — start with shorter task bundles and visible checkpoints.",
 };
 
-const STATUS_SUMMARY: Record<BehaviorStatus, string> = {
-  strong: "The class is regulating itself well. Keep current routines.",
-  stable: "Most students are staying on track, with a few drifting — light scaffolding will help.",
-  reinforcement: "Regulation is uneven — reinforce expectations and keep an eye on repeat patterns.",
-  support: "Disruptions are above where we'd like — start with the areas below and the priority actions.",
-};
-
-/** Component 1 of the Classroom Behaviour & Regulation page: a quick,
- * single-glance read of overall discipline health. Same structure/template
- * as FocusSnapshot.tsx's "Class Attention Overview" — score + status/delta,
- * status thresholds, an AI summary line, distribution rows, and a
- * weekly/monthly trend chart. Real, sourced from each student's
- * cognitivePerformance.behaviourAndDiscipline score
- * (data/realStudents.ts) and the latest weekly driver series — see
- * lib/classBehavior.ts's header for exactly what's real vs demo on this page. */
-export function BehaviorSnapshot({ snapshot, breakdown }: { snapshot: BehaviorSnapshotData; breakdown: DisruptionStat[] }) {
+/** Combined snapshot + breakdown: overall engagement score and status
+ * distribution (real, per-student cognitivePerformance.taskEngagement)
+ * paired with the 7-area breakdown (real, class-level weekly CSV data —
+ * see lib/classTask.ts). Same structure/template as FocusSnapshot.tsx's
+ * "Class Attention Overview" — score + status/delta, status thresholds, an
+ * AI summary line, distribution rows, and a weekly/monthly trend chart. */
+export function TaskEngagementOverview({
+  snapshot,
+  breakdown,
+}: {
+  snapshot: TaskSnapshotData;
+  breakdown: TaskAreaStat[];
+}) {
   const reduce = useReducedMotion();
   const [period, setPeriod] = useState<"Weekly" | "Monthly">("Weekly");
-  const trendPoints = useMemo(
-    () => behaviorTrendOverTime(period).map((p) => ({ label: p.label, score: p.overall })),
-    [period],
-  );
+  const trendPoints = useMemo(() => taskTrendOverTime(period), [period]);
   const populatedTrend = trendPoints.filter((p): p is { label: string; score: number } => p.score != null);
   const last = populatedTrend[populatedTrend.length - 1];
   const prev = populatedTrend[populatedTrend.length - 2];
   const scoreDelta = last && prev ? Math.round((last.score - prev.score) * 10) / 10 : 0;
 
-  const hasData = snapshot.controlScore != null && snapshot.status != null && snapshot.distribution != null;
-
-  const insight = snapshot.strongestDriver
-    ? `Stronger in ${snapshot.strongestDriver.label}.`
+  const { strongest, weakest } = taskBreakdownExtremes(breakdown);
+  const summary = useMemo(
+    () => (snapshot.status ? STATUS_SUMMARY[snapshot.status] : null),
+    [snapshot.status],
+  );
+  const insight = strongest
+    ? `Stronger in ${strongest.label}.`
     : "Not enough area-level data yet to compare strengths and support needs.";
+  const onTrackCount = snapshot.statusDistribution.strong + snapshot.statusDistribution.stable;
+  const distributionSummary = `${onTrackCount} student${onTrackCount === 1 ? "" : "s"} on track, ${snapshot.statusDistribution.reinforcement} need${snapshot.statusDistribution.reinforcement === 1 ? "s" : ""} reinforcement, and ${snapshot.statusDistribution.support} need${snapshot.statusDistribution.support === 1 ? "s" : ""} more support.`;
 
-  const onTrackCount = hasData ? snapshot.distribution!.strong + snapshot.distribution!.stable : 0;
-  const distributionSummary = hasData
-    ? `${onTrackCount} student${onTrackCount === 1 ? "" : "s"} on track, ${snapshot.distribution!.reinforcement} need${snapshot.distribution!.reinforcement === 1 ? "s" : ""} reinforcement, and ${snapshot.distribution!.support} need${snapshot.distribution!.support === 1 ? "s" : ""} more support.`
-    : "";
+  const hasSnapshot = snapshot.engagementScore != null && snapshot.status != null;
 
   return (
     <TooltipProvider delayDuration={150}>
-      <section aria-label="Classroom behavior snapshot" className="rounded-2xl border border-border bg-card p-5 md:p-6 space-y-5">
+      <section aria-label="Task engagement overview" className="rounded-2xl border border-border bg-card p-5 md:p-6 space-y-5">
         <header className="flex items-start justify-between gap-3 flex-wrap">
           <h2 className="font-heading font-extrabold text-[17px] inline-flex items-center gap-1.5">
-            Classroom Behaviour Overview
-            <InfoDot text="A composite read of how well the class is regulating itself this period." />
+            Task Engagement Overview
+            <InfoDot text="A quick read of how well the whole class is starting, sticking with, and finishing assigned work." />
           </h2>
         </header>
 
-        {!hasData ? (
+        {!hasSnapshot ? (
           <NotEnoughDataPanel
             title="Not enough data yet"
-            description="We don't have real behaviour signal for this roster yet — check back once it's available."
+            description="We don't have real task engagement scores for this roster yet."
           />
         ) : (
           <>
@@ -88,37 +85,37 @@ export function BehaviorSnapshot({ snapshot, breakdown }: { snapshot: BehaviorSn
               <div className="flex flex-col gap-4 min-w-0">
                 <div>
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    Behaviour score
+                    Engagement score
                   </div>
                   <div className="flex items-end gap-1 mt-1">
                     <span
                       className="font-heading font-black tabular-nums leading-[0.85] text-[64px] md:text-[72px]"
-                      style={{ color: BEHAVIOR_STATUS_TONE[snapshot.status!] }}
+                      style={{ color: TASK_STATUS_TONE[snapshot.status!] }}
                     >
-                      {formatDecimal1(snapshot.controlScore!)}
+                      {formatDecimal1(snapshot.engagementScore)}
                     </span>
                     <span className="text-muted-foreground text-xl font-bold mb-1.5">/100</span>
                   </div>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <StatusPill label={BEHAVIOR_STATUS_LABEL[snapshot.status!]} tone={BEHAVIOR_STATUS_TONE[snapshot.status!]} />
+                    <StatusPill label={TASK_STATUS_LABEL[snapshot.status!]} tone={TASK_STATUS_TONE[snapshot.status!]} />
                     <DeltaPill value={scoreDelta} suffix={` vs last ${period === "Weekly" ? "week" : "month"}`} />
                   </div>
                 </div>
 
-                <p className="text-[12.5px] leading-snug text-muted-foreground">{STATUS_SUMMARY[snapshot.status!]}</p>
+                <p className="text-[12.5px] leading-snug text-muted-foreground">{summary}</p>
 
                 <div className="rounded-xl border border-border/60 p-3.5">
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-2.5">
                     Status thresholds
                   </div>
                   <div className="space-y-2">
-                    {DISTRIBUTION_ORDER.map((s) => (
+                    {STATUS_ORDER.map((s) => (
                       <div key={s} className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: BEHAVIOR_STATUS_TONE[s] }} />
-                          <span className="text-[12.5px] font-bold">{BEHAVIOR_STATUS_LABEL[s]}</span>
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: TASK_STATUS_TONE[s] }} />
+                          <span className="text-[12.5px] font-bold">{TASK_STATUS_LABEL[s]}</span>
                         </span>
-                        <span className="text-[12px] text-muted-foreground">{BEHAVIOR_STATUS_RANGE[s]}</span>
+                        <span className="text-[12px] text-muted-foreground">{TASK_STATUS_RANGE[s]}</span>
                       </div>
                     ))}
                   </div>
@@ -143,35 +140,35 @@ export function BehaviorSnapshot({ snapshot, breakdown }: { snapshot: BehaviorSn
                 </div>
               </div>
 
-              {/* Right — student distribution + trend */}
+              {/* Right — status distribution + trend */}
               <div className="flex flex-col gap-5 min-w-0 lg:pl-8">
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-[13px] font-extrabold">Student distribution</span>
+                    <span className="text-[13px] font-extrabold">Status distribution</span>
                     <span className="text-[11.5px] text-muted-foreground">{snapshot.total} students</span>
                   </div>
                   <div className="flex flex-col gap-3">
                     <div className="flex rounded-xl overflow-hidden h-2.5">
-                      {DISTRIBUTION_ORDER.map((band) => {
-                        const count = snapshot.distribution![band];
+                      {STATUS_ORDER.map((s) => {
+                        const count = snapshot.statusDistribution[s];
                         const pct = (count / Math.max(1, snapshot.total)) * 100;
                         if (pct <= 0) return null;
-                        return <span key={band} style={{ width: `${pct}%`, background: BEHAVIOR_STATUS_TONE[band] }} />;
+                        return <span key={s} style={{ width: `${pct}%`, background: TASK_STATUS_TONE[s] }} />;
                       })}
                     </div>
 
                     <div className="flex flex-col gap-2.5">
-                      {DISTRIBUTION_ORDER.map((band, i) => {
-                        const count = snapshot.distribution![band];
+                      {STATUS_ORDER.map((s, i) => {
+                        const count = snapshot.statusDistribution[s];
                         if (count <= 0) return null;
                         const pct = Math.round((count / Math.max(1, snapshot.total)) * 100);
-                        const tone = BEHAVIOR_STATUS_TONE[band];
+                        const tone = TASK_STATUS_TONE[s];
                         return (
-                          <div key={band}>
+                          <div key={s}>
                             <div className="flex items-center justify-between gap-2">
                               <span className="inline-flex items-center gap-1.5">
                                 <span className="h-2 w-2 rounded-full shrink-0" style={{ background: tone }} aria-hidden />
-                                <span className="text-[12px] font-semibold text-foreground/85">{DISTRIBUTION_LABEL[band]}</span>
+                                <span className="text-[12px] font-semibold text-foreground/85">{TASK_STATUS_LABEL[s]}</span>
                               </span>
                               <span className="text-[12px] font-bold tabular-nums" style={{ color: tone }}>
                                 {count}
@@ -215,16 +212,16 @@ export function BehaviorSnapshot({ snapshot, breakdown }: { snapshot: BehaviorSn
                       ))}
                     </div>
                   </div>
-                  <TrendChart points={trendPoints} tone={BEHAVIOR_STATUS_TONE[snapshot.status!]} reduce={!!reduce} />
+                  <TrendChart points={trendPoints} tone={TASK_STATUS_TONE[snapshot.status!]} reduce={!!reduce} />
                 </div>
               </div>
             </div>
 
             <div className="mt-5 mb-6 border-t border-border/60" />
 
-            {/* Behaviour areas breakdown */}
+            {/* Breakdown */}
             <div className="flex items-center gap-1.5">
-              <h3 className="font-heading font-extrabold text-[17px]">Behaviour Areas</h3>
+              <h3 className="font-heading font-extrabold text-[17px]">Task Engagement Breakdown</h3>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="More info">
@@ -232,34 +229,34 @@ export function BehaviorSnapshot({ snapshot, breakdown }: { snapshot: BehaviorSn
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[220px] text-[11px] leading-snug">
-                  This week&apos;s class-level score for each behaviour area.
+                  This week&apos;s class-level score for each task-engagement area.
                 </TooltipContent>
               </Tooltip>
             </div>
-            <p className="text-[12px] text-muted-foreground mt-0.5 mb-4">Breakdown of behaviour across key areas</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5 mb-4">Breakdown of engagement across key areas</p>
 
-            <BehaviorAreaBars breakdown={breakdown} reduce={!!reduce} />
+            <TaskAreaBars breakdown={breakdown} reduce={!!reduce} />
 
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {snapshot.strongestDriver && (
+              {strongest && (
                 <div className="flex items-center gap-2 rounded-xl bg-[hsl(142_55%_45%)]/10 px-3.5 py-2.5">
                   <span className="h-8 w-8 rounded-full bg-[hsl(142_55%_45%)]/15 text-[hsl(142_55%_35%)] dark:text-[hsl(142_55%_65%)] inline-flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Strongest Area</div>
-                    <div className="text-[12.5px] font-bold text-[hsl(142_55%_35%)] dark:text-[hsl(142_55%_65%)] truncate">{snapshot.strongestDriver.label}</div>
+                    <div className="text-[12.5px] font-bold text-[hsl(142_55%_35%)] dark:text-[hsl(142_55%_65%)] truncate">{strongest.label}</div>
                   </div>
                 </div>
               )}
-              {snapshot.weakestDriver && (
+              {weakest && (
                 <div className="flex items-center gap-2 rounded-xl bg-[hsl(0_78%_55%)]/10 px-3.5 py-2.5">
                   <span className="h-8 w-8 rounded-full bg-[hsl(0_78%_55%)]/15 text-[hsl(0_78%_45%)] dark:text-[hsl(0_78%_70%)] inline-flex items-center justify-center shrink-0">
                     <TriangleAlert className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
                     <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Needs Most Support</div>
-                    <div className="text-[12.5px] font-bold text-[hsl(0_78%_45%)] dark:text-[hsl(0_78%_70%)] truncate">{snapshot.weakestDriver.label}</div>
+                    <div className="text-[12.5px] font-bold text-[hsl(0_78%_45%)] dark:text-[hsl(0_78%_70%)] truncate">{weakest.label}</div>
                   </div>
                 </div>
               )}
@@ -317,9 +314,10 @@ function DeltaPill({ value, suffix = "" }: { value: number; suffix?: string }) {
 
 /** Per-area vertical "fill level" bars: a dashed pill track per area, a
  * solid pill rising to the area's real score out of 100, and a badge at
- * the fill's edge carrying the number — same pill-chart pattern as
- * TaskEngagementOverview's Task Engagement Breakdown. */
-function BehaviorAreaBars({ breakdown, reduce }: { breakdown: DisruptionStat[]; reduce: boolean }) {
+ * the fill's edge carrying the number — same pill-chart pattern as the
+ * Learning Readiness area contribution chart, colored by real status
+ * (strong/stable/reinforcement/support) rather than a fixed per-area hue. */
+function TaskAreaBars({ breakdown, reduce }: { breakdown: TaskAreaStat[]; reduce: boolean }) {
   const sorted = useMemo(() => {
     return [...breakdown].sort((a, b) => {
       if (a.score == null && b.score == null) return 0;
@@ -331,11 +329,11 @@ function BehaviorAreaBars({ breakdown, reduce }: { breakdown: DisruptionStat[]; 
 
   return (
     <div className="flex items-start gap-8 overflow-x-auto pb-1 justify-between">
-      {sorted.map((d, i) => {
-        const tone = d.hasData && d.status ? BEHAVIOR_STATUS_TONE[d.status] : undefined;
-        const pct = d.hasData ? Math.max(5, d.score as number) : 0;
+      {sorted.map((row, i) => {
+        const tone = row.hasData && row.status ? TASK_STATUS_TONE[row.status] : undefined;
+        const pct = row.hasData ? Math.max(5, row.score as number) : 0;
         return (
-          <div key={d.key} className="flex flex-col items-center shrink-0 w-[100px]">
+          <div key={row.key} className="flex flex-col items-center shrink-0 w-[100px]">
             <div
               className="relative w-16 h-[140px] rounded-full border overflow-visible"
               style={{
@@ -343,7 +341,7 @@ function BehaviorAreaBars({ breakdown, reduce }: { breakdown: DisruptionStat[]; 
                 borderColor: tone ? `color-mix(in srgb, ${tone} 45%, transparent)` : "color-mix(in srgb, var(--border) 70%, transparent)",
               }}
             >
-              {d.hasData && tone && (
+              {row.hasData && tone && (
                 <div className="absolute inset-0 rounded-full overflow-hidden">
                   <motion.div
                     className="absolute inset-x-0 bottom-0"
@@ -354,26 +352,26 @@ function BehaviorAreaBars({ breakdown, reduce }: { breakdown: DisruptionStat[]; 
                   />
                 </div>
               )}
-              {d.hasData && tone && (
+              {row.hasData && tone && (
                 <span
                   className="absolute left-1/2 -translate-x-1/2 h-9 w-9 rounded-full bg-background inline-flex items-center justify-center text-[13px] font-black tabular-nums shadow-[0_2px_8px_-2px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.04]"
                   style={{ bottom: `calc(${pct}% - 18px)`, color: tone }}
                 >
-                  {d.score}
+                  {row.score}
                 </span>
               )}
             </div>
             <span
               className="mt-3 text-[12px] font-bold text-center leading-tight text-foreground/90"
-              style={!d.hasData ? { color: "var(--muted-foreground)" } : undefined}
+              style={!row.hasData ? { color: "var(--muted-foreground)" } : undefined}
             >
-              {d.label}
+              {row.label}
             </span>
             <span
               className="text-[10.5px] font-medium mt-0.5 tracking-wide"
               style={{ color: tone ?? "var(--muted-foreground)" }}
             >
-              {d.hasData && d.status ? DRIVER_STATUS_LABEL[d.status] : "No data"}
+              {row.hasData && row.status ? TASK_STATUS_LABEL[row.status] : "No data"}
             </span>
           </div>
         );
@@ -407,7 +405,7 @@ function TrendChart({
   const coords = values.map((v, i) => ({ x: i * stepX, y: project(v) }));
   const path = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
   const area = `${path} L ${coords[coords.length - 1].x} ${H} L 0 ${H} Z`;
-  const gradId = "behavior-trend";
+  const gradId = "task-trend";
 
   return (
     <div className="rounded-xl border border-border/60 p-3">

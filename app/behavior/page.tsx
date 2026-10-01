@@ -13,40 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfidence";
 import { BehaviorSnapshot } from "@/components/dashboard/BehaviorSnapshot";
 import { BehaviorClassroomStrategies } from "@/components/dashboard/BehaviorClassroomStrategies";
 import { BehaviorDriverCards } from "@/components/dashboard/BehaviorDriverCards";
 import { ClassroomDisruptionImpact } from "@/components/dashboard/ClassroomDisruptionImpact";
-import { BehaviorSkillsInfluencing } from "@/components/dashboard/BehaviorSkillsInfluencing";
-import { ProblemAreasToSkills } from "@/components/dashboard/ProblemAreasToSkills";
-import { BehaviorTrendTracking } from "@/components/dashboard/BehaviorTrendTracking";
-import { BehaviorPatternInsights } from "@/components/dashboard/BehaviorPatternInsights";
 import { BehaviorPriorityActions } from "@/components/dashboard/BehaviorPriorityActions";
-import { BehaviorActivityContext } from "@/components/dashboard/BehaviorActivityContext";
-import { BehaviorTimeOfDay } from "@/components/dashboard/BehaviorTimeOfDay";
-import { BehaviorWatchlistRail } from "@/components/dashboard/BehaviorWatchlistRail";
 import { BehaviorSupportTable } from "@/components/dashboard/BehaviorSupportTable";
 import { PbisProgressLog } from "@/components/dashboard/PbisProgressLog";
-import { MonthlyBehaviorCheckIn } from "@/components/dashboard/MonthlyBehaviorCheckIn";
-import { BehaviorTriggersActions } from "@/components/dashboard/BehaviorTriggersActions";
+import { TeacherCheckInTools } from "@/components/dashboard/TeacherCheckInTools";
 import {
-  behaviorActivityContextPatterns,
-  behaviorPatternInsights,
   behaviorPriorityActions,
-  behaviorTimeOfDayPattern,
-  behaviorTriggerPatterns,
   classBehaviorSnapshot,
   classDisruptionBreakdown,
   pickStrategiesForTriggers,
   studentsNeedingBehaviorSupport,
 } from "@/lib/classBehavior";
-import {
-  getBehaviorLogAntecedentsThisWeek,
-  getBehaviorLogTimestampsThisWeek,
-  getPositiveLogCountThisWeek,
-} from "@/lib/checkInTools";
-import { getAllFollowUpRecords } from "@/lib/interventionFollowUps";
+import { getBehaviorLogAntecedentsThisWeek, getPositiveLogCountThisWeek } from "@/lib/checkInTools";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -102,47 +84,18 @@ function BehaviorPage({ classroom }: { classroom: string }) {
     return () => window.removeEventListener("ah-positive-log-change", refresh);
   }, []);
 
-  const [followUps, setFollowUps] = useState<ReturnType<typeof getAllFollowUpRecords>>([]);
-  useEffect(() => {
-    const refresh = () => setFollowUps(getAllFollowUpRecords());
-    refresh();
-    window.addEventListener("ah-followup-change", refresh);
-    return () => window.removeEventListener("ah-followup-change", refresh);
-  }, []);
-
-  const patternInsights = useMemo(
-    () => behaviorPatternInsights(breakdown, followUps),
-    [breakdown, followUps],
-  );
-
   const priorityActions = useMemo(
     () => behaviorPriorityActions(breakdown, supportRoster, positiveLogs),
     [breakdown, supportRoster, positiveLogs],
   );
 
-  const activityContextRows = useMemo(() => behaviorActivityContextPatterns(breakdown), [breakdown]);
-
-  const [behaviorTimestamps, setBehaviorTimestamps] = useState<string[]>([]);
   const [behaviorAntecedents, setBehaviorAntecedents] = useState<string[]>([]);
   useEffect(() => {
-    const refresh = () => {
-      setBehaviorTimestamps(getBehaviorLogTimestampsThisWeek());
-      setBehaviorAntecedents(getBehaviorLogAntecedentsThisWeek());
-    };
+    const refresh = () => setBehaviorAntecedents(getBehaviorLogAntecedentsThisWeek());
     refresh();
     window.addEventListener("ah-behavior-log-change", refresh);
     return () => window.removeEventListener("ah-behavior-log-change", refresh);
   }, []);
-
-  const timeOfDayPattern = useMemo(
-    () => behaviorTimeOfDayPattern(behaviorTimestamps, breakdown),
-    [behaviorTimestamps, breakdown],
-  );
-
-  const triggerRows = useMemo(
-    () => behaviorTriggerPatterns(behaviorAntecedents),
-    [behaviorAntecedents],
-  );
 
   const recommendedStrategies = useMemo(
     () => pickStrategiesForTriggers(behaviorAntecedents),
@@ -184,64 +137,30 @@ function BehaviorPage({ classroom }: { classroom: string }) {
           </p>
         </header>
 
-        {/* 1. Data sources & confidence */}
-        <DataSourcesConfidence />
+        {/* Action Hub — first thing a teacher sees: what needs doing now,
+            and how much real data it's drawn from. */}
+        <BehaviorPriorityActions actions={priorityActions} supportRoster={supportRoster} totalStudents={snapshot.total} />
 
-        {/* 9. Students Watchlist + Quick Actions — sticky right rail on
-            desktop, so it's always the teacher's action console alongside
-            whatever section they're reading. */}
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
-          <div className="space-y-6 min-w-0">
-            {/* 2. Behaviour snapshot */}
-            <BehaviorSnapshot snapshot={snapshot} />
+        {/* 2. Behaviour snapshot */}
+        <BehaviorSnapshot snapshot={snapshot} breakdown={breakdown} />
 
-            {/* Priority actions — right after the snapshot, above the rest of the journey. */}
-            <BehaviorPriorityActions actions={priorityActions} supportRoster={supportRoster} />
+        {/* 4 + 5. Where friction is coming from — collapsible driver cards + impacting skills */}
+        <BehaviorDriverCards stats={breakdown} />
 
-            {/* 4 + 5. Where friction is coming from — collapsible driver cards + impacting skills */}
-            <BehaviorDriverCards stats={breakdown} />
+        {/* 3. Disruption impact (demo) */}
+        <ClassroomDisruptionImpact />
 
-            {/* 3 + 4. Disruption impact (demo) and skills influencing behaviour (demo) side by side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-              <ClassroomDisruptionImpact />
-              <BehaviorSkillsInfluencing />
-            </div>
+        {/* Check-in tools — quick access to the teacher's logging actions */}
+        <TeacherCheckInTools />
 
-            {/* 3. Problem Areas to Skills — static reference table */}
-            <ProblemAreasToSkills />
+        {/* PBIS progress monitoring — log of every strategy tried */}
+        <PbisProgressLog />
 
-            {/* 6. Cross-pattern insights across all logs and check-ins */}
-            <BehaviorPatternInsights insights={patternInsights} />
+        {/* 6. Classroom Management Strategies — connects triggers to strategies */}
+        <BehaviorClassroomStrategies strategies={recommendedStrategies} triggerCounts={triggerCounts} />
 
-            {/* 10. Activity / context pattern — where the behaviour is happening */}
-            <BehaviorActivityContext rows={activityContextRows} />
-
-            {/* 11. Time-of-day pattern — compact */}
-            <BehaviorTimeOfDay pattern={timeOfDayPattern} />
-
-            {/* PBIS progress monitoring — log of every strategy tried */}
-            <PbisProgressLog />
-
-            {/* Monthly check-in */}
-            <MonthlyBehaviorCheckIn />
-
-            {/* 5. Behavior Triggers & Actions — why is this happening */}
-            <BehaviorTriggersActions rows={triggerRows} />
-
-            {/* 6. Classroom Management Strategies — connects triggers to strategies */}
-            <BehaviorClassroomStrategies strategies={recommendedStrategies} triggerCounts={triggerCounts} />
-
-            {/* 7. Behavior Trend Tracking — is behaviour improving? */}
-            <BehaviorTrendTracking snapshot={snapshot} />
-
-            {/* 8. Students Needing Behavior Support — individual layer */}
-            <BehaviorSupportTable items={supportRoster} />
-          </div>
-
-          <div className="xl:sticky xl:top-[84px]">
-            <BehaviorWatchlistRail supportRoster={supportRoster} />
-          </div>
-        </div>
+        {/* 8. Students Needing Behavior Support — individual layer */}
+        <BehaviorSupportTable items={supportRoster} />
       </motion.div>
     </div>
   );

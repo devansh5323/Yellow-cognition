@@ -37,7 +37,7 @@ import {
 } from "@/lib/classWellbeing";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { RiskBadge, SCORE_BAND_TONE } from "@/components/dashboard/RiskBadge";
-import { NotEnoughData, NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
+import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { formatDecimal1 } from "@/lib/format";
 import {
   useStudentOverrides,
@@ -54,6 +54,7 @@ import {
 import { getFollowUpRecordsForStudent, type FollowUpRecord } from "@/lib/interventionFollowUps";
 import { NoteDialog } from "@/components/dashboard/NoteDialog";
 import { ContactParentDialog } from "@/components/dashboard/ContactParentDialog";
+import { StudentHeroJourney } from "@/components/dashboard/StudentHeroJourney";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -521,10 +522,7 @@ function StudentPage({ student }: { student: Student }) {
 
         {/* ───── JOURNEY ───── */}
         <TabsContent value="journey">
-          <NotEnoughDataPanel
-            title="No game/session history yet"
-            description={`${student.name.split(" ")[0]}'s Neuroplay session history isn't available in the real dataset yet — this will populate once game/session data comes in.`}
-          />
+          <StudentHeroJourney student={student} />
         </TabsContent>
       </Tabs>
 

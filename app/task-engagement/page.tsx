@@ -13,14 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TaskEngagementSnapshot } from "@/components/dashboard/TaskEngagementSnapshot";
-import { TaskEngagementBreakdown } from "@/components/dashboard/TaskEngagementBreakdown";
-import { TaskEngagementSkills } from "@/components/dashboard/TaskEngagementSkills";
-import { TaskEngagementInsights } from "@/components/dashboard/TaskEngagementInsights";
-import { MonthlyTaskCheckIn } from "@/components/dashboard/MonthlyTaskCheckIn";
-import { TaskRecommendsStrip } from "@/components/dashboard/TaskRecommendsStrip";
-import { TaskTrendTracking } from "@/components/dashboard/TaskTrendTracking";
+import { TaskEngagementOverview } from "@/components/dashboard/TaskEngagementOverview";
+import { TaskEngagementAreas } from "@/components/dashboard/TaskEngagementAreas";
 import { TaskSupportTable } from "@/components/dashboard/TaskSupportTable";
+import { STUDENTS } from "@/data/mockData";
 import { classTaskBreakdown, classTaskSnapshot, studentsNeedingTaskSupport } from "@/lib/classTask";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +62,7 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
 
   const snapshot = useMemo(() => classTaskSnapshot(), []);
   const breakdown = useMemo(() => classTaskBreakdown(), []);
-  const supportRoster = useMemo(() => studentsNeedingTaskSupport(), []);
+  const supportRoster = useMemo(() => studentsNeedingTaskSupport(STUDENTS, STUDENTS.length), []);
 
   return (
     <div className="relative">
@@ -96,24 +92,11 @@ function TaskEngagementPage({ classroom }: { classroom: string }) {
           </p>
         </header>
 
-        {/* 1 + 2: Snapshot and breakdown side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-          <TaskEngagementSnapshot snapshot={snapshot} />
-          <TaskEngagementBreakdown breakdown={breakdown} />
-        </div>
+        {/* 1 + 2: Snapshot and breakdown combined */}
+        <TaskEngagementOverview snapshot={snapshot} breakdown={breakdown} />
 
-        {/* Monthly check-in — real, independent teacher self-report */}
-        <MonthlyTaskCheckIn />
-
-        {/* 3: Task Engagement → Skills */}
-        <TaskEngagementSkills />
-
-        {/* 4 + 5 + 6: Insights, Yellow Recommends, and Trend Tracking */}
-        <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_0.85fr_1.3fr] gap-6 items-stretch">
-          <TaskEngagementInsights breakdown={breakdown} />
-          <TaskRecommendsStrip />
-          <TaskTrendTracking />
-        </div>
+        {/* 6: Task engagement areas — sub-component scores, drill into students */}
+        <TaskEngagementAreas breakdown={breakdown} />
 
         {/* 7: Students needing task support */}
         <TaskSupportTable items={supportRoster} />

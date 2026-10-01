@@ -62,7 +62,7 @@ export const DRIVER_META: Record<OnboardingGoal, DriverMeta> = {
   },
   anxiety: {
     key: "anxiety",
-    title: "Anxiety and Coping Index",
+    title: "Anxiety Coping Index",
     description: "How well your class copes with stress",
     Icon: Cloud,
     tone: INDIGO,

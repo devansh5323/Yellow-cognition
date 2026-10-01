@@ -23,8 +23,6 @@ import { DataReadinessTour } from "@/components/onboarding/DataReadinessTour";
 import {
   getStats,
   getRoster,
-  sendReminders,
-  getRemindersCooldownUntil,
   type InviteStats,
   type RosterStudent,
 } from "@/lib/roster";
@@ -147,7 +145,6 @@ export function DataReadinessCard() {
   const reduce = useReducedMotion();
   const [stats, setStats] = useState<InviteStats | null>(null);
   const [roster, setRoster] = useState<RosterStudent[]>([]);
-  const [remindersCooldownUntil, setRemindersCooldownUntil] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [focusPromptOpen, setFocusPromptOpen] = useState(false);
   const [fumiPromptOpen, setFumiPromptOpen] = useState(false);
@@ -160,7 +157,6 @@ export function DataReadinessCard() {
     const refresh = () => {
       setStats(getStats());
       setRoster(getRoster());
-      setRemindersCooldownUntil(getRemindersCooldownUntil());
     };
     refresh();
     window.addEventListener("ah-roster-change", refresh);
@@ -216,8 +212,6 @@ export function DataReadinessCard() {
   // stranding the teacher with no visible way to finish the roster step.
   const hasClassroom = getOnboarding().classrooms.length > 0;
 
-  const firstName = TEACHER_NAME.split(" ")[0];
-
   // Mirrors Class Health Score's own unlock condition: once the 3 setup
   // steps are done, this card swaps over to the returning-user hub — it no
   // longer additionally waits on every student connecting via Fumi first,
@@ -242,15 +236,6 @@ export function DataReadinessCard() {
   };
 
   const fumiActivated = !!getOnboarding().fumiActivated;
-
-  const handleResendInvites = () => {
-    const count = sendReminders();
-    toast.success(
-      count > 0
-        ? `Reminder sent to ${count} parent${count === 1 ? "" : "s"}.`
-        : "Everyone's already connected.",
-    );
-  };
 
   // Sends the Fumi companion link to every parent already linked in the
   // roster. Closes this dialog once activation completes — previously it
@@ -291,7 +276,7 @@ export function DataReadinessCard() {
             {isReturning ? (
               <>
                 <div className="premium-eyebrow">
-                  <span>{`${timeOfDayGreeting()}, ${firstName} 👋`}</span>
+                  <span>{`${timeOfDayGreeting()} 👋`}</span>
                 </div>
                 <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight mt-2">
                   Today&apos;s Priority Actions
@@ -325,17 +310,11 @@ export function DataReadinessCard() {
               {linked < total && (
                 <button
                   type="button"
-                  onClick={handleResendInvites}
-                  disabled={!!remindersCooldownUntil}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0",
-                    remindersCooldownUntil
-                      ? "text-muted-foreground border-border/70 bg-muted/40 cursor-not-allowed"
-                      : "text-primary border-primary/25 bg-primary/5 hover:bg-primary/10",
-                  )}
+                  disabled
+                  className="inline-flex items-center gap-1.5 text-[11.5px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0 text-muted-foreground border-border/70 bg-muted/40 cursor-not-allowed"
                 >
                   <Send className="h-3 w-3" />
-                  {remindersCooldownUntil ? "Invites sent" : "Resend invites"}
+                  Resend invites
                 </button>
               )}
               <button

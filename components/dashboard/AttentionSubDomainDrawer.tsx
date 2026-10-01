@@ -5,7 +5,6 @@ import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { studentAttentionDomains, type AttentionDomainKey } from "@/lib/classFocus";
 import type { Student } from "@/data/mockData";
 import { formatDecimal1 } from "@/lib/format";
@@ -46,12 +45,9 @@ export function AttentionSubDomainDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
         <SheetHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 p-5 border-b border-border text-left">
-          <div className="flex items-center justify-between gap-3">
-            <SheetTitle className="font-heading font-extrabold text-[17px]">
-              {domain ? `${domain.label} — affected students` : ""}
-            </SheetTitle>
-            <DemoDataBadge />
-          </div>
+          <SheetTitle className="font-heading font-extrabold text-[17px]">
+            {domain ? `${domain.label} — affected students` : ""}
+          </SheetTitle>
           <SheetDescription className="text-[12.5px]">
             {domain
               ? students.length === 0

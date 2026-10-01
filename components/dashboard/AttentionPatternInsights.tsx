@@ -4,7 +4,6 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Clock, Ear, Info, Timer, Volume2 } from "lucide-react";
 import type { AttentionInsight } from "@/lib/classFocus";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -19,7 +18,11 @@ const GREEN = "hsl(142 55% 45%)";
  * headcount) rather than a generic icon. All demo data — see lib/classFocus.ts. */
 export function AttentionPatternInsights({ insights }: { insights: AttentionInsight[] }) {
   const reduce = useReducedMotion();
-  const featured = insights.slice(0, 3);
+  const top3 = insights.slice(0, 3);
+  // Display order swaps the 1st and 3rd cards vs. the underlying insight
+  // order (which other consumers, e.g. yellowRecommendsTopInsight, still
+  // read unswapped).
+  const featured = top3.length === 3 ? [top3[2], top3[1], top3[0]] : top3;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -46,7 +49,6 @@ export function AttentionPatternInsights({ insights }: { insights: AttentionInsi
               <p className="text-[12.5px] text-muted-foreground mt-0.5">What&apos;s coming up across all focus domains</p>
             </div>
           </div>
-          <DemoDataBadge />
         </header>
 
         <ul className="space-y-3">
@@ -54,12 +56,6 @@ export function AttentionPatternInsights({ insights }: { insights: AttentionInsi
             <InsightRow key={insight.id} insight={insight} index={i} reduce={!!reduce} />
           ))}
         </ul>
-
-        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Info className="h-3.5 w-3.5 shrink-0" />
-          Demo data — this roster has no real per-student attention signal yet, so these patterns are
-          illustrative rather than measured.
-        </p>
       </section>
     </TooltipProvider>
   );

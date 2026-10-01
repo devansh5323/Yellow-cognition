@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useReducedMotion, motion } from "framer-motion";
-import { Clock, Info, Lightbulb, TrendingUp, Users2 } from "lucide-react";
+import { Clock, Info, Lightbulb, Lock, TrendingUp, Users2 } from "lucide-react";
 import { classDisruptionImpact } from "@/lib/classBehavior";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
+import { listCheckInsForTeacher } from "@/lib/checkIn";
+import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -16,13 +17,26 @@ const IMPACT_TONE: Record<"Low" | "Medium" | "High", string> = {
   High: "hsl(0 78% 55%)",
 };
 
+const UNLOCK_CHECKINS = 3;
+
 /** Component 3 of the Classroom Behaviour & Regulation page: how much
  * instructional time disruptions are costing. Fully demo — no real
- * time-tracking data exists anywhere in this app. */
+ * time-tracking data exists anywhere in this app — so it stays locked
+ * behind a real signal (completed class check-ins) rather than showing
+ * fabricated numbers before there's any real usage to ground them in. */
 export function ClassroomDisruptionImpact() {
   const reduce = useReducedMotion();
   const impact = useMemo(() => classDisruptionImpact(), []);
   const maxHours = Math.max(...impact.weekly.map((p) => p.hours), 1);
+
+  // Real, but localStorage-backed — fetched client-side only to avoid an
+  // SSR/hydration mismatch, same pattern as DataSourcesConfidence.
+  const [checkInCount, setCheckInCount] = useState<number | null>(null);
+  useEffect(() => {
+    setCheckInCount(listCheckInsForTeacher(TEACHER_NAME).length);
+  }, []);
+
+  const locked = checkInCount != null && checkInCount < UNLOCK_CHECKINS;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -41,9 +55,12 @@ export function ClassroomDisruptionImpact() {
               </TooltipContent>
             </Tooltip>
           </div>
-          <DemoDataBadge />
         </header>
 
+        {locked ? (
+          <LockedImpact checkInCount={checkInCount ?? 0} />
+        ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-5 items-center">
           <div>
             <div className="flex items-baseline gap-1.5">
@@ -98,8 +115,27 @@ export function ClassroomDisruptionImpact() {
             <span className="font-bold">Teacher insight:</span> {impact.teacherInsight}
           </p>
         </div>
+        </>
+        )}
       </section>
     </TooltipProvider>
+  );
+}
+
+function LockedImpact({ checkInCount }: { checkInCount: number }) {
+  const remaining = Math.max(0, UNLOCK_CHECKINS - checkInCount);
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-10">
+      <span className="h-9 w-9 rounded-full bg-muted/70 inline-flex items-center justify-center text-muted-foreground">
+        <Lock className="h-4 w-4" />
+      </span>
+      <p className="text-[13px] font-bold text-foreground/85 leading-tight">
+        Complete {UNLOCK_CHECKINS} check-ins to unlock
+      </p>
+      <p className="text-[11.5px] text-muted-foreground leading-snug max-w-[280px]">
+        {checkInCount} of {UNLOCK_CHECKINS} class check-ins logged — {remaining} more to go before disruption impact can be estimated.
+      </p>
+    </div>
   );
 }
 

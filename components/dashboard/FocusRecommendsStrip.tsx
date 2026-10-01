@@ -20,7 +20,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { QUICK_ACTIVITIES, RECOMMENDED_ACTIONS, yellowRecommendsTopInsight, type QuickActivityType, type RecommendedAction } from "@/lib/classFocus";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -62,8 +61,7 @@ export function FocusRecommendsStrip() {
         <div className="flex items-start gap-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 max-w-sm">
           <Star className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" />
           <p className="text-[11.5px] leading-snug">
-            <span className="text-muted-foreground">Based on your top insight</span> <DemoDataBadge className="mx-1 align-middle" />
-            <br />
+            <span className="text-muted-foreground">Based on your top insight:</span>{" "}
             <span className="font-bold text-foreground/90">{topInsight}</span>
           </p>
         </div>

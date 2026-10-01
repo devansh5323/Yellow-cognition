@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/command";
 
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, Users, School, FileBarChart, Settings, GraduationCap, ClipboardCheck, Gamepad2, MessageSquarePlus } from "lucide-react";
+import { LayoutDashboard, Users, Settings, GraduationCap, ClipboardCheck, Gamepad2, MessageSquarePlus } from "lucide-react";
 import { STUDENTS } from "@/data/mockData";
 import { toast } from "sonner";
 
@@ -42,12 +42,6 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => go(() => router.push("/students"))}>
             <Users className="mr-2 h-4 w-4" /> Students
-          </CommandItem>
-          <CommandItem onSelect={() => go(() => router.push("/classroom"))}>
-            <School className="mr-2 h-4 w-4" /> Classroom
-          </CommandItem>
-          <CommandItem onSelect={() => go(() => router.push("/reports"))}>
-            <FileBarChart className="mr-2 h-4 w-4" /> Reports
           </CommandItem>
           <CommandItem onSelect={() => go(() => router.push("/settings"))}>
             <Settings className="mr-2 h-4 w-4" /> Settings

@@ -1,12 +1,9 @@
 // Class Behavior & Discipline — data + helpers.
 //
-// data/realStudents.ts (the STUDENTS this file used to derive everything
-// from) still has zero per-student behaviour signal — but data/
-// realStudents.ts has real per-student
+// data/realStudents.ts (STUDENTS) has real per-student
 // cognitivePerformance.behaviourAndDiscipline scores for all 16 students,
 // while l2ClassroomData.ts has the real weekly/monthly class-level series
-// covering exactly the 6
-// disruption categories below (offTaskBehavior, nonCompliance,
+// covering exactly the 6 disruption categories below (offTaskBehavior, nonCompliance,
 // peerSafetyAndBelonging, impulseControl, angerAndEmotionalRegulation,
 // participationControl). The overall snapshot score/status/distribution and
 // each driver's class-level score/trend are real, sourced from that CSV.
@@ -15,9 +12,8 @@
 // category) — so `studentCount`/`studentsByDisruption` per driver, and
 // anything needing hour-level time-tracking or named cognitive sub-skills
 // (Classroom Disruption Impact, Skills Influencing Behaviour), stay
-// deterministic seeded DEMO data, clearly marked via DemoDataBadge wherever
-// they render (see components/dashboard/DemoDataBadge.tsx) — never silently
-// presented as real. Everything independent of the Student roster — the
+// deterministic seeded DEMO data — never silently presented as real.
+// Everything independent of the Student roster — the
 // monthly/quick-pulse teacher self-report check-ins, the generic strategy
 // catalog, and the real logged-trigger/time-of-day patterns (which come
 // from the teacher's own behaviour-log entries) — is unaffected and kept
@@ -28,7 +24,7 @@ import {
   L2_CLASSROOM_DATA,
   type BehaviorTrendPoint as L2BehaviorTrendPoint,
 } from "@/data/l2ClassroomData";
-import type { FollowUpRecord } from "@/lib/interventionFollowUps";
+import { getFollowUpRecordsForStudent, type FollowUpRecord } from "@/lib/interventionFollowUps";
 
 const BEHAVIOR_WEEKLY_DATA = L2_CLASSROOM_DATA.behavior.weekly;
 const BEHAVIOR_MONTHLY_DATA = L2_CLASSROOM_DATA.behavior.monthly;
@@ -70,6 +66,13 @@ export const BEHAVIOR_STATUS_TONE: Record<BehaviorStatus, string> = {
   stable: "hsl(212 55% 45%)",
   reinforcement: "hsl(38 92% 50%)",
   support: "hsl(0 78% 56%)",
+};
+
+export const BEHAVIOR_STATUS_RANGE: Record<BehaviorStatus, string> = {
+  strong: "Score 85+",
+  stable: "Score 70–84",
+  reinforcement: "Score 55–69",
+  support: "Score below 55",
 };
 
 /** Same 4 bands as BEHAVIOR_STATUS_LABEL, relabeled for driver cards
@@ -658,8 +661,14 @@ export function pickBehaviorStrategies(
 }
 
 /* ─────────────────────────────────────────────────────────
- * Students needing behavior support — no real per-student behaviour score
- * exists yet, so this is always empty.
+ * Students needing behavior support — score/status are real, sourced from
+ * each student's real cognitivePerformance.behaviourAndDiscipline score
+ * (data/realStudents.ts). There's no real per-student breakdown BY driver
+ * (only one overall score per student exists), so `primary` is a seeded
+ * DEMO estimate — same demoTaskSupportDetail() approach classTask.ts uses
+ * — never silently presented as real. `status` (active/monitoring/new) IS
+ * real: it's derived from whether a follow-up has actually been logged for
+ * that student (lib/interventionFollowUps.ts).
  * ───────────────────────────────────────────────────────── */
 
 export type SupportStatus = "active" | "monitoring" | "new";
@@ -672,13 +681,68 @@ export type BehaviorSupport = {
   status: SupportStatus;
   score: number;
   trend: number;
+  recommendedActions: string[];
+};
+
+function clampScore(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/** Demo — deterministic per-student "which driver is the top concern,"
+ * seeded off the student's id so it's stable across reloads. No real
+ * per-student-by-driver breakdown exists (see file header). */
+function demoPrimaryDriver(id: string): DisruptionKey {
+  const seed = idSeed(id) * 17;
+  return DISRUPTION_ORDER[Math.floor(rand(seed) * DISRUPTION_ORDER.length)];
+}
+
+/** Demo — "the same student a check-in cycle ago," seeded for a plausible
+ * (sometimes up, sometimes down) trend direction. No real per-student
+ * weekly history exists for behaviour yet. */
+function demoScorePrev(id: string, score: number): number {
+  const seed = idSeed(id) * 23;
+  return clampScore(score + (rand(seed) - 0.5) * 16);
+}
+
+const DISRUPTION_INTERVENTIONS: Record<DisruptionKey, string[]> = {
+  "off-task": ["Visual schedule on desk", "2-minute movement reset", "Proximity check-ins"],
+  "non-compliance": ["Clear, calm redirects", "Offer limited choices", "Silent attention signal"],
+  peer: ["Seating away from known triggers", "Peer-conflict script", "Small-group check-in"],
+  impulse: ["Fidget tool allowance", "Countdown before transitions", "Impulse-Control game"],
+  emotional: ["Calming corner access", "Self-Reg breathing game", "Daily check-in card"],
+  participation: ["Turn-taking routine", "Low-stakes participation prompts", "Partner discussion first"],
 };
 
 export function studentsNeedingBehaviorSupport(
-  _students: Student[] = STUDENTS,
-  _limit = 12,
+  students: Student[] = STUDENTS,
+  limit = 12,
 ): BehaviorSupport[] {
-  return [];
+  return students
+    .map((s) => {
+      const score = s.cognitivePerformance.behaviourAndDiscipline;
+      if (score == null) return null;
+      const status = statusFromScore(score);
+      if (status !== "reinforcement" && status !== "support") return null;
+
+      const primary = demoPrimaryDriver(s.id);
+      const prev = demoScorePrev(s.id, score);
+      const hasFollowUp = getFollowUpRecordsForStudent(s.id).length > 0;
+      const supportStatus: SupportStatus = hasFollowUp ? "active" : status === "support" ? "new" : "monitoring";
+
+      return {
+        student: s,
+        primary,
+        primaryLabel: DISRUPTION_LABEL[primary],
+        insight: `Scored ${clampScore(score)}/100 overall — ${DISRUPTION_LABEL[primary]} flagged as the area most likely contributing (demo estimate; no real per-student driver signal yet).`,
+        status: supportStatus,
+        score: clampScore(score),
+        trend: clampScore(score) - Math.round(prev),
+        recommendedActions: DISRUPTION_INTERVENTIONS[primary],
+      } satisfies BehaviorSupport;
+    })
+    .filter((r): r is BehaviorSupport => r !== null)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit);
 }
 
 /* ─────────────────────────────────────────────────────────

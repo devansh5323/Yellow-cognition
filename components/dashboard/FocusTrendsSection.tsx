@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowDownRight, ArrowUpRight, Minus, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Lock, Minus, TrendingUp } from "lucide-react";
 import {
   FOCUS_DOMAIN_HUE,
   FOCUS_DOMAIN_LABEL,
@@ -13,7 +13,6 @@ import {
   type MonthTrendPoint,
   type WeekTrendPoint,
 } from "@/lib/classFocus";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { cn } from "@/lib/utils";
 import { formatDecimal1 } from "@/lib/format";
 
@@ -72,7 +71,6 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
           <div>
             <div className="flex items-center gap-1.5">
               <h2 className="font-heading font-extrabold text-[17px]">Trends</h2>
-              <DemoDataBadge />
             </div>
             <p className="text-[12.5px] text-muted-foreground mt-0.5">Track progress and focus trends over time.</p>
           </div>
@@ -113,13 +111,8 @@ export function FocusTrendsSection({ snapshot }: { snapshot: FocusSnapshotData }
           <ZoneStackedChart points={zonePoints} reduce={!!reduce} />
         </TrendCard>
 
-        <TrendCard
-          title="Time-Based Attention Drop"
-          question="When does attention fall?"
-          verdict={`Drops after ~${dropCurve.dropAtMinute} min`}
-          direction={dropCurve.dropAtMinute >= 18 ? "up" : "down"}
-        >
-          <DropCurveChart points={dropCurve.points} dropAtMinute={dropCurve.dropAtMinute} reduce={!!reduce} />
+        <TrendCard title="Time-Based Attention Drop" question="When does attention fall?" locked>
+          <LockedDropCurve points={dropCurve.points} reduce={!!reduce} />
         </TrendCard>
 
         <TrendCard
@@ -146,18 +139,20 @@ function TrendCard({
   question,
   verdict,
   direction,
+  locked,
   children,
 }: {
   title: string;
   question: string;
-  verdict: string;
-  direction: "up" | "down" | "flat";
+  verdict?: string;
+  direction?: "up" | "down" | "flat";
+  locked?: boolean;
   children: ReactNode;
 }) {
-  const tone = direction === "up" ? "hsl(142 55% 40%)" : direction === "down" ? "hsl(0 78% 50%)" : "var(--muted-foreground)";
-  const Icon = direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : Minus;
+  const tone = locked ? "var(--muted-foreground)" : direction === "up" ? "hsl(142 55% 40%)" : direction === "down" ? "hsl(0 78% 50%)" : "var(--muted-foreground)";
+  const Icon = locked ? Lock : direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : Minus;
   return (
-    <div className="rounded-xl border border-border/60 bg-background/50 p-4 md:p-5">
+    <div className={cn("rounded-xl border p-4 md:p-5", locked ? "border-dashed border-border/70 bg-muted/10" : "border-border/60 bg-background/50")}>
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div>
           <p className="text-[13px] font-bold text-foreground/90">{title}</p>
@@ -168,7 +163,7 @@ function TrendCard({
           style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
         >
           <Icon className="h-3 w-3" />
-          {verdict}
+          {locked ? "Locked" : verdict}
         </span>
       </div>
       <div className="mt-3">{children}</div>
@@ -317,6 +312,29 @@ function DropCurveChart({ points, dropAtMinute, reduce }: { points: AttentionDro
             {p.minute}m
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Not-enough-data placeholder: a dimmed ghost of the real chart behind a
+ * frosted lock card, so the card still communicates what it will show once
+ * enough attention-span sessions are logged. */
+function LockedDropCurve({ points, reduce }: { points: AttentionDropPoint[]; reduce: boolean }) {
+  const dropAtMinute = points[Math.floor(points.length / 2)]?.minute ?? 15;
+  return (
+    <div className="relative">
+      <div className="opacity-20 blur-[1.5px] pointer-events-none select-none" aria-hidden>
+        <DropCurveChart points={points} dropAtMinute={dropAtMinute} reduce={reduce} />
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center px-2">
+        <div className="flex flex-col items-center gap-1.5 text-center rounded-xl border border-border/60 bg-background/95 backdrop-blur-sm px-4 py-3 shadow-sm max-w-[220px]">
+          <span className="h-7 w-7 rounded-full bg-muted/70 inline-flex items-center justify-center text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-[11.5px] font-bold text-foreground/85 leading-tight">Not enough data yet</p>
+          <p className="text-[10px] text-muted-foreground leading-snug">Unlocks once more attention-span sessions are logged.</p>
+        </div>
       </div>
     </div>
   );

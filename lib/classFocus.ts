@@ -182,15 +182,15 @@ export function classFocusSnapshot(students: Student[] = STUDENTS): FocusSnapsho
 
 export type AttentionDomainKey = "sus" | "sel" | "vis" | "aud" | "div" | "swi" | "hyp" | "beh";
 
-const ATTENTION_DOMAINS: { key: AttentionDomainKey; short: string; label: string }[] = [
-  { key: "sus", short: "SUS", label: "Sustained" },
-  { key: "sel", short: "SEL", label: "Selective" },
-  { key: "vis", short: "VIS", label: "Visual" },
-  { key: "aud", short: "AUD", label: "Auditory" },
-  { key: "div", short: "DIV", label: "Divided" },
-  { key: "swi", short: "SWI", label: "Switching" },
-  { key: "hyp", short: "HYP", label: "Hyperactivity" },
-  { key: "beh", short: "BEH", label: "Behavioral Reg." },
+const ATTENTION_DOMAINS: { key: AttentionDomainKey; label: string }[] = [
+  { key: "sus", label: "Sustained Attention" },
+  { key: "sel", label: "Selective Attention" },
+  { key: "vis", label: "Visual Attention" },
+  { key: "aud", label: "Auditory Attention" },
+  { key: "div", label: "Divided Attention" },
+  { key: "swi", label: "Attention Switching" },
+  { key: "hyp", label: "Impulse Control" },
+  { key: "beh", label: "Behavioral Regulation" },
 ];
 
 export type AttentionDomainScores = Record<AttentionDomainKey, number>;
@@ -281,7 +281,6 @@ export type AttentionHeatmapStatus = "high" | "med" | "low";
  * score picture," just for a wider vs. narrower set of domains. */
 export type AttentionHeatmapStat = {
   key: AttentionDomainKey;
-  short: string;
   label: string;
   description: string;
   score: number;
@@ -317,7 +316,7 @@ const HEATMAP_DESCRIPTION: Record<AttentionDomainKey, string> = {
 
 export const ATTENTION_HEATMAP_STATUS_LABEL: Record<AttentionHeatmapStatus, string> = {
   high: "High",
-  med: "Med",
+  med: "Medium",
   low: "Low",
 };
 
@@ -344,7 +343,6 @@ export function classAttentionHeatmap(students: Student[] = STUDENTS): Attention
     const atRiskCount = scores.filter((v) => v < 55).length;
     return {
       key: d.key,
-      short: d.short,
       label: d.label,
       description: HEATMAP_DESCRIPTION[d.key],
       score,
@@ -358,15 +356,6 @@ export function classAttentionHeatmap(students: Student[] = STUDENTS): Attention
       atRiskPct: Math.round((atRiskCount / Math.max(1, students.length)) * 100),
     };
   });
-}
-
-/** Real (not demo) engagement volume — total logged behaviour + positive
- * observations spread across the roster, shown on the heatmap for context.
- * Kept as a genuine count since these logs are real teacher-entered data,
- * unrelated to the demo attention scores above. */
-export function attentionHeatmapLogsPerStudent(students: Student[] = STUDENTS): number {
-  const total = getBehaviorLogTotalCount() + getPositiveLogTotalCount();
-  return Math.round((total / Math.max(1, students.length)) * 10) / 10;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -821,17 +810,17 @@ export function suggestedActivityForDomain(domain: FocusDomainKey): QuickActivit
  * these real counts, not a fabricated score.
  * ───────────────────────────────────────────────────────── */
 
-export type DataConfidenceLevel = "strong" | "good" | "needs-more-data";
+export type DataConfidenceLevel = "good" | "average" | "needs-more-data";
 
 export const DATA_CONFIDENCE_LABEL: Record<DataConfidenceLevel, string> = {
-  strong: "Strong",
   good: "Good",
+  average: "Average",
   "needs-more-data": "Needs more data",
 };
 
 export const DATA_CONFIDENCE_TONE: Record<DataConfidenceLevel, string> = {
-  strong: "hsl(142 55% 45%)",
-  good: "hsl(212 90% 58%)",
+  good: "hsl(142 55% 45%)",
+  average: "hsl(212 90% 58%)",
   "needs-more-data": "hsl(38 92% 50%)",
 };
 
@@ -857,7 +846,7 @@ export function dataSourcesSnapshot(teacherName: string): DataSourcesSnapshot {
     followUpsTotal === 0 || followUpsCompleted / followUpsTotal >= 0.5,
   ];
   const strongSignals = signals.filter(Boolean).length;
-  const confidence: DataConfidenceLevel = strongSignals >= 4 ? "strong" : strongSignals >= 3 ? "good" : "needs-more-data";
+  const confidence: DataConfidenceLevel = strongSignals >= 3 ? "good" : strongSignals >= 1 ? "average" : "needs-more-data";
 
   return { observationCount, checkInCount, positiveLogCount, followUpsCompleted, followUpsTotal, confidence };
 }

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Cloud, Frown, HeartHandshake, HeartPulse, Users, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
 import {
   classWellbeingDrivers,
   studentsByWellbeingDriver,
@@ -39,7 +38,7 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
   const drillStudents = drillKey && !locked ? studentsByWellbeingDriver(drillKey) : [];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-7 flex flex-col gap-5">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-7 h-full flex flex-col gap-5">
       <div
         className="absolute inset-0 pointer-events-none"
         aria-hidden
@@ -78,7 +77,7 @@ export function WellbeingDriverCards({ locked = false }: { locked?: boolean }) {
         </div>
       </div>
 
-      <div className="relative flex flex-col gap-3">
+      <div className="relative flex-1 flex flex-col justify-between gap-2.5">
         {drivers.map((driver, i) => (
           <WellbeingCard
             key={driver.key}
@@ -127,16 +126,16 @@ function WellbeingCard({
       initial={reduce ? undefined : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.04 * index, duration: 0.3, ease: EASE }}
-      className="relative overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-4"
+      className="relative overflow-hidden rounded-xl border border-border/60 bg-background/60 pl-4 pr-3.5 py-3"
     >
       <span className="absolute inset-y-0 left-0 w-[3px]" aria-hidden style={{ background: driver.hue }} />
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         <span
-          className="h-10 w-10 rounded-lg inline-flex items-center justify-center shrink-0"
+          className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0"
           style={{ background: `color-mix(in srgb, ${driver.hue} 14%, transparent)`, color: driver.hue }}
         >
-          <Icon className="h-4.5 w-4.5" strokeWidth={2.2} />
+          <Icon className="h-4 w-4" strokeWidth={2.2} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
@@ -155,7 +154,7 @@ function WellbeingCard({
       </div>
 
       {driver.score != null && statusTone ? (
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-2.5 flex items-center gap-3">
           <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
             <motion.span
               initial={reduce ? undefined : { scaleX: 0 }}
@@ -167,34 +166,26 @@ function WellbeingCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3">
+        <div className="mt-2.5">
           <NotEnoughData />
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-1.5 text-[10.5px] font-semibold text-muted-foreground">
+      <div className="mt-2 flex items-center gap-1.5 text-[10.5px] font-semibold text-muted-foreground">
         <Users className="h-3 w-3" />
         {driver.dataCount} student{driver.dataCount === 1 ? "" : "s"} contributing
       </div>
-      <p className="mt-1 text-[11px] text-foreground/80 leading-snug">{driver.mainSignal}</p>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-1.5 flex items-center gap-2.5">
+        <p className="flex-1 min-w-0 text-[11px] text-foreground/80 leading-snug">{driver.mainSignal}</p>
         <button
           type="button"
           onClick={onViewStudents}
           disabled={locked}
-          className="flex-1 inline-flex items-center justify-center text-[11px] font-bold px-2.5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="shrink-0 inline-flex items-center justify-center text-[10.5px] font-bold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ color: driver.hue, background: `color-mix(in srgb, ${driver.hue} 10%, transparent)` }}
         >
           View students
-        </button>
-        <button
-          type="button"
-          onClick={() => toast.info(`Strategy suggestions for ${driver.label} are coming soon.`)}
-          disabled={locked}
-          className="flex-1 inline-flex items-center justify-center text-[11px] font-bold px-2.5 py-2 rounded-lg border border-border/70 text-foreground/80 hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Try strategy
         </button>
       </div>
     </motion.div>

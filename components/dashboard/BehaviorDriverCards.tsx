@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Ban,
@@ -15,7 +14,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  strategyForDriver,
   studentsByDisruption,
   type DisruptionKey,
   type DisruptionStat,
@@ -25,7 +23,6 @@ import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { BEHAVIOR_STATUS_LABEL, BEHAVIOR_STATUS_TONE } from "@/lib/classBehavior";
-import { DemoDataBadge } from "@/components/dashboard/DemoDataBadge";
 import { STUDENTS } from "@/data/mockData";
 import { formatDecimal1 } from "@/lib/format";
 
@@ -39,19 +36,6 @@ const DRIVER_ICON: Record<DisruptionKey, LucideIcon> = {
   emotional: HeartPulse,
   participation: Hand,
 };
-
-function comingSoon(action: string) {
-  toast("Coming soon", { description: `${action} isn't available yet.` });
-}
-
-function tryStrategy(key: DisruptionKey) {
-  const strategy = strategyForDriver(key);
-  if (!strategy) {
-    comingSoon("Strategy suggestions for this driver");
-    return;
-  }
-  toast(strategy.title, { description: strategy.rationale });
-}
 
 export function BehaviorDriverCards({ stats }: { stats: DisruptionStat[] }) {
   const reduce = useReducedMotion();
@@ -152,7 +136,7 @@ function DriverCard({
   index: number;
 }) {
   const Icon = DRIVER_ICON[stat.key];
-  const tone = stat.hue;
+  const tone = stat.hasData && stat.status ? BEHAVIOR_STATUS_TONE[stat.status] : stat.hue;
 
   return (
     <motion.div
@@ -195,31 +179,32 @@ function DriverCard({
         </div>
       </div>
 
-      <p className="mt-2 text-[11.5px] leading-snug text-muted-foreground">{stat.description}</p>
+      {stat.hasData && stat.score != null && (
+        <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mt-2.5">
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: tone }}
+            initial={reduce ? undefined : { width: 0 }}
+            animate={{ width: `${stat.score}%` }}
+            transition={{ delay: 0.03 * index, duration: 0.5, ease: EASE }}
+          />
+        </div>
+      )}
 
       {stat.hasData && (
         <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
           <Users className="h-3 w-3 shrink-0" />
           {stat.studentCount} of {STUDENTS.length} students
-          {stat.studentCountIsDemo && <DemoDataBadge className="!px-1.5 !py-0.5 !text-[9px]" />}
         </div>
       )}
 
-      <div className="mt-auto pt-3 flex items-center gap-2 flex-wrap">
+      <div className="mt-auto pt-3">
         <button
           type="button"
           onClick={onViewStudents}
           className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 h-7 text-[10.5px] font-bold text-foreground/80 hover:bg-muted/50 transition-colors"
         >
           View students
-        </button>
-        <button
-          type="button"
-          onClick={() => tryStrategy(stat.key)}
-          className="inline-flex items-center gap-1 rounded-lg px-2 h-7 text-[10.5px] font-bold transition-colors"
-          style={{ color: tone, background: `color-mix(in srgb, ${tone} 10%, transparent)` }}
-        >
-          Try strategy
         </button>
       </div>
     </motion.div>

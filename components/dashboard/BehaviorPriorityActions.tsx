@@ -52,9 +52,11 @@ function comingSoon(action: string) {
 export function BehaviorPriorityActions({
   actions,
   supportRoster,
+  totalStudents,
 }: {
   actions: PriorityAction[];
   supportRoster: BehaviorSupport[];
+  totalStudents: number;
 }) {
   const reduce = useReducedMotion();
   const [drillStatus, setDrillStatus] = useState<"new" | "active" | null>(null);
@@ -88,11 +90,14 @@ export function BehaviorPriorityActions({
       <header className="mb-4 flex items-center gap-2">
         <div>
           <div className="premium-eyebrow">
-            <span>Priority actions</span>
+            <span>Action Hub</span>
           </div>
           <h3 className="font-heading font-extrabold text-[17px] leading-tight mt-1.5">
             What to do next
           </h3>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            Showing data from {totalStudents} student{totalStudents === 1 ? "" : "s"}.
+          </p>
         </div>
         {actions.length > 0 && (
           <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold ml-auto">
@@ -150,14 +155,6 @@ export function BehaviorPriorityActions({
           })}
         </ul>
       )}
-
-      <button
-        type="button"
-        onClick={() => comingSoon("The full action-items list")}
-        className="mt-3 text-[11px] font-bold text-primary hover:underline"
-      >
-        View all action items →
-      </button>
 
       <StudentDrillDialog
         open={!!drillStatus}

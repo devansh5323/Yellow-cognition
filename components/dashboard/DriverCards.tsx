@@ -12,7 +12,7 @@ import {
   Target,
   type LucideIcon,
 } from "lucide-react";
-import { classHealth } from "@/lib/classHealth";
+import { classHealth, pillarMainSignal } from "@/lib/classHealth";
 import { WellbeingDriverCards } from "@/components/dashboard/WellbeingDriverCards";
 import { WELLBEING_STATUS_TONE, WELLBEING_STATUS_LABEL, wellbeingStatusFromScore } from "@/lib/classWellbeing";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
@@ -34,6 +34,7 @@ type DriverItem = {
   Icon: LucideIcon;
   tone: string;
   score: number | null;
+  mainSignal: string;
 };
 
 /** A driver's own tone identifies *which* driver it is (kept stable, used
@@ -69,6 +70,8 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
     if (href) router.push(href);
   };
 
+  const pillarStudents = locked ? [] : undefined;
+
   const cognitive: DriverItem[] = [
     {
       key: "focus",
@@ -77,6 +80,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
       Icon: Target,
       tone: BLUE,
       score: ch.pillars.focus,
+      mainSignal: pillarMainSignal("focus", pillarStudents),
     },
     {
       key: "academic",
@@ -85,6 +89,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
       Icon: BookOpen,
       tone: GREEN,
       score: ch.pillars.academic,
+      mainSignal: pillarMainSignal("academic", pillarStudents),
     },
     {
       key: "task",
@@ -93,6 +98,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
       Icon: ClipboardList,
       tone: ORANGE,
       score: ch.pillars.task,
+      mainSignal: pillarMainSignal("task", pillarStudents),
     },
     {
       key: "behavior",
@@ -101,6 +107,7 @@ export function DriverCards({ locked = false }: { locked?: boolean }) {
       Icon: Shield,
       tone: PURPLE,
       score: ch.pillars.behavior,
+      mainSignal: pillarMainSignal("behavior", pillarStudents),
     },
   ];
 
@@ -253,6 +260,7 @@ function DriverGroup({
                 ) : (
                   <NotEnoughData className="mt-3.5" />
                 )}
+                <p className="mt-2 text-[11px] text-foreground/80 leading-snug">{item.mainSignal}</p>
               </div>
 
               {onSelect && (

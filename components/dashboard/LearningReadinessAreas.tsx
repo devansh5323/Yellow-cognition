@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
   Brain,
+  ChevronDown,
   Lightbulb,
   Puzzle,
   Search,
@@ -13,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  learningAreaSkillBreakdown,
   type LearningAreaKey,
   type LearningAreaStat,
   READINESS_STATUS_LABEL,
@@ -23,6 +25,7 @@ import {
 import { StudentDrillDialog } from "@/components/reports/StudentDrillDialog";
 import { NotEnoughData } from "@/components/dashboard/NotEnoughData";
 import { formatDecimal1 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
@@ -38,6 +41,10 @@ const AREA_ICON: Record<LearningAreaKey, LucideIcon> = {
 export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] }) {
   const reduce = useReducedMotion();
   const [openKey, setOpenKey] = useState<LearningAreaKey | null>(null);
+  // Shared across all cards (not per-area) so expanding one area's skills
+  // expands every card in the same grid row too, instead of leaving
+  // siblings collapsed and the row ragged.
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
 
   const { strongest, weakest } = useMemo(() => {
     const scored = areas.filter((a): a is LearningAreaStat & { score: number } => a.score != null);
@@ -63,7 +70,7 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
             Where the class is ready — and where it needs support
           </h3>
           <p className="text-[12px] text-muted-foreground mt-0.5 max-w-prose">
-            Click any area to see students who need support there.
+            View students needing support, or expand an area to see the skills behind its score.
           </p>
         </div>
 
@@ -92,15 +99,15 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
           const status = a.score != null ? readinessStatusFromScore(a.score) : null;
           const statusTone = status ? READINESS_STATUS_TONE[status] : undefined;
           const Icon = AREA_ICON[a.key];
+          const skills = learningAreaSkillBreakdown(a);
+          const expanded = skillsExpanded;
           return (
-            <motion.button
+            <motion.div
               key={a.key}
-              type="button"
-              onClick={() => setOpenKey(a.key)}
               initial={reduce ? undefined : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i, duration: 0.32, ease: EASE }}
-              className="group relative text-left overflow-hidden rounded-xl border border-border/60 bg-background/60 p-4 transition-all hover:border-foreground/20 hover:bg-background/90 hover:shadow-sm"
+              className="group relative overflow-hidden rounded-xl border border-border/60 bg-background/60 p-4 transition-all hover:border-foreground/20 hover:bg-background/90 hover:shadow-sm"
             >
               <span
                 className="absolute inset-y-0 left-0 w-[3px]"
@@ -154,12 +161,73 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
                 </div>
               )}
 
-              {a.studentCount > 0 && (
-                <div className="mt-2 text-[10.5px] tabular-nums text-muted-foreground">
-                  {a.studentCount} student{a.studentCount === 1 ? "" : "s"} need support
+              <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
+                {a.studentCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenKey(a.key)}
+                    className="text-[10.5px] font-bold tabular-nums text-foreground/70 hover:text-foreground hover:underline transition-colors"
+                  >
+                    {a.studentCount} student{a.studentCount === 1 ? "" : "s"} need support
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </div>
+
+              {skills && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <button
+                    type="button"
+                    onClick={() => setSkillsExpanded((prev) => !prev)}
+                    aria-expanded={expanded}
+                    className="w-full flex items-center justify-between gap-2 text-[10.5px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>
+                      {skills.length} Impacting Skill{skills.length === 1 ? "" : "s"}
+                    </span>
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expanded && "rotate-180")} />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {expanded && (
+                      <motion.div
+                        initial={reduce ? false : { height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: EASE }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 space-y-2.5">
+                          {skills.map((s) => (
+                            <div key={s.name}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-foreground/80">{s.name}</span>
+                                <span className="text-[11px] font-bold tabular-nums" style={{ color: a.hue }}>
+                                  {s.score}
+                                </span>
+                              </div>
+                              <div className="mt-1 h-1 rounded-full bg-muted/40 overflow-hidden">
+                                <motion.span
+                                  initial={reduce ? undefined : { scaleX: 0 }}
+                                  animate={{ scaleX: s.score / 100 }}
+                                  transition={{ duration: 0.4, ease: EASE }}
+                                  className="block h-full w-full origin-left rounded-full"
+                                  style={{ background: a.hue }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="mt-2.5 text-[9.5px] text-muted-foreground">
+                          Signal score = average of the {skills.length} skills above.
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
-            </motion.button>
+            </motion.div>
           );
         })}
       </div>

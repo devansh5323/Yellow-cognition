@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
@@ -82,16 +81,12 @@ function getTierGroups() {
   };
 }
 
-function buildPriorityActions(stats: InviteStats): PriorityAction[] {
+function buildPriorityActions(_stats: InviteStats): PriorityAction[] {
   const { tier2, tier3 } = getTierGroups();
-
-  const total = Math.max(0, stats.total);
-  const notYetActive = Math.max(0, total - stats.active);
 
   const pendingFollowUps = getPendingFollowUps();
   const followUp = pendingFollowUps[0];
   const interventionFollowUp = pendingFollowUps[1] ?? pendingFollowUps[0];
-  const conferenceTarget = tier3[0];
 
   const actions: PriorityAction[] = [];
 
@@ -111,7 +106,7 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
   if (tier2.length > 0) {
     actions.push({
       id: "tier2",
-      priority: "high",
+      priority: "medium",
       Icon: Eye,
       title: `Review ${tier2.length} Tier 2 student${tier2.length === 1 ? "" : "s"}`,
       description: "These students show repeated patterns this week.",
@@ -134,19 +129,6 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
     });
   }
 
-  if (notYetActive > 0) {
-    actions.push({
-      id: "nudge",
-      priority: "medium",
-      Icon: Send,
-      title: `Send ${notYetActive} parent nudge${notYetActive === 1 ? "" : "s"}`,
-      description: "Send a friendly nudge to get their weekly input.",
-      meta: `${notYetActive} pending`,
-      cta: "Send nudges",
-      href: "/settings?tab=roster",
-    });
-  }
-
   if (followUp) {
     actions.push({
       id: "followup",
@@ -162,19 +144,6 @@ function buildPriorityActions(stats: InviteStats): PriorityAction[] {
             detail: { studentId: followUp.student.id, reason: followUp.reason },
           }),
         ),
-    });
-  }
-
-  if (conferenceTarget) {
-    actions.push({
-      id: "conference",
-      priority: "medium",
-      Icon: CalendarClock,
-      title: `Schedule 1:1 Tier 3 conference — ${conferenceTarget.name.split(" ")[0]}`,
-      description: "Transition and support challenges continue.",
-      meta: "Suggested",
-      cta: "Schedule now",
-      href: `/students/${conferenceTarget.id}`,
     });
   }
 

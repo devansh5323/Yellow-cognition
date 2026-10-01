@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Gamepad2,
-  Sparkle,
   Sparkles,
   User,
   Users,
@@ -45,6 +45,11 @@ export function BehaviorClassroomStrategies({
 }) {
   const reduce = useReducedMotion();
 
+  const insight =
+    strategies.length > 0
+      ? `Try "${strategies[0].title}" — matches this week's most common trigger.`
+      : "Not enough trigger data yet to recommend a strategy.";
+
   return (
     <section
       aria-label="Classroom management strategies"
@@ -60,39 +65,59 @@ export function BehaviorClassroomStrategies({
       />
 
       <div className="relative">
-        <header className="flex items-start justify-between gap-2.5">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <span
-              aria-hidden
-              className="relative h-8 w-8 rounded-xl inline-flex items-center justify-center shrink-0"
-              style={{
-                background:
-                  "linear-gradient(135deg, color-mix(in srgb, hsl(38 92% 60%) 22%, transparent), color-mix(in srgb, hsl(258 70% 70%) 18%, transparent))",
-                boxShadow: "inset 0 1px 0 0 hsl(0 0% 100% / 0.5), 0 6px 16px -10px hsl(38 92% 50% / 0.45)",
-              }}
-            >
-              <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-300" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0">
-              <h3 className="font-heading font-extrabold text-[16px] leading-tight">Yellow Recommends</h3>
-              <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                Classroom management strategies, connected to this week&apos;s real triggers.
-              </p>
-            </div>
-          </div>
-
+        <header className="flex items-start gap-2.5">
           <span
-            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] shrink-0 mt-0.5"
+            aria-hidden
+            className="relative h-8 w-8 rounded-xl inline-flex items-center justify-center shrink-0"
             style={{
-              color: "hsl(38 92% 38%)",
-              background: "color-mix(in srgb, hsl(38 92% 60%) 14%, transparent)",
-              border: "1px solid color-mix(in srgb, hsl(38 92% 55%) 28%, transparent)",
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, hsl(38 92% 60%) 22%, transparent), color-mix(in srgb, hsl(258 70% 70%) 18%, transparent))",
+              boxShadow: "inset 0 1px 0 0 hsl(0 0% 100% / 0.5), 0 6px 16px -10px hsl(38 92% 50% / 0.45)",
             }}
           >
-            <Sparkle className="h-2.5 w-2.5" strokeWidth={2.4} />
-            AI
+            <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-300" strokeWidth={2.2} />
           </span>
+          <div className="min-w-0">
+            <h3 className="font-heading font-extrabold text-[16px] leading-tight">Yellow Recommends</h3>
+            <p className="text-[11.5px] text-muted-foreground mt-0.5">
+              Classroom management strategies, connected to this week&apos;s real triggers.
+            </p>
+          </div>
         </header>
+
+        <div
+          className="relative overflow-hidden rounded-2xl border p-3.5 flex items-start gap-3 mt-4"
+          style={{
+            background:
+              "radial-gradient(80% 100% at 0% 0%, color-mix(in srgb, hsl(258 70% 60%) 10%, transparent), transparent 70%), color-mix(in srgb, var(--card) 92%, transparent)",
+            borderColor: "color-mix(in srgb, hsl(258 70% 55%) 22%, transparent)",
+          }}
+        >
+          <span
+            aria-hidden
+            className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0 mt-0.5"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, hsl(258 70% 60%) 20%, transparent), color-mix(in srgb, hsl(38 92% 60%) 16%, transparent))",
+            }}
+          >
+            <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-300" strokeWidth={2.4} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.14em] text-violet-700/80 dark:text-violet-300/80">
+              Yellow Insight
+            </div>
+            <p className="mt-0.5 text-[12px] leading-snug text-foreground/85">{insight}</p>
+          </div>
+          <Image
+            src="/fumi-mascot.png"
+            alt=""
+            aria-hidden
+            width={44}
+            height={44}
+            className="rounded-[10px] shrink-0 hidden sm:block"
+          />
+        </div>
 
         {strategies.length === 0 ? (
           <p className="text-[12px] text-muted-foreground mt-4">No strategies to suggest right now.</p>

@@ -95,12 +95,11 @@ const SUBJECT_TONE: Record<string, string> = {
   Hindi: RED,
 };
 
-// Fixed to this demo teacher's one classroom (matches the "Grade 3 — Section
-// A" pill in the dashboard header) — subject is the only thing that varies
-// recording to recording, since the same class gets checked in on across
-// different periods/subjects.
-const GRADE = "Grade 3" as const;
-const SECTION = "A";
+// Fixed to this demo teacher's one real classroom (matches the "Grade 5"
+// pill in the dashboard header) — the real roster has no section, so
+// subject is the only thing that varies recording to recording, since the
+// same class gets checked in on across different periods/subjects.
+const GRADE = "Grade 5" as const;
 const CLASS_SIZE = ">20" as const;
 
 function pick<T>(arr: readonly T[]): T {
@@ -132,7 +131,6 @@ function buildRecordedCheckIn(): ClassCheckIn {
     createdAt: new Date().toISOString(),
     teacher: TEACHER_NAME,
     grade: GRADE,
-    section: SECTION,
     subject: pick(SUBJECTS),
     classSize: CLASS_SIZE,
     teachingMins: pick(TEACHING_MIN_BUCKETS),
@@ -418,8 +416,7 @@ function CheckInPage() {
           <>
             <DialogHeader>
               <DialogTitle className="font-heading text-[18px]">
-                {reportCheckIn.grade}
-                {reportCheckIn.section} · {reportCheckIn.subject}
+                {reportCheckIn.grade} · {reportCheckIn.subject}
               </DialogTitle>
               <DialogDescription>
                 {new Date(reportCheckIn.createdAt).toLocaleString()} · {reportCheckIn.classSize}{" "}
@@ -833,8 +830,7 @@ function HistoryPanel({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">
-                  {c.grade}
-                  {c.section ?? ""} · {c.subject}
+                  {c.grade} · {c.subject}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(c.createdAt)}</div>
               </div>

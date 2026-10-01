@@ -24,7 +24,7 @@ export type WellbeingDriverKey = "anxiety" | "peer-safety" | "frustration";
 const DRIVER_ORDER: WellbeingDriverKey[] = ["anxiety", "peer-safety", "frustration"];
 
 export const WELLBEING_LABEL: Record<WellbeingDriverKey, string> = {
-  anxiety: "Anxiety and Coping Index",
+  anxiety: "Anxiety Coping Index",
   "peer-safety": "Peer Safety and Belonging",
   frustration: "Anger and Emotional Regulation",
 };

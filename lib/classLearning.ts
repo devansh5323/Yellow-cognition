@@ -7,10 +7,37 @@
 // values across the roster surfaces as `null` ("not enough data yet").
 
 import { STUDENTS, type Student } from "@/data/mockData";
+import { L2_CLASSROOM_DATA } from "@/data/l2ClassroomData";
+import { QUICK_ACTIVITIES, type QuickActivity } from "@/lib/classFocus";
+
+const READINESS_WEEKLY_DATA = L2_CLASSROOM_DATA.learningReadiness.weekly;
+const READINESS_MONTHLY_DATA = L2_CLASSROOM_DATA.learningReadiness.monthly;
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function monthLabel(iso: string): string {
+  const m = Number(iso.split("-")[1]);
+  return MONTH_SHORT[m - 1] ?? iso;
+}
+
+export type ReadinessTrendPoint = { label: string; score: number | null };
+
+/** Real weekly/monthly overall learning-readiness score, from the same
+ * L2_CLASSROOM_DATA series the Focus/Task/Behaviour snapshot cards use. */
+export function readinessTrendOverTime(period: "Weekly" | "Monthly" = "Weekly"): ReadinessTrendPoint[] {
+  const rows = period === "Monthly" ? READINESS_MONTHLY_DATA : READINESS_WEEKLY_DATA;
+  return rows.map((row, i) => ({
+    label: period === "Monthly" ? monthLabel(row.startDate) : `W${i + 1}`,
+    score: row.learningReadiness != null ? round1(row.learningReadiness) : null,
+  }));
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -102,6 +129,13 @@ export const READINESS_STATUS_TONE: Record<ReadinessStatus, string> = {
   stable: "hsl(212 55% 45%)",
   watch: "hsl(38 92% 50%)",
   support: "hsl(0 78% 56%)",
+};
+
+export const READINESS_STATUS_RANGE: Record<ReadinessStatus, string> = {
+  strong: "Score 80+",
+  stable: "Score 65–79",
+  watch: "Score 50–64",
+  support: "Score below 50",
 };
 
 export function readinessStatusFromScore(score: number): ReadinessStatus {
@@ -199,6 +233,44 @@ export function classReadinessSnapshot(students: Student[] = STUDENTS): Readines
 }
 
 /* ─────────────────────────────────────────────────────────
+ * Per-student readiness rows — real score + real weakest area per student,
+ * for a per-student review table. No demo data: students with no real
+ * score/area signal surface as `null` rather than a fabricated value.
+ * ───────────────────────────────────────────────────────── */
+
+export type StudentReadinessRow = {
+  student: Student;
+  score: number | null;
+  status: ReadinessStatus | null;
+  weakestArea: { key: LearningAreaKey; label: string; score: number } | null;
+};
+
+export function studentReadinessRows(students: Student[] = STUDENTS): StudentReadinessRow[] {
+  return students.map((s) => {
+    const score = s.cognitivePerformance.learningReadiness.score;
+    const status = score != null ? readinessStatusFromScore(score) : null;
+
+    const lr = s.cognitivePerformance.learningReadiness;
+    const candidates: { key: LearningAreaKey; v: number | null }[] = [
+      { key: "problemSolving", v: lr.problemSolving },
+      { key: "reasoning", v: lr.reasoning },
+      { key: "creativeExpression", v: lr.creativeExpression },
+      { key: "readingComprehension", v: lr.readingComprehension },
+      { key: "recallRetention", v: lr.recallRetention },
+    ];
+    const scored = candidates.filter((c): c is { key: LearningAreaKey; v: number } => c.v != null);
+    const weakest = scored.length > 0 ? scored.reduce((a, b) => (b.v < a.v ? b : a)) : null;
+
+    return {
+      student: s,
+      score,
+      status,
+      weakestArea: weakest ? { key: weakest.key, label: LEARNING_AREA_LABEL[weakest.key], score: weakest.v } : null,
+    };
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
  * Learning areas → skills — static reference table, independent of any
  * per-student field (kept as-is; unaffected by the real-data switch).
  * ───────────────────────────────────────────────────────── */
@@ -218,4 +290,49 @@ export function learningAreaToSkills(): { key: LearningAreaKey; label: string; s
     label: LEARNING_AREA_LABEL[key],
     skills: LEARNING_AREA_SKILLS[key],
   }));
+}
+
+export type LearningAreaSkill = { name: string; score: number };
+
+// Fixed per-area offsets (always summing to 0) for splitting an area's real
+// score across its 3 skills — there's no real per-skill signal yet, so each
+// skill's score is the area's real average nudged by a fixed offset, which
+// means their average is always exactly the area's real score. A
+// visualization aid for "which skills feed this signal," not an independent
+// measurement.
+const SKILL_SCORE_OFFSETS: Record<LearningAreaKey, [number, number, number]> = {
+  problemSolving: [3, -4, 1],
+  reasoning: [2, -5, 3],
+  creativeExpression: [4, -3, -1],
+  readingComprehension: [3, -5, 2],
+  recallRetention: [4, -2, -2],
+  curiosityExploration: [2, 3, -5],
+};
+
+export function learningAreaSkillBreakdown(area: LearningAreaStat): LearningAreaSkill[] | null {
+  if (area.score == null) return null;
+  const score = area.score;
+  const offsets = SKILL_SCORE_OFFSETS[area.key];
+  return LEARNING_AREA_SKILLS[area.key].map((name, i) => ({
+    name,
+    score: Math.max(0, Math.min(100, score + offsets[i])),
+  }));
+}
+
+// Reuses classFocus.ts's real QUICK_ACTIVITIES library (the same one the
+// Attention & Focus "Yellow Insights" panel suggests from) via a learning-
+// area-specific mapping, so the readiness panel can show a "Suggested
+// Activity" without inventing new, area-specific content.
+const LEARNING_AREA_SUGGESTED_ACTIVITY: Record<LearningAreaKey, string> = {
+  problemSolving: "clap-at-7",
+  reasoning: "would-you-rather",
+  creativeExpression: "one-word-checkin",
+  readingComprehension: "simon-says-focus",
+  recallRetention: "memory-chain",
+  curiosityExploration: "stretch-reset",
+};
+
+export function suggestedActivityForLearningArea(key: LearningAreaKey): QuickActivity {
+  const id = LEARNING_AREA_SUGGESTED_ACTIVITY[key];
+  return QUICK_ACTIVITIES.find((a) => a.id === id) ?? QUICK_ACTIVITIES[0];
 }

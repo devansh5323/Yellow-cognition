@@ -44,7 +44,6 @@ export type ActivationTaskId =
   | "read-insight"
   | "command-palette"
   | "parent-message"
-  | "first-report"
   | "behavior-log"
   | "positive-log"
   | "review-health";
@@ -73,7 +72,6 @@ const DEFAULT_TASKS: Record<ActivationTaskId, boolean> = {
   "read-insight": false,
   "command-palette": false,
   "parent-message": false,
-  "first-report": false,
   "behavior-log": false,
   "positive-log": false,
   "review-health": false,

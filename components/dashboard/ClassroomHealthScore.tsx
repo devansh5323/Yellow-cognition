@@ -40,7 +40,7 @@ const RED = "hsl(0 78% 58%)";
 const HEADLINE_BY_BAND: Record<ScoreBand, string> = {
   excellent: "Excellent progress!",
   stable: "Stable",
-  watch: "Keep an eye on this",
+  watch: "Your classroom needs more support",
   "needs-support": "Needs attention",
 };
 
@@ -52,7 +52,7 @@ const DESCRIPTION_BY_BAND: Record<ScoreBand, string> = {
 };
 
 const PILLAR_DISPLAY: Record<PillarKey, string> = {
-  focus: "Focus",
+  focus: "Attention and Focus",
   behavior: "Behaviour and Discipline",
   task: "Task completion",
   academic: "Learning Readiness",
@@ -234,7 +234,7 @@ export function ClassroomHealthScore({
 
           <div className="min-w-0 space-y-2">
             <div className="premium-eyebrow" style={{ color: tone }}>
-              <span>This week&apos;s status</span>
+              <span>Current status</span>
             </div>
             <h3
               className="font-heading font-extrabold text-[24px] md:text-[27px] leading-tight"
@@ -352,7 +352,7 @@ export function ClassroomHealthScore({
                 className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
                 style={{ color: GREEN }}
               >
-                Strongest area
+                Growing Strong
               </span>
             </div>
             <h3
@@ -378,7 +378,7 @@ export function ClassroomHealthScore({
                 className="text-[9.5px] font-bold uppercase tracking-[0.12em]"
                 style={{ color: AMBER }}
               >
-                Needs attention
+                Needs Support
               </span>
             </div>
             <h3

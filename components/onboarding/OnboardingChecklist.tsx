@@ -13,7 +13,6 @@ import {
   Sparkles,
   Command,
   MessageCircle,
-  FileBarChart,
   ArrowRight,
   Rocket,
 } from "lucide-react";
@@ -73,15 +72,6 @@ const TASKS: TaskDef[] = [
     tone: "hsl(38 92% 50%)",
     cta: "Pick a student",
     action: { kind: "link", to: "/students" },
-  },
-  {
-    id: "first-report",
-    title: "Preview a monthly report",
-    blurb: "See what families and admins receive.",
-    Icon: FileBarChart,
-    tone: "hsl(0 78% 58%)",
-    cta: "Open reports",
-    action: { kind: "link", to: "/reports" },
   },
 ];
 

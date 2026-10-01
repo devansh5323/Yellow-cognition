@@ -118,7 +118,7 @@ export function DataSourcesConfidence() {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div className="min-w-0">
           <h2 className="font-heading font-extrabold text-[15px] leading-tight">
-            Data Sources &amp; Confidence
+            Data Sources
           </h2>
           <p className="text-[12px] text-muted-foreground mt-1 leading-snug">
             Insights are based on teacher observations, class check-ins, and follow-ups logged so far.

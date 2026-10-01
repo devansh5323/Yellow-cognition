@@ -8,6 +8,7 @@ import {
   Circle,
   ClipboardList,
   HelpCircle,
+  Lock,
   PauseCircle,
   Sparkles,
   TrendingDown,
@@ -27,6 +28,10 @@ import {
 } from "@/components/ui/sheet";
 import { STUDENTS, type Student } from "@/data/mockData";
 import { getAllFollowUpRecords, type FollowUpRecord, type OutcomeStatus, type NextStep } from "@/lib/interventionFollowUps";
+import { listCheckInsForTeacher } from "@/lib/checkIn";
+import { TEACHER_NAME } from "@/components/dashboard/DataReadinessCard";
+
+const UNLOCK_CHECKINS = 3;
 
 const OUTCOME_ICONS: Record<OutcomeStatus, LucideIcon> = {
   Improved: TrendingUp,
@@ -83,8 +88,16 @@ export function PbisProgressLog() {
     return () => window.removeEventListener("ah-followup-change", refresh);
   }, []);
 
+  // Real, but localStorage-backed — fetched client-side only to avoid an
+  // SSR/hydration mismatch, same pattern as ClassroomDisruptionImpact.
+  const [checkInCount, setCheckInCount] = useState<number | null>(null);
+  useEffect(() => {
+    setCheckInCount(listCheckInsForTeacher(TEACHER_NAME).length);
+  }, []);
+
   if (!records) return null;
 
+  const locked = checkInCount != null && checkInCount < UNLOCK_CHECKINS;
   const active = records.find((r) => r.id === openId) ?? null;
   const rows = records.slice(0, 8);
 
@@ -106,7 +119,19 @@ export function PbisProgressLog() {
         </p>
       </header>
 
-      {rows.length === 0 ? (
+      {locked ? (
+        <div className="flex flex-col items-center justify-center gap-2 text-center px-4 py-10">
+          <span className="h-9 w-9 rounded-full bg-muted/70 inline-flex items-center justify-center text-muted-foreground">
+            <Lock className="h-4 w-4" />
+          </span>
+          <p className="text-[13px] font-bold text-foreground/85 leading-tight">
+            Complete {UNLOCK_CHECKINS} check-ins to unlock
+          </p>
+          <p className="text-[11.5px] text-muted-foreground leading-snug max-w-[280px]">
+            {checkInCount ?? 0} of {UNLOCK_CHECKINS} class check-ins logged — {Math.max(0, UNLOCK_CHECKINS - (checkInCount ?? 0))} more to go before intervention tracking can be estimated.
+          </p>
+        </div>
+      ) : rows.length === 0 ? (
         <div className="p-8 text-center">
           <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mx-auto" />
           <p className="text-[12.5px] font-semibold mt-2">No intervention follow-ups logged yet.</p>

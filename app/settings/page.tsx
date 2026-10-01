@@ -247,7 +247,7 @@ function ProfileCard() {
         <SettingsField label="Full name" defaultValue="Maya Khan" />
         <SettingsField label="Email" defaultValue="maya.khan@school.edu" />
         <SettingsField label="School" defaultValue="Bishop Cottons Girls School" />
-        <SettingsField label="Primary class" defaultValue="Grade 3 — Section A" />
+        <SettingsField label="Primary class" defaultValue="Grade 5" />
       </div>
     </>
   );

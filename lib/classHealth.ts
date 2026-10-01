@@ -45,6 +45,54 @@ function pillarValue(s: Student, p: PillarKey): number | null {
   }
 }
 
+/** How many real students actually have a value for this pillar — the same
+ * "X students contributing" subtext pattern lib/classWellbeing.ts's driver
+ * cards already show. */
+export function pillarDataCount(p: PillarKey, students: Student[] = STUDENTS): number {
+  return students.filter((s) => pillarValue(s, p) != null).length;
+}
+
+const PILLAR_STRUGGLE_THRESHOLD = 55;
+
+/** Same convention as lib/classWellbeing.ts's MAIN_SIGNAL — a plain-language
+ * read of what the real per-student numbers show, not a generic count. */
+const PILLAR_MAIN_SIGNAL: Record<PillarKey, (count: number, hasData: boolean) => string> = {
+  focus: (n, has) =>
+    !has
+      ? "Not enough data yet for this area."
+      : n > 0
+        ? `${n} student${n === 1 ? "" : "s"} ${n === 1 ? "shows" : "show"} reduced attention and focus during lessons.`
+        : "Attention and focus look steady across the class.",
+  academic: (n, has) =>
+    !has
+      ? "Not enough data yet for this area."
+      : n > 0
+        ? `${n} student${n === 1 ? "" : "s"} ${n === 1 ? "needs" : "need"} more support to be ready for new concepts.`
+        : "Most students are ready for new concepts.",
+  task: (n, has) =>
+    !has
+      ? "Not enough data yet for this area."
+      : n > 0
+        ? `${n} student${n === 1 ? "" : "s"} ${n === 1 ? "disengages" : "disengage"} from assigned tasks partway through.`
+        : "Task engagement looks steady across the class.",
+  behavior: (n, has) =>
+    !has
+      ? "Not enough data yet for this area."
+      : n > 0
+        ? `${n} student${n === 1 ? "" : "s"} ${n === 1 ? "needs" : "need"} reinforcement to meet behaviour expectations.`
+        : "Behaviour expectations are being met consistently.",
+};
+
+/** Real — a plain-language signal sentence per pillar, built from how many
+ * of the real students with a value for this pillar fall below the same
+ * struggle threshold used elsewhere in the app, not a fabricated claim. */
+export function pillarMainSignal(p: PillarKey, students: Student[] = STUDENTS): string {
+  const scores = students.map((s) => pillarValue(s, p)).filter((v): v is number => v != null);
+  const hasData = scores.length > 0;
+  const strugglingCount = scores.filter((v) => v < PILLAR_STRUGGLE_THRESHOLD).length;
+  return PILLAR_MAIN_SIGNAL[p](strugglingCount, hasData);
+}
+
 /* ─────────────────────────────────────────────────────────
  * Score Bands — canonical 4-tier classification used for the
  * Classroom Health score, every pillar's status pill, and per-student

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarRange, ChevronRight, ShieldCheck, Users } from "lucide-react";
+import { CalendarRange, ChevronRight, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import {
   Select,
@@ -15,9 +15,8 @@ import {
 } from "@/components/ui/select";
 import { LearningReadinessSnapshot } from "@/components/dashboard/LearningReadinessSnapshot";
 import { LearningReadinessAreas } from "@/components/dashboard/LearningReadinessAreas";
-import { LearningSkillComposition } from "@/components/dashboard/LearningSkillComposition";
-import { LearningAreasToSkills } from "@/components/dashboard/LearningAreasToSkills";
-import { classReadinessSnapshot } from "@/lib/classLearning";
+import { StudentsNeedingReadinessSupport } from "@/components/dashboard/StudentsNeedingReadinessSupport";
+import { classReadinessSnapshot, studentReadinessRows } from "@/lib/classLearning";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -61,6 +60,7 @@ function LearningReadinessPage({ classroom }: { classroom: string }) {
   const reduce = useReducedMotion();
 
   const snapshot = useMemo(() => classReadinessSnapshot(), []);
+  const readinessRows = useMemo(() => studentReadinessRows(), []);
 
   return (
     <div className="relative">
@@ -94,22 +94,7 @@ function LearningReadinessPage({ classroom }: { classroom: string }) {
 
         <LearningReadinessAreas areas={snapshot.areas} />
 
-        <LearningSkillComposition />
-
-        <LearningAreasToSkills />
-
-        <div className="flex items-start justify-between gap-3 flex-wrap rounded-2xl border border-border/60 bg-muted/30 px-4 py-3.5">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={2.2} />
-            <p className="text-[11.5px] text-muted-foreground leading-snug">
-              Learning readiness insights are generated from Attention Hero gameplay and are intended
-              to guide support, not to replace classroom observation or academic assessment.
-            </p>
-          </div>
-          <Link href="/learning-outcomes" className="shrink-0 text-[11.5px] font-bold text-primary hover:underline">
-            View Learning Outcome Status →
-          </Link>
-        </div>
+        <StudentsNeedingReadinessSupport rows={readinessRows} />
       </motion.div>
     </div>
   );

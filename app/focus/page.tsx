@@ -6,7 +6,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/dashboard/AppShell";
 import { DataSourcesConfidence } from "@/components/dashboard/DataSourcesConfidence";
-import { MonthlyFocusCheckIn } from "@/components/dashboard/MonthlyFocusCheckIn";
 import { FocusSnapshot } from "@/components/dashboard/FocusSnapshot";
 import { AttentionPatternInsights } from "@/components/dashboard/AttentionPatternInsights";
 import { ClassAttentionProfile } from "@/components/dashboard/ClassAttentionProfile";
@@ -14,7 +13,6 @@ import { FocusSupportTable } from "@/components/dashboard/FocusSupportTable";
 import { FocusRecommendsStrip } from "@/components/dashboard/FocusRecommendsStrip";
 import { FocusTrendsSection } from "@/components/dashboard/FocusTrendsSection";
 import {
-  attentionHeatmapLogsPerStudent,
   attentionPatternInsights,
   classAttentionHeatmap,
   classFocusSnapshot,
@@ -32,17 +30,16 @@ export default function Page() {
 
 // Visual hierarchy per the Attention & Focus Detail Page spec:
 // Snapshot (what's happening overall) → Patterns (what's coming up across
-// domains) → Priority (who needs help and where) → Actions (what to do) →
-// Trends (is it working). The real, independent pieces (data sources,
+// domains) → Priority (who needs help and where) → Trends (is it working) →
+// Actions (what to do). The real, independent pieces (data sources,
 // monthly check-in) stay above all of it; everything below is demo data —
-// see lib/classFocus.ts and components/dashboard/DemoDataBadge.tsx.
+// see lib/classFocus.ts.
 function FocusPage() {
   const reduce = useReducedMotion();
 
   const snapshot = useMemo(() => classFocusSnapshot(), []);
   const insights = useMemo(() => attentionPatternInsights(), []);
   const heatmap = useMemo(() => classAttentionHeatmap(), []);
-  const logsPerStudent = useMemo(() => attentionHeatmapLogsPerStudent(), []);
 
   return (
     <div className="relative">
@@ -68,26 +65,23 @@ function FocusPage() {
         {/* Data sources & confidence — real */}
         <DataSourcesConfidence />
 
-        {/* Monthly check-in — an independent, real teacher self-report */}
-        <MonthlyFocusCheckIn />
-
         {/* Snapshot — what's happening overall in the classroom */}
         <FocusSnapshot snapshot={snapshot} />
 
         {/* Patterns — what's coming up across all focus domains */}
         <AttentionPatternInsights insights={insights} />
-        <ClassAttentionProfile domains={heatmap} logsPerStudent={logsPerStudent} />
+        <ClassAttentionProfile domains={heatmap} />
 
         {/* Priority — who needs help and where */}
         <FocusSupportTable />
+
+        {/* Trends — is it working */}
+        <FocusTrendsSection snapshot={snapshot} />
 
         {/* Actions — what to do */}
         <div id="yellow-recommends">
           <FocusRecommendsStrip />
         </div>
-
-        {/* Trends — is it working */}
-        <FocusTrendsSection snapshot={snapshot} />
       </motion.div>
     </div>
   );

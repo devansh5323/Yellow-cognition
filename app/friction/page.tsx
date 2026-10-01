@@ -278,37 +278,50 @@ function FrictionPage() {
               <div className="min-w-0">
                 <div className="premium-eyebrow">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <span>Instructional friction · this month</span>
+                  <span>Class efficiency · this month</span>
                 </div>
-                <h1 className="mt-2 font-heading font-extrabold text-[26px] md:text-[34px] leading-[1.1] tracking-tight">
-                  <span className="bg-gradient-to-r from-[hsl(142_55%_42%)] via-[hsl(200_60%_50%)] to-[hsl(260_55%_55%)] bg-clip-text text-transparent tabular-nums">
-                    +{hs.hoursSaved} hrs
-                  </span>{" "}
-                  of teaching recovered
-                </h1>
-                <p className="mt-1.5 text-[13px] text-muted-foreground max-w-2xl">
-                  Class focus up{" "}
-                  <span className="font-semibold text-foreground">{hs.attentionUpPct}%</span> across{" "}
-                  <span className="font-semibold text-foreground">{hs.studentsCovered}</span>{" "}
-                  students.{" "}
-                  {behaviourImproved ? (
-                    <>
-                      Behaviour-loss down{" "}
-                      <span className="font-semibold text-primary">
-                        {behaviourDeltaPct}%
+                {hs.classesPerWeek === 0 ? (
+                  <>
+                    <h1 className="mt-2 font-heading font-extrabold text-[26px] md:text-[34px] leading-[1.1] tracking-tight text-muted-foreground">
+                      No data yet
+                    </h1>
+                    <p className="mt-1.5 text-[13px] text-muted-foreground max-w-2xl">
+                      We don&apos;t have any check-ins this week yet — run one to start tracking instructional time recovered.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="mt-2 font-heading font-extrabold text-[26px] md:text-[34px] leading-[1.1] tracking-tight">
+                      <span className="bg-gradient-to-r from-[hsl(142_55%_42%)] via-[hsl(200_60%_50%)] to-[hsl(260_55%_55%)] bg-clip-text text-transparent tabular-nums">
+                        +{hs.hoursSaved} hrs
                       </span>{" "}
-                      per class.
-                    </>
-                  ) : (
-                    <>
-                      Behaviour-loss this month:{" "}
-                      <span className="font-semibold text-foreground tabular-nums">
-                        {hs.behaviourBefore} → {hs.behaviourAfter}
-                      </span>{" "}
-                      min/class.
-                    </>
-                  )}
-                </p>
+                      of teaching recovered
+                    </h1>
+                    <p className="mt-1.5 text-[13px] text-muted-foreground max-w-2xl">
+                      Class focus up{" "}
+                      <span className="font-semibold text-foreground">{hs.attentionUpPct}%</span> across{" "}
+                      <span className="font-semibold text-foreground">{hs.studentsCovered}</span>{" "}
+                      students.{" "}
+                      {behaviourImproved ? (
+                        <>
+                          Behaviour-loss down{" "}
+                          <span className="font-semibold text-primary">
+                            {behaviourDeltaPct}%
+                          </span>{" "}
+                          per class.
+                        </>
+                      ) : (
+                        <>
+                          Behaviour-loss this month:{" "}
+                          <span className="font-semibold text-foreground tabular-nums">
+                            {hs.behaviourBefore} → {hs.behaviourAfter}
+                          </span>{" "}
+                          min/class.
+                        </>
+                      )}
+                    </p>
+                  </>
+                )}
               </div>
               <Link href="/check-in">
                 <Button className="rounded-xl shadow-[0_8px_20px_-10px_hsl(142_55%_35%/0.55)]">
@@ -325,28 +338,36 @@ function FrictionPage() {
                 icon={<Clock className="h-4 w-4" />}
                 label="Time saved"
                 primary={
-                  <>
-                    +{hs.hoursSaved}
-                    <span className="text-[12px] text-muted-foreground font-bold ml-1">
-                      hrs
-                    </span>
-                  </>
+                  hs.classesPerWeek === 0 ? (
+                    "—"
+                  ) : (
+                    <>
+                      +{hs.hoursSaved}
+                      <span className="text-[12px] text-muted-foreground font-bold ml-1">
+                        hrs
+                      </span>
+                    </>
+                  )
                 }
-                meta="back into teaching"
+                meta={hs.classesPerWeek === 0 ? "no data yet" : "back into teaching"}
                 tone="primary"
               />
               <HeroStat
                 icon={<TrendingUp className="h-4 w-4" />}
                 label="Attention lift"
                 primary={
-                  <>
-                    +{hs.attentionUpPct}
-                    <span className="text-[12px] text-muted-foreground font-bold ml-0.5">
-                      %
-                    </span>
-                  </>
+                  hs.classesPerWeek === 0 ? (
+                    "—"
+                  ) : (
+                    <>
+                      +{hs.attentionUpPct}
+                      <span className="text-[12px] text-muted-foreground font-bold ml-0.5">
+                        %
+                      </span>
+                    </>
+                  )
                 }
-                meta={`${hs.studentsCovered} students`}
+                meta={hs.classesPerWeek === 0 ? "no data yet" : `${hs.studentsCovered} students`}
                 tone="accent"
               />
               <HeroStat

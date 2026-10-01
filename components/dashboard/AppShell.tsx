@@ -7,8 +7,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Users,
-  School,
-  FileBarChart,
   Settings,
   Search,
   Bell,
@@ -90,7 +88,7 @@ const SYSTEM_NOTIFICATIONS: Notification[] = [
     id: "n-report-1",
     kind: "report",
     title: "Monthly class report ready",
-    body: "Grade 3 — Section A summary is available.",
+    body: "Grade 5 summary is available.",
     time: "2h ago",
     unread: true,
     priority: "low",
@@ -123,10 +121,8 @@ function buildNotifications(): Notification[] {
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users },
-  { to: "/classroom", label: "Classroom", icon: School },
   { to: "/check-in", label: "Classroom Log", icon: ClipboardCheck },
-  { to: "/friction", label: "Friction", icon: Timer },
-  { to: "/reports", label: "Reports", icon: FileBarChart },
+  { to: "/friction", label: "Class Efficiency", icon: Timer },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -207,7 +203,6 @@ export function AppShell({
       else if (Date.now() - lastG < 600) {
         if (e.key === "d") router.push("/dashboard");
         if (e.key === "s") router.push("/students");
-        if (e.key === "c") router.push("/classroom");
       }
     };
     window.addEventListener("keydown", onKey);

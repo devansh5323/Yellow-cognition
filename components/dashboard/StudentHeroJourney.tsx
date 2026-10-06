@@ -62,7 +62,6 @@ export function StudentHeroJourney({ student }: { student: Student }) {
         <JourneyStat
           icon={Clock}
           tone="amber"
-          highlighted
           value={`${j.neuroplayMinutes} min`}
           label="Neuroplay Time"
           breakdown={[
@@ -89,22 +88,20 @@ function JourneyStat({
   value,
   label,
   breakdown,
-  highlighted,
 }: {
   icon: LucideIcon;
   tone: Tone;
   value: React.ReactNode;
   label: string;
   breakdown: { value: React.ReactNode; label: string }[];
-  highlighted?: boolean;
 }) {
   const t = TONE[tone];
   return (
     <div
       className="rounded-xl border p-4 flex flex-col gap-3 min-w-0"
       style={{
-        borderColor: highlighted ? `color-mix(in srgb, ${t} 30%, var(--border))` : "var(--border)",
-        background: highlighted ? `color-mix(in srgb, ${t} 6%, var(--card))` : "var(--card)",
+        borderColor: `color-mix(in srgb, ${t} 30%, var(--border))`,
+        background: `color-mix(in srgb, ${t} 6%, var(--card))`,
       }}
     >
       <span

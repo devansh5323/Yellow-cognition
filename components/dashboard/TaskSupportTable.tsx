@@ -14,6 +14,7 @@ import {
   suggestedActivityForTaskArea,
   type TaskSupport,
 } from "@/lib/classTask";
+import { useRecommendations } from "@/hooks/useRecommendations";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const PREVIEW_COUNT = 5;
@@ -36,6 +37,9 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
   const visible = showAll ? sorted : sorted.slice(0, PREVIEW_COUNT);
   const selected = sorted.find((r) => r.student.id === selectedId) ?? visible[0] ?? null;
   const selectedDetail = selected ? demoTaskSupportDetail(selected.student.id) : null;
+
+  // Real recommended activity + skills to develop; demo content is the fallback.
+  const rec = useRecommendations(selected?.student.ageGroup);
 
   if (items.length === 0) {
     return (
@@ -200,7 +204,7 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                 <div>
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-1.5">Skills to Develop</div>
                   <ul className="space-y-2">
-                    {selectedDetail.suggestedFocus.map((skill) => (
+                    {(rec?.skillsToDevelop.slice(0, 4).map((s) => s.skill) ?? selectedDetail.suggestedFocus).map((skill) => (
                       <li key={skill} className="flex items-start gap-2 text-[12px] leading-snug">
                         <ArrowRight className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                         <span className="text-foreground/85">{skill}</span>
@@ -210,7 +214,11 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                 </div>
 
                 {(() => {
-                  const activity = suggestedActivityForTaskArea(selectedDetail.majorArea);
+                  const real = rec?.activities[0];
+                  const fallback = suggestedActivityForTaskArea(selectedDetail.majorArea);
+                  const activity = real
+                    ? { title: real.name, description: real.objective, durationMins: null as number | null }
+                    : { title: fallback.title, description: fallback.description, durationMins: fallback.durationMins as number | null };
                   return (
                     <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
                       <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-primary mb-1.5">Suggested Activity</div>
@@ -221,7 +229,9 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[12.5px] font-bold">{activity.title}</span>
-                            <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">{activity.durationMins} mins</span>
+                            {activity.durationMins != null && (
+                              <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">{activity.durationMins} mins</span>
+                            )}
                           </div>
                           <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{activity.description}</p>
                         </div>

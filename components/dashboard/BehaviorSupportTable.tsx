@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, ChevronRight, Clock, Info, Lightbulb, Star, Users2 } from "lucide-react";
 import { StudentAvatar } from "@/components/dashboard/StudentAvatar";
 import { NotEnoughDataPanel } from "@/components/dashboard/NotEnoughData";
+import { useRecommendations } from "@/hooks/useRecommendations";
 import { STUDENTS } from "@/data/mockData";
 import {
   BEHAVIOR_STATUS_LABEL,
@@ -34,7 +35,12 @@ export function BehaviorSupportTable({ items }: { items: BehaviorSupport[] }) {
   const sorted = useMemo(() => [...items].sort((a, b) => a.score - b.score), [items]);
   const visible = showAll ? sorted : sorted.slice(0, PREVIEW_COUNT);
   const selected = sorted.find((r) => r.student.id === selectedId) ?? visible[0] ?? null;
-  const selectedActivity = selected ? strategyForDriver(selected.primary) : null;
+  const rec = useRecommendations(selected?.student.ageGroup);
+  const fallbackActivity = selected ? strategyForDriver(selected.primary) : null;
+  const realActivity = rec?.activities[0];
+  const selectedActivity = realActivity
+    ? { title: realActivity.name, rationale: realActivity.objective }
+    : fallbackActivity;
 
   if (items.length === 0) {
     return (
@@ -205,7 +211,7 @@ export function BehaviorSupportTable({ items }: { items: BehaviorSupport[] }) {
                 <div>
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-1.5">Skills to Develop</div>
                   <ul className="space-y-2">
-                    {selected.recommendedActions.map((a) => (
+                    {(rec?.skillsToDevelop.slice(0, 4).map((x) => x.skill) ?? selected.recommendedActions).map((a) => (
                       <li key={a} className="flex items-start gap-2 text-[12px] leading-snug">
                         <ArrowRight className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: DISRUPTION_HUE[selected.primary] }} />
                         <span className="text-foreground/85">{a}</span>

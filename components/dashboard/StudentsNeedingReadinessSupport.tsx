@@ -15,6 +15,7 @@ import {
   type StudentReadinessRow,
 } from "@/lib/classLearning";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDecimal1 } from "@/lib/format";
 
 const PREVIEW_COUNT = 5;
 
@@ -124,7 +125,7 @@ export function StudentsNeedingReadinessSupport({ rows }: { rows: StudentReadine
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          {row.score != null ? <MiniScoreRing score={row.score} tone={tone} /> : <span className="text-[11px] text-muted-foreground">No data</span>}
+                          {row.score != null ? <MiniScoreRing score={formatDecimal1(row.score)} tone={tone} /> : <span className="text-[11px] text-muted-foreground">No data</span>}
                         </td>
                         <td className="px-3 py-3">
                           {row.status ? (
@@ -296,12 +297,12 @@ export function StudentsNeedingReadinessSupport({ rows }: { rows: StudentReadine
   );
 }
 
-function MiniScoreRing({ score, tone }: { score: number; tone: string }) {
+function MiniScoreRing({ score, tone }: { score: string; tone: string }) {
   const SIZE = 44;
   const STROKE = 4;
   const R = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * R;
-  const offset = C - (Math.max(0, Math.min(100, score)) / 100) * C;
+  const offset = C - (Math.max(0, Math.min(100, parseFloat(score))) / 100) * C;
   return (
     <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
       <svg width={SIZE} height={SIZE} className="-rotate-90">

@@ -127,7 +127,7 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <MiniScoreRing score={row.score} tone={tone} />
+                          <MiniScoreRing score={formatDecimal1(row.score)} tone={tone} />
                         </td>
                         <td className="px-3 py-3">
                           <span
@@ -261,12 +261,12 @@ export function TaskSupportTable({ items }: { items: TaskSupport[] }) {
   );
 }
 
-function MiniScoreRing({ score, tone }: { score: number; tone: string }) {
+function MiniScoreRing({ score, tone }: { score: string; tone: string }) {
   const SIZE = 44;
   const STROKE = 4;
   const R = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * R;
-  const offset = C - (Math.max(0, Math.min(100, score)) / 100) * C;
+  const offset = C - (Math.max(0, Math.min(100, parseFloat(score))) / 100) * C;
   return (
     <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
       <svg width={SIZE} height={SIZE} className="-rotate-90">

@@ -124,7 +124,7 @@ export function FocusSupportTable() {
                         <td className="px-3 py-3">
                           <div className="max-w-[26ch]">
                             <div className="text-[12px] font-bold leading-tight" style={{ color: domainHue }}>
-                              {row.topDomainLabel} Attention
+                              {row.topDomainLabel}
                             </div>
                             <div className="text-[10.5px] text-muted-foreground leading-snug">{row.topDomainReason}</div>
                           </div>
@@ -192,7 +192,7 @@ export function FocusSupportTable() {
                     </span>
                     <div className="min-w-0">
                       <div className="text-[12.5px] font-bold leading-tight" style={{ color: FOCUS_DOMAIN_HUE[selected.topDomain] }}>
-                        {selected.topDomainLabel} Attention
+                        {selected.topDomainLabel}
                       </div>
                       <div className="text-[11px] text-muted-foreground leading-snug">{selected.topDomainReason}</div>
                     </div>
@@ -200,7 +200,7 @@ export function FocusSupportTable() {
                 </div>
 
                 <div>
-                  <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-1.5">Skills to Develop</div>
+                  <div className="text-[10.5px] font-bold uppercase tracking-[0.10em] text-muted-foreground mb-1.5">Recommended Actions</div>
                   <ul className="space-y-2">
                     {selected.recommendedActions.map((a) => (
                       <li key={a} className="flex items-start gap-2 text-[12px] leading-snug">

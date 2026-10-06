@@ -214,12 +214,12 @@ export type FocusDomainKey = Extract<AttentionDomainKey, "sus" | "vis" | "aud" |
 export const FOCUS_DOMAIN_ORDER: FocusDomainKey[] = ["sus", "vis", "aud", "sel", "div", "swi"];
 
 export const FOCUS_DOMAIN_LABEL: Record<FocusDomainKey, string> = {
-  sus: "Sustained Focus",
-  vis: "Visual Focus",
-  aud: "Auditory Focus",
-  sel: "Selective Focus",
-  div: "Divided Focus",
-  swi: "Focus Switching",
+  sus: "Sustained Attention",
+  vis: "Visual Attention",
+  aud: "Auditory Attention",
+  sel: "Selective Attention",
+  div: "Divided Attention",
+  swi: "Attention Switching",
 };
 
 export const FOCUS_DOMAIN_DESCRIPTION: Record<FocusDomainKey, string> = {
@@ -314,6 +314,17 @@ const HEATMAP_DESCRIPTION: Record<AttentionDomainKey, string> = {
   beh: "Managing impulses and following classroom expectations.",
 };
 
+const L2_SUBDOMAIN_KEY: Record<AttentionDomainKey, string> = {
+  sus: "sustainedAttention",
+  vis: "visualAttention",
+  aud: "auditoryAttention",
+  sel: "selectiveAttention",
+  div: "dividedAttention",
+  swi: "attentionSwitching",
+  hyp: "impulseControl",
+  beh: "emotionalRegulation",
+};
+
 export const ATTENTION_HEATMAP_STATUS_LABEL: Record<AttentionHeatmapStatus, string> = {
   high: "High",
   med: "Medium",
@@ -338,7 +349,7 @@ function heatmapStatus(score: number): AttentionHeatmapStatus {
 export function classAttentionHeatmap(students: Student[] = STUDENTS): AttentionHeatmapStat[] {
   return ATTENTION_DOMAINS.map((d) => {
     const scores = students.map((s) => studentAttentionDomains(s)[d.key]);
-    const supplied = FOCUS_DATA.subdomains.find((item) => item.displayName.toLowerCase() === d.key);
+    const supplied = FOCUS_DATA.subdomains.find((item) => item.key === L2_SUBDOMAIN_KEY[d.key]);
     const score = supplied?.averageScore ?? avg(scores);
     const atRiskCount = scores.filter((v) => v < 55).length;
     return {
@@ -407,7 +418,6 @@ export function attentionPatternInsights(students: Student[] = STUDENTS): Attent
   const total = Math.max(1, students.length);
   const domains = classFocusDomains(students);
   const get = (k: FocusDomainKey) => domains.find((d) => d.key === k)!;
-  const sustained = get("sus");
   const auditory = get("aud");
   const visual = get("vis");
   const switching = get("swi");
@@ -641,7 +651,7 @@ export const QUICK_ACTIVITIES: QuickActivity[] = [
     description: "Classic listening game that rewards careful attention to instructions.",
     durationMins: 5,
     groupSize: "Whole class",
-    category: "Auditory Focus",
+    category: "Auditory Attention",
     howToPlay: [
       "Play a fast round of Simon Says with simple movements.",
       'Only follow instructions that start with "Simon says".',
@@ -717,14 +727,14 @@ export const FOCUS_DOMAIN_WEAKNESS_REASON: Record<FocusDomainKey, string> = {
  * hyp/beh, which the heatmap shows but the 6-domain FocusSupportRow never
  * indexes into). */
 export const DOMAIN_INTERVENTIONS: Record<AttentionDomainKey, string[]> = {
-  sus: ["Pomodoro 15/3 cycles", "Sustained-Focus game (Lighthouse)", "Reduce ambient noise"],
-  sel: ["Single-channel worksheets", "Selective-Attention game (Find-It)", "Front-row seating"],
-  vis: ["Visual scaffolds & color cues", "Visual-Search game (Spotter)", "Larger fonts on board"],
-  aud: ["Repeat-back protocol", "Auditory-Memory game (Echo)", "Use FM mic for clarity"],
-  div: ["One-task-at-a-time framing", "Dual-Task ramp game", "Checklists for multi-step work"],
-  swi: ["Transition warnings (2-min)", "Task-Switch game", "Visual schedule on desk"],
-  hyp: ["Movement breaks every 20 min", "Impulse-Control game", "Fidget tool allowance"],
-  beh: ["Calming corner access", "Self-Reg breathing game", "Daily check-in card"],
+  sus: ["Use 10-15 minute focus blocks", "Add a 2-minute movement reset", "Give one clear goal for each work block"],
+  sel: ["Seat away from noisy clusters", "Use a quiet attention cue before instructions", "Show one active question area at a time"],
+  vis: ["Pair instructions with a visual checklist", "Use color cues for the next step", "Reduce clutter on worksheets or slides"],
+  aud: ["Ask the student to repeat directions back", "Pair spoken instructions with a written cue", "Move closer during direct instruction"],
+  div: ["Break multi-step work into one step at a time", "Use a checklist students can tick off", "Pause before adding the next instruction"],
+  swi: ["Give a 2-minute transition warning", "Use a visual schedule on the desk or board", "Start the next task with a first-step prompt"],
+  hyp: ["Plan short movement breaks", "Use a structured fidget during listening time", "Practice a quick impulse-control routine"],
+  beh: ["Use a calm-down routine before returning to work", "Add a daily self-regulation check-in", "Provide a quiet reset spot when needed"],
 };
 
 /** Students whose demo score in a given attention/behaviour domain is below

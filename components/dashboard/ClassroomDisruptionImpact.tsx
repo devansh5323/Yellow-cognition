@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useReducedMotion, motion } from "framer-motion";
 import { Clock, Info, Lightbulb, Lock, TrendingUp, Users2 } from "lucide-react";
 import { classDisruptionImpact } from "@/lib/classBehavior";
@@ -130,10 +131,18 @@ function LockedImpact({ checkInCount }: { checkInCount: number }) {
         <Lock className="h-4 w-4" />
       </span>
       <p className="text-[13px] font-bold text-foreground/85 leading-tight">
-        Complete {UNLOCK_CHECKINS} check-ins to unlock
+        Complete {UNLOCK_CHECKINS}{" "}
+        <Link href="/check-in" className="text-emerald-600 dark:text-emerald-400 hover:underline">
+          check-ins
+        </Link>{" "}
+        to unlock
       </p>
       <p className="text-[11.5px] text-muted-foreground leading-snug max-w-[280px]">
-        {checkInCount} of {UNLOCK_CHECKINS} class check-ins logged — {remaining} more to go before disruption impact can be estimated.
+        {checkInCount} of {UNLOCK_CHECKINS} class{" "}
+        <Link href="/check-in" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+          check-ins
+        </Link>{" "}
+        logged — {remaining} more to go before disruption impact can be estimated.
       </p>
     </div>
   );

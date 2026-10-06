@@ -1,16 +1,18 @@
 // Class Task Engagement — data + helpers for the Task Engagement experience.
 //
 // data/realStudents.ts covers a single top-line `taskEngagement` score per
-// student (real, used for the snapshot and the support ranking below). For
-// the category breakdown, data/l2ClassroomData.ts's weekly/monthly export
-// has real CLASS-LEVEL scores for exactly
-// the 7 task-engagement areas below (taskInitiation, persistence,
-// completion, consistency, planningAndTimeManagement, independentExecution,
-// responseToChallenge) — same pattern lib/classBehavior.ts uses. What's
-// still missing: a per-student breakdown BY area (only one overall
-// taskEngagement number per student exists) — so "major area needing
-// support" per student in the support table stays a seeded DEMO estimate,
-// never silently presented as real.
+// student (real, used for the snapshot and the support ranking below), plus
+// a real per-student breakdown for one of the 7 areas so far — `completion`
+// (shared 2026-10-06; see cognitivePerformance.taskEngagementAreas). For the
+// other 6 areas, data/l2ClassroomData.ts's weekly/monthly export has real
+// CLASS-LEVEL scores only (taskInitiation, persistence, consistency,
+// planningAndTimeManagement, independentExecution, responseToChallenge) —
+// same pattern lib/classBehavior.ts uses. What's still missing: a
+// per-student breakdown BY area for those 6 — so "major area needing
+// support" per student in the support table stays a seeded DEMO estimate
+// for them, never silently presented as real. Note: `completion`'s real
+// values sit on a visibly different scale (~0–42) than the other six real
+// 0–100 areas — shown as supplied, not rescaled to match.
 
 import { STUDENTS, type Student } from "@/data/mockData";
 import {
@@ -35,7 +37,7 @@ export type TaskStatus = "strong" | "stable" | "reinforcement" | "support";
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   strong: "Strong",
   stable: "Stable",
-  reinforcement: "Needs Reinforcement",
+  reinforcement: "Watch",
   support: "Needs Support",
 };
 
@@ -47,16 +49,16 @@ export const TASK_STATUS_TONE: Record<TaskStatus, string> = {
 };
 
 export const TASK_STATUS_RANGE: Record<TaskStatus, string> = {
-  strong: "Score 85+",
-  stable: "Score 70–84",
-  reinforcement: "Score 55–69",
-  support: "Score below 55",
+  strong: "Score 80+",
+  stable: "Score 60–80",
+  reinforcement: "Score 40–60",
+  support: "Score below 40",
 };
 
 export function statusFromScore(score: number): TaskStatus {
-  if (score >= 85) return "strong";
-  if (score >= 70) return "stable";
-  if (score >= 55) return "reinforcement";
+  if (score >= 80) return "strong";
+  if (score >= 60) return "stable";
+  if (score >= 40) return "reinforcement";
   return "support";
 }
 
@@ -214,8 +216,25 @@ function taskAreaWeeklyChange(key: TaskAreaKey): number | null {
   return round1(last - prev);
 }
 
-export function classTaskBreakdown(): TaskAreaStat[] {
+/** Real per-student score for a task area — only `completion` has one so
+ * far (data/realStudents.ts's cognitivePerformance.taskEngagementAreas,
+ * shared 2026-10-06); the other 6 areas return `null` until their
+ * per-student values are supplied too. */
+function studentTaskAreaScore(s: Student, key: TaskAreaKey): number | null {
+  if (key === "completion") return s.cognitivePerformance.taskEngagementAreas.completion;
+  return null;
+}
+
+export function classTaskBreakdown(students: Student[] = STUDENTS): TaskAreaStat[] {
   const scores = latestTaskAreaScores();
+  // `completion` now has real per-student values (see studentTaskAreaScore)
+  // — those are more trustworthy than the class-level CSV field above,
+  // which is frequently null and sits on the same unrescaled ~0–42 scale.
+  const realCompletion = students
+    .map((s) => studentTaskAreaScore(s, "completion"))
+    .filter((v): v is number => v != null);
+  scores.completion = avg(realCompletion);
+
   return TASK_AREA_ORDER.map((key) => {
     const score = scores[key];
     const hasData = score != null;
@@ -226,7 +245,9 @@ export function classTaskBreakdown(): TaskAreaStat[] {
       hasData,
       score,
       status: hasData ? statusFromScore(score!) : null,
-      weeklyChange: hasData ? taskAreaWeeklyChange(key) : null,
+      // No real weekly history exists yet for the per-student completion
+      // average — only the (now-superseded) class-level CSV had a trend.
+      weeklyChange: key === "completion" ? null : hasData ? taskAreaWeeklyChange(key) : null,
     };
   });
 }
@@ -299,10 +320,19 @@ export function demoTaskSupportDetail(studentId: string): TaskSupportDetail {
   };
 }
 
-/** Students whose (demo) major area matches the given task-engagement
- * area, worst real overall score first — same demoTaskSupportDetail()
- * methodology TaskSupportTable already uses, just filtered to one area. */
+/** Students needing support in a task area. `completion` uses its real
+ * per-student score (students in the "support" band, worst first);
+ * the other 6 areas still fall back to the (demo) major-area match —
+ * same demoTaskSupportDetail() methodology TaskSupportTable uses. */
 export function studentsByTaskArea(key: TaskAreaKey, students: Student[] = STUDENTS): Student[] {
+  if (key === "completion") {
+    return students
+      .map((s) => ({ s, score: studentTaskAreaScore(s, key) }))
+      .filter((x): x is { s: Student; score: number } => x.score != null && statusFromScore(x.score) === "support")
+      .sort((a, b) => a.score - b.score)
+      .map((x) => x.s);
+  }
+
   return students
     .map((s) => ({ s, score: s.cognitivePerformance.taskEngagement }))
     .filter((x): x is { s: Student; score: number } => x.score != null && demoTaskSupportDetail(x.s.id).majorArea === key)

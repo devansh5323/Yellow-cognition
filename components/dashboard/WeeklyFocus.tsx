@@ -58,23 +58,13 @@ export function WeeklyFocus({ locked = false }: { locked?: boolean }) {
           }}
         />
 
-        <header className="relative z-10 flex items-end justify-between gap-3 flex-wrap mb-4">
-          <div>
-            <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
-              This week&apos;s focus
-            </h2>
-            <p className="text-[12px] text-muted-foreground mt-1">
-              Top {pairs.length} supports your class needs this week — one for each PBIS tier.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-[12px] font-bold hover:opacity-80 transition-opacity"
-            style={{ color: AMBER }}
-          >
-            See all recommendations
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+        <header className="relative z-10 mb-4">
+          <h2 className="font-heading font-extrabold text-[18px] md:text-[19px] leading-tight">
+            This week&apos;s focus
+          </h2>
+          <p className="text-[12px] text-muted-foreground mt-1">
+            Top {pairs.length} supports your class needs this week — one for each PBIS tier.
+          </p>
         </header>
 
         <div className="relative z-10 space-y-3">

@@ -24,7 +24,7 @@ import {
   L2_CLASSROOM_DATA,
   type BehaviorTrendPoint as L2BehaviorTrendPoint,
 } from "@/data/l2ClassroomData";
-import { getFollowUpRecordsForStudent, type FollowUpRecord } from "@/lib/interventionFollowUps";
+import { getFollowUpRecordsForStudent } from "@/lib/interventionFollowUps";
 
 const BEHAVIOR_WEEKLY_DATA = L2_CLASSROOM_DATA.behavior.weekly;
 const BEHAVIOR_MONTHLY_DATA = L2_CLASSROOM_DATA.behavior.monthly;
@@ -57,7 +57,7 @@ export type BehaviorStatus = "strong" | "stable" | "reinforcement" | "support";
 export const BEHAVIOR_STATUS_LABEL: Record<BehaviorStatus, string> = {
   strong: "Strong",
   stable: "Stable",
-  reinforcement: "Needs Reinforcement",
+  reinforcement: "Watch",
   support: "Needs Support",
 };
 
@@ -69,26 +69,16 @@ export const BEHAVIOR_STATUS_TONE: Record<BehaviorStatus, string> = {
 };
 
 export const BEHAVIOR_STATUS_RANGE: Record<BehaviorStatus, string> = {
-  strong: "Score 85+",
-  stable: "Score 70–84",
-  reinforcement: "Score 55–69",
-  support: "Score below 55",
-};
-
-/** Same 4 bands as BEHAVIOR_STATUS_LABEL, relabeled for driver cards
- * (Strong / Stable / Watch / Needs Support) to match that section's own
- * naming convention. */
-export const DRIVER_STATUS_LABEL: Record<BehaviorStatus, string> = {
-  strong: "Strong",
-  stable: "Stable",
-  reinforcement: "Watch",
-  support: "Needs Support",
+  strong: "Score 80+",
+  stable: "Score 60–80",
+  reinforcement: "Score 40–60",
+  support: "Score below 40",
 };
 
 export function statusFromScore(score: number): BehaviorStatus {
-  if (score >= 85) return "strong";
-  if (score >= 70) return "stable";
-  if (score >= 55) return "reinforcement";
+  if (score >= 80) return "strong";
+  if (score >= 60) return "stable";
+  if (score >= 40) return "reinforcement";
   return "support";
 }
 
@@ -389,68 +379,108 @@ export function driverImpactingSkills(
 }
 
 /* ─────────────────────────────────────────────────────────
- * Behaviour Pattern Insights — cross-pattern summary. With zero drivers
- * carrying real data, the watch/strength lists are naturally empty (no
- * fabricated "held steady" claims from data that doesn't exist) — the one
- * real signal this can still surface is which logged follow-up strategy is
- * actually working, when real follow-up logs exist.
+ * Behaviour Pattern Insights — 4 cards built from the same real,
+ * class-level weekly score + weeklyChange classDisruptionBreakdown()
+ * already computes (data/l2ClassroomData.ts's behaviour CSV series): the
+ * driver that improved the most (growth), the one that dropped the most
+ * (an ongoing priority), the one that dropped the second-most (an emerging
+ * watch area), and whichever driver is currently scoring highest
+ * (steadiest). Supports a weekly "scan the 4 cards, act on whichever needs
+ * it" review habit.
  * ───────────────────────────────────────────────────────── */
+
+export type PatternInsightKind = "growth" | "alert" | "watch" | "strength";
 
 export type PatternInsight = {
   id: string;
-  type: "watch" | "strength";
-  text: string;
+  kind: PatternInsightKind;
+  tag: string;
+  title: string;
+  detail: string;
+  ctaLabel: string;
+  /** "link" opens the Behaviour & Discipline page; "log-positive" opens the
+   * existing Positive Behaviour Log dialog directly (a real action, not a
+   * fabricated drilldown). */
+  ctaAction: "link" | "log-positive";
 };
 
-export function behaviorPatternInsights(
-  breakdown: DisruptionStat[],
-  followUps: Pick<FollowUpRecord, "support" | "outcome">[] = [],
-  limit = 5,
-): PatternInsight[] {
-  const withData = breakdown.filter((d) => d.hasData);
-  const watch = withData
-    .filter((d) => (d.weeklyChange ?? 0) < 0)
-    .map((d) => ({
-      id: `watch-${d.key}`,
-      type: "watch" as const,
-      text: `${d.label} increased this week.`,
-    }));
-  const strength = withData
-    .filter(
-      (d) =>
-        (d.weeklyChange ?? 0) >= 0 &&
-        (d.status === "strong" || d.status === "stable"),
-    )
-    .map((d) => ({
-      id: `strength-${d.key}`,
-      type: "strength" as const,
-      text: `${d.label} held steady this week.`,
-    }));
+export function behaviorPatternInsights(breakdown: DisruptionStat[]): PatternInsight[] {
+  const withData = breakdown.filter(
+    (d): d is DisruptionStat & { score: number; weeklyChange: number } =>
+      d.hasData && d.score != null && d.weeklyChange != null,
+  );
+  if (withData.length === 0) return [];
 
-  const insights: PatternInsight[] = [...watch, ...strength];
+  const used = new Set<DisruptionKey>();
+  const take = (sorted: typeof withData) => {
+    const pick = sorted.find((d) => !used.has(d.key));
+    if (pick) used.add(pick.key);
+    return pick;
+  };
 
-  if (followUps.length > 0) {
-    const byStrategy = new Map<string, { improved: number; total: number }>();
-    for (const f of followUps) {
-      const entry = byStrategy.get(f.support) ?? { improved: 0, total: 0 };
-      entry.total += 1;
-      if (f.outcome === "Improved") entry.improved += 1;
-      byStrategy.set(f.support, entry);
-    }
-    const ranked = Array.from(byStrategy.entries())
-      .filter(([, v]) => v.improved > 0)
-      .sort((a, b) => b[1].improved / b[1].total - a[1].improved / a[1].total);
-    if (ranked[0]) {
-      const [support, v] = ranked[0];
-      insights.push({
-        id: "strategy-effectiveness",
-        type: "strength",
-        text: `"${support}" is showing the strongest results — ${v.improved} of ${v.total} follow-ups improved.`,
-      });
-    }
+  const byChangeDesc = [...withData].sort((a, b) => b.weeklyChange - a.weeklyChange);
+  const byChangeAsc = [...withData].sort((a, b) => a.weeklyChange - b.weeklyChange);
+  const byScoreDesc = [...withData].sort((a, b) => b.score - a.score);
+
+  const growth = take(byChangeDesc);
+  const alert = take(byChangeAsc);
+  const watch = take(byChangeAsc);
+  const strength = take(byScoreDesc);
+
+  const insights: PatternInsight[] = [];
+
+  if (growth && growth.weeklyChange > 0) {
+    insights.push({
+      id: `growth-${growth.key}`,
+      kind: "growth",
+      tag: "Growth",
+      title: `${growth.label} improved by ${Math.abs(growth.weeklyChange)} points this week`,
+      detail: "The biggest positive swing of any behaviour driver this period.",
+      ctaLabel: "See contributors",
+      ctaAction: "link",
+    });
   }
 
-  return insights.slice(0, limit);
+  if (alert && alert.weeklyChange < 0) {
+    insights.push({
+      id: `alert-${alert.key}`,
+      kind: "alert",
+      tag: "Action needed",
+      title: `${alert.label} dropped sharply this week`,
+      detail: `Down ${Math.abs(alert.weeklyChange)} points from the prior period — the class's most urgent driver to address right now.`,
+      ctaLabel: "View affected students",
+      ctaAction: "link",
+    });
+  }
+
+  if (watch && watch.weeklyChange < 0) {
+    insights.push({
+      id: `watch-${watch.key}`,
+      kind: "watch",
+      tag: "New watch area",
+      title: `${watch.label} is a new watch area this week`,
+      detail: `Down ${Math.abs(watch.weeklyChange)} points from the prior period — worth a closer look before it slides further.`,
+      ctaLabel: `View ${watch.label} strategies`,
+      ctaAction: "link",
+    });
+  }
+
+  if (strength) {
+    insights.push({
+      id: `strength-${strength.key}`,
+      kind: "strength",
+      tag: "Strength",
+      title: `${strength.label} is the class's steadiest driver`,
+      detail:
+        strength.weeklyChange >= 0
+          ? `Scoring highest of the ${withData.length} drivers tracked, and still trending up this week.`
+          : `Scoring highest of the ${withData.length} drivers tracked this week.`,
+      ctaLabel: "Log positive acknowledgments",
+      ctaAction: "log-positive",
+    });
+  }
+
+  return insights;
 }
 
 /* ─────────────────────────────────────────────────────────

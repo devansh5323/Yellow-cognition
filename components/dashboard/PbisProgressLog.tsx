@@ -125,10 +125,18 @@ export function PbisProgressLog() {
             <Lock className="h-4 w-4" />
           </span>
           <p className="text-[13px] font-bold text-foreground/85 leading-tight">
-            Complete {UNLOCK_CHECKINS} check-ins to unlock
+            Complete {UNLOCK_CHECKINS}{" "}
+            <Link href="/check-in" className="text-emerald-600 dark:text-emerald-400 hover:underline">
+              check-ins
+            </Link>{" "}
+            to unlock
           </p>
           <p className="text-[11.5px] text-muted-foreground leading-snug max-w-[280px]">
-            {checkInCount ?? 0} of {UNLOCK_CHECKINS} class check-ins logged — {Math.max(0, UNLOCK_CHECKINS - (checkInCount ?? 0))} more to go before intervention tracking can be estimated.
+            {checkInCount ?? 0} of {UNLOCK_CHECKINS} class{" "}
+            <Link href="/check-in" className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
+              check-ins
+            </Link>{" "}
+            logged — {Math.max(0, UNLOCK_CHECKINS - (checkInCount ?? 0))} more to go before intervention tracking can be estimated.
           </p>
         </div>
       ) : rows.length === 0 ? (

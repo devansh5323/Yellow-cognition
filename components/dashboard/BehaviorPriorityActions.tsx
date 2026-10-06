@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertOctagon,
   AlertTriangle,
+  ChevronDown,
   ClipboardList,
   Mail,
   Sparkles,
@@ -13,6 +14,7 @@ import {
   Wand2,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   strategyForDriver,
   type ActionPriority,
@@ -60,6 +62,11 @@ export function BehaviorPriorityActions({
 }) {
   const reduce = useReducedMotion();
   const [drillStatus, setDrillStatus] = useState<"new" | "active" | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const COLLAPSED_COUNT = 2;
+  const visibleActions = expanded ? actions : actions.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = actions.length - visibleActions.length;
 
   const drillStudents = useMemo(
     () => (drillStatus ? supportRoster.filter((r) => r.status === drillStatus).map((r) => r.student) : []),
@@ -112,7 +119,7 @@ export function BehaviorPriorityActions({
         </p>
       ) : (
         <ul className="space-y-2.5">
-          {actions.map((action, i) => {
+          {visibleActions.map((action, i) => {
             const Icon = CTA_ICON[action.cta];
             const tone = PRIORITY_TONE[action.priority];
             return (
@@ -154,6 +161,18 @@ export function BehaviorPriorityActions({
             );
           })}
         </ul>
+      )}
+
+      {actions.length > COLLAPSED_COUNT && (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          className="w-full flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-border/60 text-[11.5px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>{expanded ? "Show less" : `Show ${hiddenCount} more`}</span>
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expanded && "rotate-180")} />
+        </button>
       )}
 
       <StudentDrillDialog

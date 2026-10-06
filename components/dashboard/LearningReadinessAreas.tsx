@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Lightbulb,
   Puzzle,
-  Search,
   Sparkles,
   TrendingDown,
   type LucideIcon,
@@ -35,7 +34,6 @@ const AREA_ICON: Record<LearningAreaKey, LucideIcon> = {
   creativeExpression: Sparkles,
   readingComprehension: BookOpen,
   recallRetention: Lightbulb,
-  curiosityExploration: Search,
 };
 
 export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] }) {
@@ -74,22 +72,26 @@ export function LearningReadinessAreas({ areas }: { areas: LearningAreaStat[] })
           </p>
         </div>
 
-        {strongest && weakest && (
+        {(strongest || weakest) && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Highlight
-              tone="hsl(142 55% 42%)"
-              icon={<Sparkles className="h-3 w-3" strokeWidth={2.4} />}
-              label="Strongest"
-              name={strongest.label}
-              score={strongest.score}
-            />
-            <Highlight
-              tone="hsl(0 78% 56%)"
-              icon={<TrendingDown className="h-3 w-3" strokeWidth={2.4} />}
-              label="Needs most support"
-              name={weakest.label}
-              score={weakest.score}
-            />
+            {strongest && strongest.score > 70 && (
+              <Highlight
+                tone="hsl(142 55% 42%)"
+                icon={<Sparkles className="h-3 w-3" strokeWidth={2.4} />}
+                label="Strongest"
+                name={strongest.label}
+                score={strongest.score}
+              />
+            )}
+            {weakest && (
+              <Highlight
+                tone="hsl(0 78% 56%)"
+                icon={<TrendingDown className="h-3 w-3" strokeWidth={2.4} />}
+                label="Needs most support"
+                name={weakest.label}
+                score={weakest.score}
+              />
+            )}
           </div>
         )}
       </header>

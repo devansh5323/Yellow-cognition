@@ -1,10 +1,9 @@
 // Class Learning Readiness — data + helpers for the Learning Readiness
 // experience. Computed directly from real per-student learning-readiness
-// fields (data/realStudents.ts) — the real dataset only covers 5 of the 6
-// areas below (never any real "Curiosity & Exploration" signal), and even
-// those 5 are sparse per student, so every average here skips missing
-// values rather than treating them as zero, and an area with zero real
-// values across the roster surfaces as `null` ("not enough data yet").
+// fields (data/realStudents.ts) — those fields are sparse per student, so
+// every average here skips missing values rather than treating them as
+// zero, and an area with zero real values across the roster surfaces as
+// `null` ("not enough data yet").
 
 import { STUDENTS, type Student } from "@/data/mockData";
 import { L2_CLASSROOM_DATA } from "@/data/l2ClassroomData";
@@ -49,8 +48,7 @@ export type LearningAreaKey =
   | "reasoning"
   | "creativeExpression"
   | "readingComprehension"
-  | "recallRetention"
-  | "curiosityExploration";
+  | "recallRetention";
 
 export const LEARNING_AREA_LABEL: Record<LearningAreaKey, string> = {
   problemSolving: "Problem Solving",
@@ -58,7 +56,6 @@ export const LEARNING_AREA_LABEL: Record<LearningAreaKey, string> = {
   creativeExpression: "Creative Expression",
   readingComprehension: "Reading & Comprehension",
   recallRetention: "Recall & Retention",
-  curiosityExploration: "Curiosity & Exploration",
 };
 
 export const LEARNING_AREA_DESCRIPTION: Record<LearningAreaKey, string> = {
@@ -67,7 +64,6 @@ export const LEARNING_AREA_DESCRIPTION: Record<LearningAreaKey, string> = {
   creativeExpression: "How clearly students explain, create, or show what they've understood.",
   readingComprehension: "How students understand written questions, instructions, and task expectations.",
   recallRetention: "How well students remember previously taught concepts, information, or rules.",
-  curiosityExploration: "How willing students are to try new approaches and engage with unfamiliar tasks.",
 };
 
 const AREA_ORDER: LearningAreaKey[] = [
@@ -76,7 +72,6 @@ const AREA_ORDER: LearningAreaKey[] = [
   "creativeExpression",
   "readingComprehension",
   "recallRetention",
-  "curiosityExploration",
 ];
 
 export const LEARNING_AREA_HUE: Record<LearningAreaKey, string> = {
@@ -85,7 +80,6 @@ export const LEARNING_AREA_HUE: Record<LearningAreaKey, string> = {
   creativeExpression: "hsl(262 60% 60%)",
   readingComprehension: "hsl(0 78% 58%)",
   recallRetention: "hsl(28 88% 54%)",
-  curiosityExploration: "hsl(168 62% 42%)",
 };
 
 function studentLearningAreaScore(s: Student, key: LearningAreaKey): number | null {
@@ -101,8 +95,6 @@ function studentLearningAreaScore(s: Student, key: LearningAreaKey): number | nu
       return lr.readingComprehension;
     case "recallRetention":
       return lr.recallRetention;
-    case "curiosityExploration":
-      return null; // no real field exists for this area at all yet
   }
 }
 
@@ -133,15 +125,15 @@ export const READINESS_STATUS_TONE: Record<ReadinessStatus, string> = {
 
 export const READINESS_STATUS_RANGE: Record<ReadinessStatus, string> = {
   strong: "Score 80+",
-  stable: "Score 65–79",
-  watch: "Score 50–64",
-  support: "Score below 50",
+  stable: "Score 60–80",
+  watch: "Score 40–60",
+  support: "Score below 40",
 };
 
 export function readinessStatusFromScore(score: number): ReadinessStatus {
   if (score >= 80) return "strong";
-  if (score >= 65) return "stable";
-  if (score >= 50) return "watch";
+  if (score >= 60) return "stable";
+  if (score >= 40) return "watch";
   return "support";
 }
 
@@ -281,7 +273,6 @@ const LEARNING_AREA_SKILLS: Record<LearningAreaKey, string[]> = {
   creativeExpression: ["Oral Expression", "Written Expression", "Creative Thinking"],
   readingComprehension: ["Processing Speed", "Oral Comprehension", "Auditory Shifting"],
   recallRetention: ["Working Memory", "Information Processing", "Active Listening"],
-  curiosityExploration: ["Adaptive Thinking", "Mental Flexibility", "Active Learning"],
 };
 
 export function learningAreaToSkills(): { key: LearningAreaKey; label: string; skills: string[] }[] {
@@ -306,7 +297,6 @@ const SKILL_SCORE_OFFSETS: Record<LearningAreaKey, [number, number, number]> = {
   creativeExpression: [4, -3, -1],
   readingComprehension: [3, -5, 2],
   recallRetention: [4, -2, -2],
-  curiosityExploration: [2, 3, -5],
 };
 
 export function learningAreaSkillBreakdown(area: LearningAreaStat): LearningAreaSkill[] | null {
@@ -329,7 +319,6 @@ const LEARNING_AREA_SUGGESTED_ACTIVITY: Record<LearningAreaKey, string> = {
   creativeExpression: "one-word-checkin",
   readingComprehension: "simon-says-focus",
   recallRetention: "memory-chain",
-  curiosityExploration: "stretch-reset",
 };
 
 export function suggestedActivityForLearningArea(key: LearningAreaKey): QuickActivity {

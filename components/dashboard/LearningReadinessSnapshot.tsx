@@ -43,10 +43,35 @@ export function LearningReadinessSnapshot({ snapshot }: { snapshot: ReadinessSna
 
   const tone = READINESS_STATUS_TONE[snapshot.status];
 
-  const insight =
+  const fallbackInsight =
     snapshot.strongestAreas.length > 0
       ? `Stronger in ${snapshot.strongestAreas.map((a) => a.label).join(" and ")}.`
       : "Not enough area-level data yet to compare strengths and support needs.";
+
+  const periodNoun = period === "Weekly" ? "week" : "month";
+  const trendClause =
+    scoreDelta > 0
+      ? `up ${formatDecimal1(Math.abs(scoreDelta))} pts`
+      : scoreDelta < 0
+        ? `down ${formatDecimal1(Math.abs(scoreDelta))} pts`
+        : "flat";
+
+  const STATUS_CLAUSE: Record<ReadinessStatus, string> = {
+    strong: "Class is well-prepared to learn",
+    stable: "Class is mostly ready to learn",
+    watch: "Class readiness needs a closer look",
+    support: "Class needs support to be ready to learn",
+  };
+
+  const weakestArea = snapshot.supportAreas[0];
+  const advice =
+    snapshot.status === "strong"
+      ? "Keep current strategies in place."
+      : weakestArea && weakestArea.score != null
+        ? `${weakestArea.label} is the softest area (avg ${formatDecimal1(weakestArea.score)}) — a focused activity there could help.`
+        : fallbackInsight;
+
+  const insight = `${STATUS_CLAUSE[snapshot.status]} (${trendClause} vs last ${periodNoun}). ${advice}`;
 
   return (
     <TooltipProvider delayDuration={150}>

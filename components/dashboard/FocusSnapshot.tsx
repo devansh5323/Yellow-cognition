@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Info, Sparkles } from "lucide-react";
 import {
+  classAttentionHeatmap,
   FOCUS_STATUS_LABEL,
   FOCUS_STATUS_RANGE,
   FOCUS_STATUS_TONE,
@@ -50,13 +51,29 @@ export function FocusSnapshot({ snapshot }: Props) {
       : snapshot.status === "fluctuating"
         ? "Class attention is fluctuating"
         : "Class attention needs support";
+  const trendClause =
+    scoreDelta > 0
+      ? `up ${formatDecimal1(Math.abs(scoreDelta))} pts`
+      : scoreDelta < 0
+        ? `down ${formatDecimal1(Math.abs(scoreDelta))} pts`
+        : "flat";
+
+  const heatmap = useMemo(() => classAttentionHeatmap(), []);
+  const weakestDomain = [...heatmap].sort((a, b) => a.score - b.score)[0];
+
   const advice =
     snapshot.status === "strong"
       ? "Keep current routines."
-      : snapshot.status === "fluctuating"
-        ? "A short reset activity could help."
-        : "Consider immediate support strategies.";
-  const aiSummary = `${statusClause} — ${focusedPct}% are in the focused band. ${advice}`;
+      : weakestDomain
+        ? `${weakestDomain.label} is the softest area (avg ${formatDecimal1(weakestDomain.score)}) — a short reset there could help.`
+        : snapshot.status === "fluctuating"
+          ? "A short reset activity could help."
+          : "Consider immediate support strategies.";
+
+  const aiSummary =
+    snapshot.status === "strong"
+      ? `${statusClause} (${trendClause}). ${advice}`
+      : `${statusClause} (${trendClause}), ${focusedPct}% focused. ${advice}`;
 
   return (
     <TooltipProvider delayDuration={150}>

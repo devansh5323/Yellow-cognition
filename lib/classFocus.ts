@@ -54,7 +54,7 @@ export type FocusStatus = "strong" | "fluctuating" | "at-risk";
 export const FOCUS_STATUS_LABEL: Record<FocusStatus, string> = {
   strong: "Strong",
   fluctuating: "Fluctuating",
-  "at-risk": "At Risk",
+  "at-risk": "Distracted",
 };
 
 export const FOCUS_STATUS_TONE: Record<FocusStatus, string> = {

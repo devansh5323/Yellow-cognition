@@ -7,7 +7,6 @@ import {
   BEHAVIOR_STATUS_LABEL,
   BEHAVIOR_STATUS_RANGE,
   BEHAVIOR_STATUS_TONE,
-  DRIVER_STATUS_LABEL,
   behaviorTrendOverTime,
   type BehaviorSnapshotData,
   type BehaviorStatus,
@@ -373,7 +372,7 @@ function BehaviorAreaBars({ breakdown, reduce }: { breakdown: DisruptionStat[]; 
               className="text-[10.5px] font-medium mt-0.5 tracking-wide"
               style={{ color: tone ?? "var(--muted-foreground)" }}
             >
-              {d.hasData && d.status ? DRIVER_STATUS_LABEL[d.status] : "No data"}
+              {d.hasData && d.status ? BEHAVIOR_STATUS_LABEL[d.status] : "No data"}
             </span>
           </div>
         );

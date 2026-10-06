@@ -8,6 +8,12 @@
 // Corrected metrics matched by user_id against the supplied table.
 // Includes exactly the 16 students in the supplied metrics table.
 // Jhanavi S Murthy has an empty parent name pending roster information.
+// `taskEngagementAreas` is a real per-student breakdown of the 7 task-
+// engagement areas also tracked class-level in data/l2ClassroomData.ts —
+// `completion` was shared 2026-10-06; the other 6 areas are `null` (not
+// fabricated) until their per-student values are supplied too. Note:
+// `completion`'s values sit on a visibly different scale (~0–42) than the
+// other real 0–100 cognitive scores — transcribed as supplied, not rescaled.
 export type RealStudent = {
   id: string;
   name: string;
@@ -19,6 +25,15 @@ export type RealStudent = {
     score: number;
     attentionAndFocus: number | null;
     taskEngagement: number | null;
+    taskEngagementAreas: {
+      completion: number | null;
+      initiation: number | null;
+      persistence: number | null;
+      consistency: number | null;
+      planning: number | null;
+      independentExecution: number | null;
+      responseToChallenge: number | null;
+    };
     behaviourAndDiscipline: number | null;
     instructionalFriction: number | null;
     learningReadiness: {
@@ -38,6 +53,15 @@ export type RealStudent = {
   };
 };
 
+const NO_TASK_AREAS = {
+  initiation: null,
+  persistence: null,
+  consistency: null,
+  planning: null,
+  independentExecution: null,
+  responseToChallenge: null,
+} as const;
+
 export const REAL_STUDENTS: RealStudent[] = [
   {
     id: "69de4872f0593243d066ed13",
@@ -50,6 +74,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 42.6825,
       attentionAndFocus: 41.11,
       taskEngagement: 40.38,
+      taskEngagementAreas: { completion: 8.11, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 44.17,
       instructionalFriction: null,
       learningReadiness: {
@@ -79,6 +104,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 42.545,
       attentionAndFocus: 40.12,
       taskEngagement: 42.61,
+      taskEngagementAreas: { completion: 1.47, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 41.78,
       instructionalFriction: null,
       learningReadiness: {
@@ -108,6 +134,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 56.7925,
       attentionAndFocus: 55.95,
       taskEngagement: 56.55,
+      taskEngagementAreas: { completion: 41.98, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 57.07,
       instructionalFriction: null,
       learningReadiness: {
@@ -137,6 +164,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 50.805,
       attentionAndFocus: 46.66,
       taskEngagement: 50.53,
+      taskEngagementAreas: { completion: 1.35, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 48,
       instructionalFriction: null,
       learningReadiness: {
@@ -166,6 +194,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 56.1975,
       attentionAndFocus: 52.17,
       taskEngagement: 53.79,
+      taskEngagementAreas: { completion: 14, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 63.16,
       instructionalFriction: null,
       learningReadiness: {
@@ -195,6 +224,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 60.4075,
       attentionAndFocus: 55.39,
       taskEngagement: 65.83,
+      taskEngagementAreas: { completion: 0, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 72.98,
       instructionalFriction: null,
       learningReadiness: {
@@ -224,6 +254,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 55.0025,
       attentionAndFocus: 51.83,
       taskEngagement: 52.78,
+      taskEngagementAreas: { completion: 4.84, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 58.78,
       instructionalFriction: null,
       learningReadiness: {
@@ -253,6 +284,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 40.8875,
       attentionAndFocus: 37.12,
       taskEngagement: 41.27,
+      taskEngagementAreas: { completion: 0, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 43.64,
       instructionalFriction: null,
       learningReadiness: {
@@ -282,6 +314,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 56.5925,
       attentionAndFocus: 52.79,
       taskEngagement: 55.05,
+      taskEngagementAreas: { completion: 11.29, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 60.12,
       instructionalFriction: null,
       learningReadiness: {
@@ -311,6 +344,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 63.915,
       attentionAndFocus: 60.22,
       taskEngagement: 59.47,
+      taskEngagementAreas: { completion: 14.88, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 68.59,
       instructionalFriction: null,
       learningReadiness: {
@@ -340,6 +374,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 57.665,
       attentionAndFocus: 54.98,
       taskEngagement: 57.46,
+      taskEngagementAreas: { completion: 37.71, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 61.24,
       instructionalFriction: null,
       learningReadiness: {
@@ -369,6 +404,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 56.86,
       attentionAndFocus: 53.63,
       taskEngagement: 53.87,
+      taskEngagementAreas: { completion: 15.54, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 60.59,
       instructionalFriction: null,
       learningReadiness: {
@@ -398,6 +434,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 32.66,
       attentionAndFocus: 32.52,
       taskEngagement: 31.34,
+      taskEngagementAreas: { completion: 0, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 31.96,
       instructionalFriction: null,
       learningReadiness: {
@@ -427,6 +464,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 47.48,
       attentionAndFocus: 47.5,
       taskEngagement: 43.48,
+      taskEngagementAreas: { completion: 1.35, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 45.48,
       instructionalFriction: null,
       learningReadiness: {
@@ -456,6 +494,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 43.1325,
       attentionAndFocus: 39.48,
       taskEngagement: 43.77,
+      taskEngagementAreas: { completion: 1.35, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 39.67,
       instructionalFriction: null,
       learningReadiness: {
@@ -485,6 +524,7 @@ export const REAL_STUDENTS: RealStudent[] = [
       score: 56.645,
       attentionAndFocus: 53,
       taskEngagement: 55.31,
+      taskEngagementAreas: { completion: 19.59, ...NO_TASK_AREAS },
       behaviourAndDiscipline: 59.87,
       instructionalFriction: null,
       learningReadiness: {

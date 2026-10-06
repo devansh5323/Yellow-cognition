@@ -343,7 +343,10 @@ export function AppShell({
             <div className="hidden sm:flex items-center gap-1.5 flex-nowrap flex-1 overflow-x-auto">
               {classrooms.map((c) => {
                 const active = c.id === activeClassroomId;
-                const label = c.section ? `Grade ${c.grade} — Section ${c.section}` : `Grade ${c.grade}`;
+                // Hard-coded to this teacher's one real classroom — the real
+                // roster is Grade 5 with no section, regardless of whatever
+                // grade/section was entered when the classroom was created.
+                const label = "Grade 5";
                 return (
                   <button
                     key={c.id}

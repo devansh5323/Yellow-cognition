@@ -1,15 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Eye, TrendingUp } from "lucide-react";
-import type { PatternInsight } from "@/lib/classBehavior";
+import { ArrowRight, Shield, TrendingDown, TrendingUp, TriangleAlert, type LucideIcon } from "lucide-react";
+import type { PatternInsight, PatternInsightKind } from "@/lib/classBehavior";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
 
-const TYPE_META = {
-  watch: { label: "Watch", tone: "hsl(38 92% 48%)", Icon: Eye },
-  strength: { label: "Strength", tone: "hsl(142 55% 42%)", Icon: TrendingUp },
-} as const;
+const GREEN = "hsl(142 55% 42%)";
+const AMBER = "hsl(38 92% 50%)";
+const RED = "hsl(0 78% 56%)";
+const BLUE = "hsl(212 55% 48%)";
+
+const KIND_STYLE: Record<PatternInsightKind, { tone: string; Icon: LucideIcon }> = {
+  growth: { tone: GREEN, Icon: TrendingUp },
+  alert: { tone: RED, Icon: TriangleAlert },
+  watch: { tone: AMBER, Icon: TrendingDown },
+  strength: { tone: BLUE, Icon: Shield },
+};
 
 export function BehaviorPatternInsights({ insights }: { insights: PatternInsight[] }) {
   const reduce = useReducedMotion();
@@ -30,8 +38,8 @@ export function BehaviorPatternInsights({ insights }: { insights: PatternInsight
           What Yellow is noticing across logs and check-ins
         </h3>
         <p className="text-[12px] text-muted-foreground mt-0.5 max-w-prose">
-          Cross-pattern signals pulled from every driver&apos;s real weekly movement and logged
-          follow-ups.
+          Real weekly change across every behaviour driver — review the 4 cards and act on
+          whichever needs it.
         </p>
       </header>
 
@@ -41,31 +49,66 @@ export function BehaviorPatternInsights({ insights }: { insights: PatternInsight
           logs and check-ins.
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-          {insights.map((insight, i) => {
-            const meta = TYPE_META[insight.type];
-            const Icon = meta.Icon;
-            return (
-              <motion.div
-                key={insight.id}
-                initial={reduce ? undefined : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.03 * i, duration: 0.3, ease: EASE }}
-                className="rounded-xl border border-border bg-background p-3.5 flex flex-col gap-2"
-              >
-                <span
-                  className="inline-flex items-center gap-1 w-fit rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em]"
-                  style={{ color: meta.tone, background: `color-mix(in srgb, ${meta.tone} 12%, transparent)` }}
-                >
-                  <Icon className="h-3 w-3" strokeWidth={2.4} />
-                  {meta.label}
-                </span>
-                <p className="text-[12px] leading-snug text-foreground/85">{insight.text}</p>
-              </motion.div>
-            );
-          })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {insights.map((insight, i) => (
+            <InsightCard key={insight.id} insight={insight} index={i} reduce={!!reduce} />
+          ))}
         </div>
       )}
     </motion.section>
+  );
+}
+
+function InsightCard({ insight, index, reduce }: { insight: PatternInsight; index: number; reduce: boolean }) {
+  const { tone, Icon } = KIND_STYLE[insight.kind];
+
+  return (
+    <motion.div
+      initial={reduce ? undefined : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 * index, duration: 0.32, ease: EASE }}
+      className="rounded-xl border border-border/60 bg-background/40 p-4 flex flex-col gap-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="h-9 w-9 rounded-lg inline-flex items-center justify-center shrink-0"
+          style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
+        </span>
+        <span
+          className="text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
+          style={{ background: `color-mix(in srgb, ${tone} 12%, transparent)`, color: tone }}
+        >
+          {insight.tag}
+        </span>
+      </div>
+
+      <div>
+        <p className="font-heading font-extrabold text-[14.5px] leading-snug">{insight.title}</p>
+        <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{insight.detail}</p>
+      </div>
+
+      {insight.ctaAction === "log-positive" ? (
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("ah-open-positive-form"))}
+          className="mt-auto inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline text-left"
+          style={{ color: tone }}
+        >
+          {insight.ctaLabel}
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      ) : (
+        <Link
+          href="/behavior"
+          className="mt-auto inline-flex items-center gap-1 text-[11.5px] font-bold hover:underline"
+          style={{ color: tone }}
+        >
+          {insight.ctaLabel}
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      )}
+    </motion.div>
   );
 }

@@ -10,6 +10,8 @@
 // been removed rather than kept with a fake value.
 
 import { REAL_STUDENTS, type RealStudent } from "@/data/realStudents";
+import { classTaskBreakdown, type TaskAreaKey } from "@/lib/classTask";
+import { classReadinessSnapshot, type LearningAreaKey } from "@/lib/classLearning";
 
 const STUDENTS = REAL_STUDENTS;
 type Student = RealStudent;
@@ -277,32 +279,98 @@ export type Recommendation = {
   type: RecommendationType;
 };
 
-const RECS_BY_PILLAR: Partial<Record<PillarKey, Recommendation[]>> = {
-  task: [
-    {
-      id: "task-1",
-      pillar: "task",
-      title: "Break tasks into smaller visible steps",
-      rationale: "Helps students complete work more consistently.",
-      type: "Whole Class",
-    },
-  ],
-  academic: [
-    {
-      id: "academic-1",
-      pillar: "academic",
-      title: "Run a 5-minute learning-readiness warm-up",
-      rationale: "Supports students whose current readiness scores are lower.",
-      type: "Whole Class",
-    },
-  ],
+// One strategy per real sub-area, keyed to the same areas
+// lib/classTask.ts's Task Engagement breakdown and lib/classLearning.ts's
+// Learning Readiness breakdown already compute from real data — so the
+// Strategy shown here tracks whichever specific sub-area is genuinely
+// weakest this week/month, instead of a single fixed line for the pillar.
+const TASK_AREA_RECS: Record<TaskAreaKey, { title: string; rationale: string }> = {
+  initiation: {
+    title: "Give a 60-second \"first step\" prompt before independent work",
+    rationale: "Task Initiation is the class's weakest task-engagement area right now.",
+  },
+  persistence: {
+    title: "Build in a short reset before the hardest part of a task",
+    rationale: "Task Persistence is the class's weakest task-engagement area right now.",
+  },
+  completion: {
+    title: "Use a visible checklist so students can confirm each step is done",
+    rationale: "Task Completion is the class's weakest task-engagement area right now.",
+  },
+  consistency: {
+    title: "Keep a consistent daily task routine and start cue",
+    rationale: "Task Consistency is the class's weakest task-engagement area right now.",
+  },
+  planning: {
+    title: "Model breaking one assignment into a mini timeline before starting",
+    rationale: "Planning & Time Management is the class's weakest task-engagement area right now.",
+  },
+  "independent-execution": {
+    title: "Fade prompts gradually once a task is underway",
+    rationale: "Independent Execution is the class's weakest task-engagement area right now.",
+  },
+  "response-to-challenge": {
+    title: "Normalize mistakes with a quick \"what would you try next\" prompt",
+    rationale: "Response to Challenge is the class's weakest task-engagement area right now.",
+  },
 };
 
-/** Pick recommendations driven by Top Support Areas — only pillars the
- * current data actually covers ever appear here. */
+const LEARNING_AREA_RECS: Record<LearningAreaKey, { title: string; rationale: string }> = {
+  problemSolving: {
+    title: "Model one worked example before independent practice",
+    rationale: "Problem Solving is the class's weakest learning-readiness area right now.",
+  },
+  reasoning: {
+    title: "Use think-aloud questioning to connect new ideas to familiar ones",
+    rationale: "Reasoning is the class's weakest learning-readiness area right now.",
+  },
+  creativeExpression: {
+    title: "Offer more than one way to show understanding — draw, say, or write it",
+    rationale: "Creative Expression is the class's weakest learning-readiness area right now.",
+  },
+  readingComprehension: {
+    title: "Pre-teach key vocabulary before new reading material",
+    rationale: "Reading & Comprehension is the class's weakest learning-readiness area right now.",
+  },
+  recallRetention: {
+    title: "Run a 5-minute retrieval-practice warm-up on prior concepts",
+    rationale: "Recall & Retention is the class's weakest learning-readiness area right now.",
+  },
+};
+
+/** Task Completion's source values sit on a different scale (~0–4) than the
+ * other six task areas (~40–90) in the current CSV export, so it's excluded
+ * here to avoid a scaling artifact masquerading as "the real weakest area". */
+function realWeakestTaskArea(): TaskAreaKey | null {
+  const scored = classTaskBreakdown().filter(
+    (a): a is typeof a & { score: number } => a.score != null && a.key !== "completion",
+  );
+  if (scored.length === 0) return null;
+  return scored.reduce((worst, a) => (a.score < worst.score ? a : worst)).key;
+}
+
+function realWeakestLearningArea(students: Student[]): LearningAreaKey | null {
+  return classReadinessSnapshot(students).supportAreas[0]?.key ?? null;
+}
+
+/** Pick recommendations driven by Top Support Areas, then tailor the
+ * strategy to whichever real sub-area is genuinely weakest for that pillar
+ * — only pillars the current data actually covers ever appear here. */
 export function recommendations(students: Student[] = STUDENTS): Recommendation[] {
   const top = topSupportAreas(students);
   return top
-    .map((area) => RECS_BY_PILLAR[area.pillar]?.[0])
+    .map((area): Recommendation | undefined => {
+      if (area.pillar === "task") {
+        const key = realWeakestTaskArea() ?? "initiation";
+        const strategy = TASK_AREA_RECS[key];
+        return { id: `task-${key}`, pillar: "task", type: "Whole Class", ...strategy };
+      }
+      if (area.pillar === "academic") {
+        const key = realWeakestLearningArea(students) ?? "recallRetention";
+        const strategy = LEARNING_AREA_RECS[key];
+        return { id: `academic-${key}`, pillar: "academic", type: "Whole Class", ...strategy };
+      }
+      return undefined;
+    })
     .filter((r): r is Recommendation => Boolean(r));
 }
